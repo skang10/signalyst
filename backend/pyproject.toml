@@ -30,7 +30,6 @@ dependencies = [
     "pandas>=2.2.0",
     "numpy>=2.4.5",
     "scikit-learn>=1.3.1",
-    "tabpfn-extensions[interpretability]>=0.4.1",
     # Data sources
     "yfinance>=1.3.0",
     "fredapi>=0.5.2",
