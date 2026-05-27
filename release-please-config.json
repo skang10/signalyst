@@ -1,0 +1,13 @@
+{
+  "release-type": "python",
+  "packages": {
+    "backend": {
+      "release-type": "python",
+      "package-name": "temporal-agent-backend"
+    },
+    "frontend": {
+      "release-type": "node",
+      "package-name": "temporal-agent-frontend"
+    }
+  }
+}

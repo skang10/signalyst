@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-[#0f0f1a] text-slate-100;
+  font-family: Arial, Helvetica, sans-serif;
+}

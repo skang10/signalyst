@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+coverage/
+
+# Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.production
+
+# OS
+.DS_Store
+*.swp
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Local agent skills/settings
+.agents/
+.claude/
+skills-lock.json
+
+# Git worktrees
+.worktrees/
+.superpowers/
+
+# Playwright
+.playwright-mcp/
+screenshots/
+*.png
