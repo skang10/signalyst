@@ -1,10 +1,10 @@
-# TemporalAgent — Project Plan
+# Signalyst — Project Plan
 
 An agentic analytics system that detects oil market regime shifts using macro, geopolitical, and energy-specific signals — bridging time series and tabular data with TabPFN as the inference backbone and an LLM agent as the reasoning orchestrator.
 
 ## Core Concept
 
-Most real-world prediction problems have both a temporal dimension (things change over time) and a cross-sectional dimension (entities differ). TemporalAgent handles both — featurizing time series into tabular snapshots for TabPFN, orchestrated by an agent that decides what to look at, explains what it finds, and iterates.
+Most real-world prediction problems have both a temporal dimension (things change over time) and a cross-sectional dimension (entities differ). Signalyst handles both — featurizing time series into tabular snapshots for TabPFN, orchestrated by an agent that decides what to look at, explains what it finds, and iterates.
 
 **Key TabPFN advantage exploited**: In-context learning means no retraining. When new data arrives, just update the context window — a genuine architectural advantage over tree models for streaming/online scenarios.
 
@@ -204,7 +204,7 @@ for iteration in range(max_iterations):
 Single monorepo:
 
 ```
-temporal-agent/
+signalyst/
 ├── backend/           # Python — FastAPI, agent logic, TabPFN inference, data pipelines
 │   ├── src/
 │   │   ├── agent/         # LLM agent, tools, ReAct loop
@@ -303,7 +303,7 @@ The agent surfaces this naturally:
 - **American call price**: Longstaff-Schwartz or binomial tree (early exercise premium)
 - **Greeks**: delta, gamma, vega, theta
 
-### UI Components (additions to `temporal-agent-ui`)
+### UI Components (additions to `signalyst-ui`)
 
 ```
 components/
@@ -314,7 +314,7 @@ components/
 │   └── EuroVsAmericanCard/  # Side-by-side price + early exercise premium
 ```
 
-### Backend additions (`temporal-agent`)
+### Backend additions (`signalyst`)
 
 ```
 src/

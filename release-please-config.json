@@ -3,11 +3,11 @@
   "packages": {
     "backend": {
       "release-type": "python",
-      "package-name": "temporal-agent-backend"
+      "package-name": "signalyst-backend"
     },
     "frontend": {
       "release-type": "node",
-      "package-name": "temporal-agent-frontend"
+      "package-name": "signalyst-frontend"
     }
   }
 }

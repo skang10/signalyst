@@ -1,6 +1,6 @@
 # Backend
 
-FastAPI + asyncpg backend for TemporalAgent. Streams LLM agent reasoning over WebSocket while persisting run state to PostgreSQL.
+FastAPI + asyncpg backend for Signalyst. Streams LLM agent reasoning over WebSocket while persisting run state to PostgreSQL.
 
 ## Running
 

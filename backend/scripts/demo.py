@@ -89,13 +89,13 @@ def _sample_prediction_dates(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="TemporalAgent pipeline demo")
+    parser = argparse.ArgumentParser(description="Signalyst pipeline demo")
     parser.add_argument("--start", default="2022-01-01", help="Start date (YYYY-MM-DD)")
     parser.add_argument("--end", default="2024-12-31", help="End date (YYYY-MM-DD)")
     args = parser.parse_args()
 
     start, end = args.start, args.end
-    print(f"\nTemporalAgent demo  |  {start} → {end}\n{'─' * 45}")
+    print(f"\nSignalyst demo  |  {start} → {end}\n{'─' * 45}")
 
     # ── 1. Fetch price data ──────────────────────────────
     signals: dict[str, pd.Series] = {}
