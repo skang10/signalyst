@@ -42,6 +42,9 @@ Backend runs on `http://localhost:8000`, frontend on `http://localhost:3000`.
 Run the app servers directly with `uv`/`npm` for the fastest experience — HMR and hot reload are noticeably slower through Docker volume mounts. Use Docker only for the databases.
 
 ```bash
+# Install dependencies (first time only)
+make install
+
 # Start databases (Postgres + Redis)
 docker-compose up postgres redis
 
