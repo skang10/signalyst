@@ -1,5 +1,5 @@
 {
-  "name": "temporal-agent-frontend",
+  "name": "signalyst-frontend",
   "version": "0.4.0",
   "private": true,
   "scripts": {

@@ -20,9 +20,9 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_USER: temporal
-          POSTGRES_PASSWORD: temporal
-          POSTGRES_DB: temporal_agent_test
+          POSTGRES_USER: signalyst
+          POSTGRES_PASSWORD: signalyst
+          POSTGRES_DB: signalyst_test
         ports:
           - 5432:5432
         options: >-
@@ -68,7 +68,7 @@ jobs:
         run: uv run pytest --cov=src --cov=api --cov-report=xml
         env:
           ENVIRONMENT: test
-          DATABASE_URL: postgresql+asyncpg://temporal:temporal@localhost:5432/temporal_agent_test
+          DATABASE_URL: postgresql+asyncpg://signalyst:signalyst@localhost:5432/signalyst_test
           REDIS_URL: redis://localhost:6379
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
@@ -109,4 +109,4 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build Docker image
-        run: docker build ./backend -t temporal-agent-backend:ci
+        run: docker build ./backend -t signalyst-backend:ci

@@ -15,7 +15,7 @@ class Settings(BaseSettings):
 
     environment: str = "development"
 
-    database_url: str = "postgresql+asyncpg://temporal:temporal@localhost:5432/temporal_agent"
+    database_url: str = "postgresql+asyncpg://signalyst:signalyst@localhost:5432/signalyst"
     redis_url: str = "redis://localhost:6379"
 
     anthropic_api_key: str = ""

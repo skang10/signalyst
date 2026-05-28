@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info("shutdown")
 
 
-app = FastAPI(title="TemporalAgent API", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Signalyst API", version="0.1.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,

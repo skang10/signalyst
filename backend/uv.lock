@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.15' and sys_platform == 'win32'",
@@ -2048,6 +2048,108 @@ fastapi = [
 ]
 
 [[package]]
+name = "signalyst-backend"
+version = "0.8.0"
+source = { editable = "." }
+dependencies = [
+    { name = "alembic" },
+    { name = "anthropic" },
+    { name = "arq" },
+    { name = "asyncpg" },
+    { name = "fastapi" },
+    { name = "fredapi" },
+    { name = "greenlet" },
+    { name = "httpx" },
+    { name = "idna" },
+    { name = "numpy" },
+    { name = "openai" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "passlib", extra = ["bcrypt"] },
+    { name = "pydantic" },
+    { name = "pydantic-settings" },
+    { name = "python-dotenv" },
+    { name = "python-jose", extra = ["cryptography"] },
+    { name = "redis" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "sentry-sdk", extra = ["fastapi"] },
+    { name = "sqlmodel" },
+    { name = "starlette" },
+    { name = "structlog" },
+    { name = "tabpfn-client" },
+    { name = "urllib3" },
+    { name = "uvicorn", extra = ["standard"] },
+    { name = "websockets" },
+    { name = "xlrd" },
+    { name = "yfinance" },
+]
+
+[package.optional-dependencies]
+dev = [
+    { name = "mypy" },
+    { name = "pre-commit" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-cov" },
+    { name = "ruff" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pre-commit" },
+    { name = "types-redis" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "alembic", specifier = ">=1.13.0" },
+    { name = "anthropic", specifier = ">=0.102.0" },
+    { name = "arq", specifier = ">=0.26.0" },
+    { name = "asyncpg", specifier = ">=0.31.0" },
+    { name = "fastapi", specifier = ">=0.136.1" },
+    { name = "fredapi", specifier = ">=0.5.2" },
+    { name = "greenlet", specifier = ">=3.5.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "idna", specifier = ">=3.15" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.1.0" },
+    { name = "numpy", specifier = ">=2.4.5" },
+    { name = "openai", specifier = ">=2.37.0" },
+    { name = "openpyxl", specifier = ">=3.1.0" },
+    { name = "pandas", specifier = ">=2.2.0" },
+    { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },
+    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
+    { name = "pydantic", specifier = ">=2.13.4" },
+    { name = "pydantic-settings", specifier = ">=2.14.1" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
+    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
+    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
+    { name = "redis", specifier = ">=5.2.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.13" },
+    { name = "scikit-learn", specifier = ">=1.3.1" },
+    { name = "scipy", specifier = ">=1.11.0" },
+    { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.60.0" },
+    { name = "sqlmodel", specifier = ">=0.0.21" },
+    { name = "starlette", specifier = ">=1.0.1" },
+    { name = "structlog", specifier = ">=24.4.0" },
+    { name = "tabpfn-client", specifier = ">=0.3.0" },
+    { name = "urllib3", specifier = ">=2.7.0" },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.48.0" },
+    { name = "websockets", specifier = ">=13.0" },
+    { name = "xlrd", specifier = ">=2.0.2" },
+    { name = "yfinance", specifier = ">=1.3.0" },
+]
+provides-extras = ["dev"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pre-commit", specifier = ">=4.6.0" },
+    { name = "types-redis", specifier = ">=4.6.0.20241004" },
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2204,108 +2306,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/84/62/ec181b52e12f64eac179f31d0891ccb2b3f48552de32d8992e0f5144c808/tabpfn_common_utils-0.2.19.tar.gz", hash = "sha256:d5bb515f9c7bdda555d833542ab4c41a2cc7007e3ae57b9c302ad4f4f8186558", size = 1932394, upload-time = "2026-03-27T13:31:27.285Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/34/dd/4b6095777970f3f9e50144b5cfd993ad2e70a9c08fed3425d8c9e8f88784/tabpfn_common_utils-0.2.19-py3-none-any.whl", hash = "sha256:1f53f3f96ddccc99b27f80075437e7a3dd29666b6c2575ad03dc3f9ae6df9c38", size = 37295, upload-time = "2026-03-27T13:31:25.917Z" },
-]
-
-[[package]]
-name = "temporal-agent-backend"
-version = "0.8.0"
-source = { editable = "." }
-dependencies = [
-    { name = "alembic" },
-    { name = "anthropic" },
-    { name = "arq" },
-    { name = "asyncpg" },
-    { name = "fastapi" },
-    { name = "fredapi" },
-    { name = "greenlet" },
-    { name = "httpx" },
-    { name = "idna" },
-    { name = "numpy" },
-    { name = "openai" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "passlib", extra = ["bcrypt"] },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "python-dotenv" },
-    { name = "python-jose", extra = ["cryptography"] },
-    { name = "redis" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "sentry-sdk", extra = ["fastapi"] },
-    { name = "sqlmodel" },
-    { name = "starlette" },
-    { name = "structlog" },
-    { name = "tabpfn-client" },
-    { name = "urllib3" },
-    { name = "uvicorn", extra = ["standard"] },
-    { name = "websockets" },
-    { name = "xlrd" },
-    { name = "yfinance" },
-]
-
-[package.optional-dependencies]
-dev = [
-    { name = "mypy" },
-    { name = "pre-commit" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-cov" },
-    { name = "ruff" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pre-commit" },
-    { name = "types-redis" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "alembic", specifier = ">=1.13.0" },
-    { name = "anthropic", specifier = ">=0.102.0" },
-    { name = "arq", specifier = ">=0.26.0" },
-    { name = "asyncpg", specifier = ">=0.31.0" },
-    { name = "fastapi", specifier = ">=0.136.1" },
-    { name = "fredapi", specifier = ">=0.5.2" },
-    { name = "greenlet", specifier = ">=3.5.0" },
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "idna", specifier = ">=3.15" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=2.1.0" },
-    { name = "numpy", specifier = ">=2.4.5" },
-    { name = "openai", specifier = ">=2.37.0" },
-    { name = "openpyxl", specifier = ">=3.1.0" },
-    { name = "pandas", specifier = ">=2.2.0" },
-    { name = "passlib", extras = ["bcrypt"], specifier = ">=1.7.4" },
-    { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.0" },
-    { name = "pydantic", specifier = ">=2.13.4" },
-    { name = "pydantic-settings", specifier = ">=2.14.1" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
-    { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },
-    { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
-    { name = "python-dotenv", specifier = ">=1.0.0" },
-    { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
-    { name = "redis", specifier = ">=5.2.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.13" },
-    { name = "scikit-learn", specifier = ">=1.3.1" },
-    { name = "scipy", specifier = ">=1.11.0" },
-    { name = "sentry-sdk", extras = ["fastapi"], specifier = ">=2.60.0" },
-    { name = "sqlmodel", specifier = ">=0.0.21" },
-    { name = "starlette", specifier = ">=1.0.1" },
-    { name = "structlog", specifier = ">=24.4.0" },
-    { name = "tabpfn-client", specifier = ">=0.3.0" },
-    { name = "urllib3", specifier = ">=2.7.0" },
-    { name = "uvicorn", extras = ["standard"], specifier = ">=0.48.0" },
-    { name = "websockets", specifier = ">=13.0" },
-    { name = "xlrd", specifier = ">=2.0.2" },
-    { name = "yfinance", specifier = ">=1.3.0" },
-]
-provides-extras = ["dev"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pre-commit", specifier = ">=4.6.0" },
-    { name = "types-redis", specifier = ">=4.6.0.20241004" },
 ]
 
 [[package]]

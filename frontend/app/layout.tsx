@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TemporalAgent",
+  title: "Signalyst",
   description: "Energy market regime detection powered by TabPFN",
 };
 

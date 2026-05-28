@@ -40,7 +40,7 @@ make clean                        # docker-compose down -v
 
 ### Overview
 
-TemporalAgent detects oil market regime shifts using macro, geopolitical, and energy signals. The core loop: fetch time-series data → featurize into tabular snapshots → classify regime and predict price direction with TabPFN → stream the LLM agent's ReAct reasoning to the frontend over WebSocket.
+Signalyst detects oil market regime shifts using macro, geopolitical, and energy signals. The core loop: fetch time-series data → featurize into tabular snapshots → classify regime and predict price direction with TabPFN → stream the LLM agent's ReAct reasoning to the frontend over WebSocket.
 
 ```
 LLM Agent (Claude, tool use / ReAct loop)
@@ -87,7 +87,7 @@ Next.js 15 App Router, TypeScript, Tailwind CSS, shadcn/ui (Radix UI primitives)
 
 ### Infrastructure
 
-- **PostgreSQL** (default: `temporal:temporal@localhost:5432/temporal_agent`) + **Redis** (`:6379`) — both provided by `docker-compose.yml`
+- **PostgreSQL** (default: `signalyst:signalyst@localhost:5432/signalyst`) + **Redis** (`:6379`) — both provided by `docker-compose.yml`
 - **Alembic** migrations in `backend/alembic/`; `alembic.ini` hardcodes dev DB URL (override via `DATABASE_URL` env var in production)
 - **CI**: GitHub Actions (`.github/`); release automation via `release-please`; security scanning and Codecov configured
 - **Pre-commit**: ruff + mypy (`.pre-commit-config.yaml`)

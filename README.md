@@ -1,4 +1,4 @@
-# TemporalAgent
+# Signalyst
 
 An agentic analytics system that detects oil market regime shifts using macro, geopolitical, and energy-specific signals — powered by [TabPFN](https://github.com/PriorLabs/TabPFN) and an LLM agent.
 
@@ -56,12 +56,12 @@ make test           # Run all tests
 make lint           # Ruff + mypy + ESLint
 ```
 
-To inspect the database, connect [TablePlus](https://tableplus.com) (or any PostgreSQL client) to `localhost:5432`, user `temporal`, password `temporal`, database `temporal_agent`.
+To inspect the database, connect [TablePlus](https://tableplus.com) (or any PostgreSQL client) to `localhost:5432`, user \`signalyst\`, password \`signalyst\`, database \`signalyst\`.
 
 ## Project structure
 
 ```
-temporal-agent/
+signalyst/
 ├── backend/        # FastAPI + TabPFN + agent logic
 ├── frontend/       # Next.js dashboard
 ├── docker-compose.yml
