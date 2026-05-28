@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.8.0...signalyst-backend-v0.8.1) (2026-05-28)
+
+
+### Bug Fixes
+
+* remove tabpfn-extensions and improve README ([#5](https://github.com/skang10/signalyst/issues/5)) ([da014f0](https://github.com/skang10/signalyst/commit/da014f09f2aace5b9f9e3293a92624cc99f9a45d))
+
 ## [0.8.0](https://github.com/skang10/temporal-agent/compare/temporal-agent-backend-v0.7.0...temporal-agent-backend-v0.8.0) (2026-05-25)
 
 
