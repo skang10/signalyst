@@ -95,5 +95,6 @@ include = ["src*", "api*"]
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.0",
+    "types-PyYAML>=6.0",
     "types-redis>=4.6.0.20241004",
 ]
