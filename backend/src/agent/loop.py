@@ -39,9 +39,12 @@ def build_system_prompt(
 
     workflow = (
         "Given a date range and analysis tasks, use the tools in this order:\n"
-        "1. fetch_data — pull WTI (CL=F), DXY (DX-Y.NYB), XLE, SPY price series and INDPRO macro "
-        "data\n"
-        "2. fetch_geopolitical_risk — add GPR index to signals\n"
+        "1. list_data_sources — discover which data connectors are available and which are "
+        "blocked (e.g. missing API key). Note any blocked sources in your reasoning.\n"
+        "2. fetch_from_source — for each available connector relevant to the analysis, fetch "
+        "the data. At minimum fetch price series (yfinance) and geopolitical risk (gpr). "
+        "Fetch macro data (fred) and inventory data (eia) if available. "
+        "For each blocked source, mention the gap in your thought.\n"
         "3. engineer_features — featurize with windows [5, 20, 60] and lags [1, 5, 20]\n"
         "4. detect_drift — check if recent feature distributions have shifted\n"
         "5. run_tabpfn with task='regime' — classify the current oil market regime\n"

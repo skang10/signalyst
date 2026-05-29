@@ -7,7 +7,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 
 @dataclass
@@ -98,7 +98,7 @@ def _load_module(name: str, path: Path) -> ModuleType:
     spec = importlib.util.spec_from_file_location(f"connectors.{name}", path)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)  # type: ignore[attr-defined]
+    spec.loader.exec_module(module)
     return module
 
 
