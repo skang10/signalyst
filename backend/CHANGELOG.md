@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.8.1...signalyst-backend-v0.9.0) (2026-05-29)
+
+
+### Features
+
+* data discovery layer with user-extensible connectors ([#10](https://github.com/skang10/signalyst/issues/10)) ([182426d](https://github.com/skang10/signalyst/commit/182426d0cdb04188cd7ef82c4098913afe00499d))
+
 ## [0.8.1](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.8.0...signalyst-backend-v0.8.1) (2026-05-28)
 
 
