@@ -21,7 +21,7 @@ describe("AgentProgressTimeline", () => {
   });
 
   it("shows all 9 phase titles once a run starts", () => {
-    const state = makeState([{ type: "phase", phase: "fetching_market_data" }]);
+    const state = makeState([{ type: "phase", phase: "discovering_data_sources" }]);
     render(<AgentProgressTimeline state={state} isRunning={true} connected={true} />);
     expect(screen.getByText("Preparing data")).toBeInTheDocument();
     expect(screen.getByText("Predicting direction")).toBeInTheDocument();
@@ -29,7 +29,7 @@ describe("AgentProgressTimeline", () => {
   });
 
   it("shows phase descriptions for timeline context", () => {
-    const state = makeState([{ type: "phase", phase: "fetching_market_data" }]);
+    const state = makeState([{ type: "phase", phase: "discovering_data_sources" }]);
     render(<AgentProgressTimeline state={state} isRunning={true} connected={true} />);
     expect(
       screen.getByText("Collecting market, macro, and geopolitical inputs.")
@@ -41,7 +41,7 @@ describe("AgentProgressTimeline", () => {
 
   it("shows only the latest thought in the active phase", () => {
     const state = makeState([
-      { type: "phase", phase: "fetching_market_data" },
+      { type: "phase", phase: "discovering_data_sources" },
       { type: "thought", content: "Fetching WTI spot prices" },
       { type: "thought", content: "Now fetching FRED data" },
     ]);
@@ -93,7 +93,7 @@ describe("AgentProgressTimeline", () => {
 
   it("shows all phases including remaining waiting ones when a phase fails", () => {
     const state = makeState([
-      { type: "phase", phase: "fetching_market_data" },
+      { type: "phase", phase: "discovering_data_sources" },
       { type: "phase", phase: "failed" },
     ]);
     render(<AgentProgressTimeline state={state} isRunning={false} connected={false} />);
@@ -103,7 +103,7 @@ describe("AgentProgressTimeline", () => {
 
   it("shows the done summary note in the final_summary phase on completion", () => {
     const state = makeState([
-      { type: "phase", phase: "fetching_market_data" },
+      { type: "phase", phase: "discovering_data_sources" },
       { type: "phase", phase: "completed" },
       { type: "done", summary: "Range-bound regime detected with high confidence." },
     ]);
