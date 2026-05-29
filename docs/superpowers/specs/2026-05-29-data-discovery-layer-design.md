@@ -270,6 +270,5 @@ Confirmation gate (Tier 4) is tested with a mock Redis that immediately resolves
 ## Out of Scope
 
 - Frontend UI for the `confirmation_required` WebSocket event (backend emits it; frontend handling is a separate session)
-- Migrating the loop from OpenAI SDK to Anthropic SDK (separate session)
 - Connector marketplace or remote connector registry
 - Per-user connector isolation or sandboxing of user-provided code
