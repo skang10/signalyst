@@ -1,0 +1,17 @@
+name: eia
+description: >
+  Weekly US crude oil inventory change from the EIA (Energy Information
+  Administration). Positive values = inventory build (bearish for price),
+  negative = inventory draw (bullish). Requires a free EIA API key.
+provides:
+  - inventory_data
+  - eia_inventory
+params:
+  type: object
+  properties: {}
+  required: []
+requires:
+  env: EIA_API_KEY
+compute_tier: low
+examples:
+  - {}

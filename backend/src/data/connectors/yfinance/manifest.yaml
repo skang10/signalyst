@@ -1,0 +1,22 @@
+name: yfinance
+description: >
+  Daily price series from Yahoo Finance. Supports equities, ETFs, and
+  futures — e.g. WTI crude (CL=F), Brent (BZ=F), DXY (DX-Y.NYB),
+  energy sector ETF (XLE), S&P 500 (SPY).
+provides:
+  - price_series
+  - equity_prices
+  - futures_prices
+params:
+  type: object
+  properties:
+    tickers:
+      type: array
+      items:
+        type: string
+      description: "yfinance ticker symbols, e.g. ['CL=F', 'DX-Y.NYB', 'XLE', 'SPY']"
+  required:
+    - tickers
+compute_tier: low
+examples:
+  - tickers: ["CL=F", "DX-Y.NYB", "XLE", "SPY"]

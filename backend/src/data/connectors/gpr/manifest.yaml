@@ -1,0 +1,16 @@
+name: gpr
+description: >
+  Daily Geopolitical Risk Index (GPR) from Matteo Iacoviello's page at
+  the Federal Reserve. Quantifies geopolitical tensions from news
+  coverage — spikes during wars, sanctions, and political crises.
+  No API key required; data is fetched from a public URL.
+provides:
+  - geopolitical_risk
+  - gpr_index
+params:
+  type: object
+  properties: {}
+  required: []
+compute_tier: low
+examples:
+  - {}
