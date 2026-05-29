@@ -2049,7 +2049,7 @@ fastapi = [
 
 [[package]]
 name = "signalyst-backend"
-version = "0.8.0"
+version = "0.8.1"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -2070,6 +2070,7 @@ dependencies = [
     { name = "pydantic-settings" },
     { name = "python-dotenv" },
     { name = "python-jose", extra = ["cryptography"] },
+    { name = "pyyaml" },
     { name = "redis" },
     { name = "scikit-learn" },
     { name = "scipy" },
@@ -2126,6 +2127,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=5.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "python-jose", extras = ["cryptography"], specifier = ">=3.5.0" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "redis", specifier = ">=5.2.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.15.13" },
     { name = "scikit-learn", specifier = ">=1.3.1" },
