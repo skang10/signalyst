@@ -32,7 +32,7 @@ def mock_registry(tmp_path):
         "  - tickers: ['TEST']\n"
     )
     (free_dir / "connector.py").write_text(
-        "def fetch(params, context):\n" "    return {'fetched': {'TEST': 3}, 'skipped': []}\n"
+        "def fetch(params, context):\n    return {'fetched': {'TEST': 3}, 'skipped': []}\n"
     )
 
     keyed_dir = tmp_path / "connectors" / "keyedconn"
@@ -50,7 +50,7 @@ def mock_registry(tmp_path):
         "compute_tier: low\n"
     )
     (keyed_dir / "connector.py").write_text(
-        "def fetch(params, context):\n" "    return {'fetched': {}, 'skipped': []}\n"
+        "def fetch(params, context):\n    return {'fetched': {}, 'skipped': []}\n"
     )
 
     reg = ConnectorRegistry()

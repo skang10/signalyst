@@ -25,7 +25,7 @@ def test_registry_scan_finds_manifests(tmp_path):
         "compute_tier: low\n"
     )
     (conn_dir / "connector.py").write_text(
-        "def fetch(params, context):\n" "    return {'fetched': {}, 'skipped': []}\n"
+        "def fetch(params, context):\n    return {'fetched': {}, 'skipped': []}\n"
     )
 
     reg = ConnectorRegistry()
@@ -145,7 +145,7 @@ def test_registry_fetch_dispatches_to_connector(tmp_path):
         "compute_tier: low\n"
     )
     (conn_dir / "connector.py").write_text(
-        "def fetch(params, context):\n" "    return {'echoed': params['msg']}\n"
+        "def fetch(params, context):\n    return {'echoed': params['msg']}\n"
     )
 
     reg = ConnectorRegistry()
