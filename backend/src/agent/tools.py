@@ -8,6 +8,7 @@ import pandas as pd
 
 from src.agent.registry import registry
 from src.config import settings
+from src.data import connector_registry
 from src.data.connectors import fetch_fred_series, fetch_price_series
 from src.data.gpr import fetch_gpr_series
 from src.featurizer import TimeSeriesFeaturizer
@@ -117,6 +118,57 @@ def fetch_data(tickers: list[str], fred_series: list[str], context: AgentContext
         }
 
     return {"fetched": fetched, "skipped": skipped}
+
+
+@registry.tool(
+    parameters={
+        "type": "object",
+        "properties": {},
+        "required": [],
+    }
+)
+def list_data_sources(context: AgentContext | None = None) -> dict[str, Any]:
+    """List all available data connectors and which ones are blocked due to missing config."""
+    return connector_registry.list()
+
+
+@registry.tool(
+    parameters={
+        "type": "object",
+        "properties": {
+            "source_name": {
+                "type": "string",
+                "description": "Connector name as returned by list_data_sources",
+            },
+            "params": {
+                "type": "object",
+                "description": "Connector-specific params — see params_schema in list_data_sources",
+            },
+        },
+        "required": ["source_name", "params"],
+    }
+)
+def fetch_from_source(
+    source_name: str,
+    params: dict[str, Any],
+    context: AgentContext | None = None,
+) -> dict[str, Any]:
+    """Fetch data from a named connector into the analysis context.
+
+    Returns a fetch summary dict, or an error dict if the source is unknown or blocked.
+    """
+    if source_name not in connector_registry._connectors:
+        return {"error": "unknown_source", "detail": f"No connector named {source_name!r}"}
+    if not connector_registry.is_available(source_name):
+        meta = connector_registry._connectors[source_name]
+        return {
+            "error": "blocked",
+            "reason": f"{meta.requires_env} not set",
+        }
+    try:
+        return connector_registry.fetch(source_name, params, context)
+    except Exception as exc:
+        return {"error": "fetch_failed", "detail": str(exc)}
 
 
 @registry.tool(
