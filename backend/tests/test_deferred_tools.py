@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.agent.tools import AgentContext, fetch_data, run_tabpfn
+from src.agent.tools import AgentContext, run_tabpfn
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
@@ -59,25 +59,6 @@ def test_run_tabpfn_regime_stores_clf_and_test_split(ctx_with_features):
     assert ctx_with_features._regime_clf is not None
     assert ctx_with_features._regime_X_test is not None
     assert ctx_with_features._regime_y_test is not None
-
-
-# ── fetch_data writes to data_manifest ────────────────────────────────────────
-
-
-def test_fetch_data_writes_to_data_manifest(ctx):
-    fake_series = pd.Series(
-        [70.0] * 5,
-        index=pd.date_range("2022-01-01", periods=5, freq="D"),
-        name="CL=F",
-    )
-    with patch("src.agent.tools.fetch_price_series", return_value=fake_series):
-        fetch_data(tickers=["CL=F"], fred_series=[], context=ctx)
-
-    assert "data_sources" in ctx.data_manifest
-    assert "CL=F" in ctx.data_manifest["data_sources"]
-    entry = ctx.data_manifest["data_sources"]["CL=F"]
-    assert entry["rows"] == 5
-    assert entry["provider"] == "yfinance"
 
 
 # ── detect_drift ──────────────────────────────────────────────────────────────
@@ -188,37 +169,6 @@ def test_evaluate_features_raises_without_y_test(ctx):
     ctx._regime_X_test = pd.DataFrame([[1.0]], columns=["f0"])
     with pytest.raises(ValueError, match="run_tabpfn"):
         evaluate_features(context=ctx)
-
-
-# ── fetch_geopolitical_risk ────────────────────────────────────────────────────
-
-from src.agent.tools import fetch_geopolitical_risk  # noqa: E402
-
-
-def test_fetch_geopolitical_risk_populates_signals(ctx):
-    dates = pd.date_range("2022-01-01", periods=10, freq="D")
-    fake_gpr = pd.Series(range(10), index=dates, name="GPR", dtype=float)
-
-    with patch("src.agent.tools.fetch_gpr_series", return_value=fake_gpr):
-        result = fetch_geopolitical_risk(context=ctx)
-
-    assert "GPR" in ctx.signals
-    assert len(ctx.signals["GPR"]) == 10
-    assert result["fetched"]["GPR"] == 10
-
-
-def test_fetch_geopolitical_risk_writes_data_manifest(ctx):
-    dates = pd.date_range("2022-01-01", periods=10, freq="D")
-    fake_gpr = pd.Series(range(10), index=dates, name="GPR", dtype=float)
-
-    with patch("src.agent.tools.fetch_gpr_series", return_value=fake_gpr):
-        fetch_geopolitical_risk(context=ctx)
-
-    entry = ctx.data_manifest["data_sources"]["GPR"]
-    assert entry["rows"] == 10
-    assert entry["provider"] == "matteoiacoviello.com"
-    assert entry["start"] == ctx.date_range_start
-    assert entry["end"] == ctx.date_range_end
 
 
 # ── backtest tool wrapper ──────────────────────────────────────────────────────

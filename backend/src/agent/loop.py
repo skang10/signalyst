@@ -99,8 +99,8 @@ class RunCanceled(Exception):
 
 
 TOOL_PHASES = {
-    "fetch_data": "fetching_market_data",
-    "fetch_geopolitical_risk": "fetching_geopolitical_risk",
+    "list_data_sources": "discovering_data_sources",
+    "fetch_from_source": "fetching_data",
     "engineer_features": "engineering_features",
     "detect_drift": "detecting_drift",
     "evaluate_features": "evaluating_features",

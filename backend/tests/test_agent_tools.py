@@ -68,7 +68,6 @@ from src.agent.tools import (  # noqa: E402
     AgentContext,
     engineer_features,
     explain_prediction,
-    fetch_data,
     run_tabpfn,
 )
 
@@ -99,57 +98,6 @@ def ctx_with_features(ctx_with_signals):
     return ctx_with_signals
 
 
-# ── fetch_data tests ──────────────────────────────────────────────────────────
-
-
-def test_fetch_data_returns_signal_summary(ctx):
-    fake_series = pd.Series(
-        [70.0, 71.0, 72.0],
-        index=pd.date_range("2024-01-01", periods=3, freq="D"),
-        name="CL=F",
-    )
-    with patch("src.agent.tools.fetch_price_series", return_value=fake_series):
-        result = fetch_data(tickers=["CL=F"], fred_series=[], context=ctx)
-
-    assert result["fetched"]["CL=F"] == 3
-    assert ctx.signals["CL=F"] is not None
-
-
-def test_fetch_data_skips_fred_without_api_key(ctx):
-    fake_series = pd.Series(
-        [70.0],
-        index=pd.date_range("2024-01-01", periods=1, freq="D"),
-        name="CL=F",
-    )
-    with (
-        patch("src.agent.tools.fetch_price_series", return_value=fake_series),
-        patch("src.agent.tools.settings") as mock_settings,
-    ):
-        mock_settings.fred_api_key = ""
-        mock_settings.eia_api_key = ""
-        result = fetch_data(tickers=["CL=F"], fred_series=["INDPRO"], context=ctx)
-
-    assert "INDPRO" in result["skipped"]
-
-
-def test_fetch_data_populates_context_signals(ctx):
-    fake_wti = pd.Series(
-        [80.0] * 5, index=pd.date_range("2024-01-01", periods=5, freq="D"), name="CL=F"
-    )
-    fake_spy = pd.Series(
-        [450.0] * 5, index=pd.date_range("2024-01-01", periods=5, freq="D"), name="SPY"
-    )
-
-    def fake_fetch(ticker, start, end):
-        return fake_wti if ticker == "CL=F" else fake_spy
-
-    with patch("src.agent.tools.fetch_price_series", side_effect=fake_fetch):
-        fetch_data(tickers=["CL=F", "SPY"], fred_series=[], context=ctx)
-
-    assert "CL=F" in ctx.signals
-    assert "SPY" in ctx.signals
-
-
 # ── engineer_features tests ───────────────────────────────────────────────────
 
 
@@ -162,7 +110,7 @@ def test_engineer_features_returns_shape(ctx_with_signals):
 
 
 def test_engineer_features_raises_without_signals(ctx):
-    with pytest.raises(ValueError, match="fetch_data"):
+    with pytest.raises(ValueError, match="fetch_from_source"):
         engineer_features(windows=[5], lags=[1], context=ctx)
 
 
