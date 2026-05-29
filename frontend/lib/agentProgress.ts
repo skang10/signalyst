@@ -96,8 +96,8 @@ const PHASE_DEFINITIONS: Array<Omit<AgentPhase, "status" | "evidence" | "notes" 
 
 const BACKEND_PHASES: Record<string, PhaseId | null> = {
   starting: null,
-  fetching_market_data: "preparing_data",
-  fetching_geopolitical_risk: "preparing_data",
+  discovering_data_sources: "preparing_data",
+  fetching_data: "preparing_data",
   engineering_features: "engineering_features",
   detecting_drift: "checking_drift",
   predicting_regime: "predicting_regime",
@@ -109,8 +109,8 @@ const BACKEND_PHASES: Record<string, PhaseId | null> = {
 };
 
 const TOOL_PHASES: Record<string, PhaseId> = {
-  fetch_data: "preparing_data",
-  fetch_geopolitical_risk: "preparing_data",
+  list_data_sources: "preparing_data",
+  fetch_from_source: "preparing_data",
   engineer_features: "engineering_features",
   detect_drift: "checking_drift",
   evaluate_features: "evaluating_features",
@@ -308,25 +308,37 @@ function evidenceForTool(tool: string, output: unknown): PhaseEvidence[] {
         },
       ];
     }
-    case "fetch_data":
-    case "fetch_geopolitical_risk": {
-      const summary = readString(output, ["summary"]);
-      if (summary) return [{ label: "Data", value: summary, tone: "default" }];
-
+    case "list_data_sources": {
+      const available = Array.isArray(output.available) ? output.available : [];
+      const blocked = Array.isArray(output.blocked) ? output.blocked : [];
+      const evidence: PhaseEvidence[] = [];
+      if (available.length > 0) {
+        const names = available
+          .map((c) => (isRecord(c) ? readString(c, ["name"]) : undefined))
+          .filter((n): n is string => Boolean(n));
+        evidence.push({ label: "Available", value: names.join(", "), tone: "success" });
+      }
+      if (blocked.length > 0) {
+        const names = blocked
+          .map((c) => (isRecord(c) ? readString(c, ["name"]) : undefined))
+          .filter((n): n is string => Boolean(n));
+        evidence.push({ label: "Blocked", value: names.join(", "), tone: "warning" });
+      }
+      return evidence;
+    }
+    case "fetch_from_source": {
       const fetched = isRecord(output.fetched) ? output.fetched : undefined;
       if (fetched) {
-        const tickers = Object.keys(fetched);
-        if (tickers.length > 0) {
-          return [{ label: "Sources", value: tickers.join(", "), tone: "default" }];
+        const sources = Object.keys(fetched);
+        if (sources.length > 0) {
+          return [{ label: "Fetched", value: sources.join(", "), tone: "default" }];
         }
       }
-
-      const tickers = Array.isArray(output.tickers)
-        ? output.tickers.filter((ticker): ticker is string => typeof ticker === "string")
-        : [];
-      return tickers.length > 0
-        ? [{ label: "Tickers", value: tickers.join(", "), tone: "default" }]
-        : [];
+      const skipped = Array.isArray(output.skipped) ? output.skipped : [];
+      if (skipped.length > 0) {
+        return [{ label: "Skipped", value: String(skipped.length), tone: "warning" }];
+      }
+      return [];
     }
     case "engineer_features": {
       const featureCount =

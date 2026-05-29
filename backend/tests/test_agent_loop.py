@@ -97,7 +97,8 @@ def test_phase_for_tool_maps_regime_and_direction() -> None:
 
 
 def test_phase_for_tool_maps_other_tools() -> None:
-    assert phase_for_tool("fetch_data", {}) == "fetching_market_data"
+    assert phase_for_tool("list_data_sources", {}) == "discovering_data_sources"
+    assert phase_for_tool("fetch_from_source", {}) == "fetching_data"
     assert phase_for_tool("evaluate_features", {}) == "evaluating_features"
     assert phase_for_tool("backtest", {}) == "backtesting"
 

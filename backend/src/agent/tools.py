@@ -7,9 +7,7 @@ import numpy as np
 import pandas as pd
 
 from src.agent.registry import registry
-from src.config import settings
-from src.data.connectors import fetch_fred_series, fetch_price_series
-from src.data.gpr import fetch_gpr_series
+from src.data import connector_registry
 from src.featurizer import TimeSeriesFeaturizer
 from src.inference import DirectionClassifier, OilRegimeClassifier
 
@@ -66,57 +64,52 @@ def _make_direction_labels(wti: pd.Series, index: pd.DatetimeIndex, horizon: int
 @registry.tool(
     parameters={
         "type": "object",
-        "properties": {
-            "tickers": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "yfinance ticker symbols, e.g. ['CL=F', 'DX-Y.NYB', 'XLE', 'SPY']",
-            },
-            "fred_series": {
-                "type": "array",
-                "items": {"type": "string"},
-                "description": "FRED series IDs, e.g. ['INDPRO']. Skipped if FRED_API_KEY not set.",
-            },
-        },
-        "required": ["tickers", "fred_series"],
+        "properties": {},
+        "required": [],
     }
 )
-def fetch_data(tickers: list[str], fred_series: list[str], context: AgentContext) -> dict[str, Any]:
-    """Fetch price series from yfinance and macro series from FRED."""
-    fetched: dict[str, int] = {}
-    skipped: list[str] = []
+def list_data_sources(context: AgentContext | None = None) -> dict[str, Any]:
+    """List all available data connectors and which ones are blocked due to missing config."""
+    return connector_registry.list()
 
-    for ticker in tickers:
-        series = fetch_price_series(ticker, context.date_range_start, context.date_range_end)
-        context.signals[ticker] = series
-        fetched[ticker] = len(series)
-        context.data_manifest.setdefault("data_sources", {})[ticker] = {
-            "rows": len(series),
-            "start": context.date_range_start,
-            "end": context.date_range_end,
-            "provider": "yfinance",
+
+@registry.tool(
+    parameters={
+        "type": "object",
+        "properties": {
+            "source_name": {
+                "type": "string",
+                "description": "Connector name as returned by list_data_sources",
+            },
+            "params": {
+                "type": "object",
+                "description": "Connector-specific params — see params_schema in list_data_sources",
+            },
+        },
+        "required": ["source_name", "params"],
+    }
+)
+def fetch_from_source(
+    source_name: str,
+    params: dict[str, Any],
+    context: AgentContext | None = None,
+) -> dict[str, Any]:
+    """Fetch data from a named connector into the analysis context.
+
+    Returns a fetch summary dict, or an error dict if the source is unknown or blocked.
+    """
+    if source_name not in connector_registry._connectors:
+        return {"error": "unknown_source", "detail": f"No connector named {source_name!r}"}
+    if not connector_registry.is_available(source_name):
+        meta = connector_registry._connectors[source_name]
+        return {
+            "error": "blocked",
+            "reason": f"{meta.requires_env} not set",
         }
-
-    for series_id in fred_series:
-        if not settings.fred_api_key:
-            skipped.append(series_id)
-            continue
-        series = fetch_fred_series(
-            series_id,
-            context.date_range_start,
-            context.date_range_end,
-            api_key=settings.fred_api_key,
-        )
-        context.signals[series_id] = series
-        fetched[series_id] = len(series)
-        context.data_manifest.setdefault("data_sources", {})[series_id] = {
-            "rows": len(series),
-            "start": context.date_range_start,
-            "end": context.date_range_end,
-            "provider": "fredapi",
-        }
-
-    return {"fetched": fetched, "skipped": skipped}
+    try:
+        return connector_registry.fetch(source_name, params, context)
+    except Exception as exc:
+        return {"error": "fetch_failed", "detail": str(exc)}
 
 
 @registry.tool(
@@ -140,7 +133,7 @@ def fetch_data(tickers: list[str], fred_series: list[str], context: AgentContext
 def engineer_features(windows: list[int], lags: list[int], context: AgentContext) -> dict[str, Any]:
     """Featurize the fetched signals into a tabular feature matrix."""
     if not context.signals:
-        raise ValueError("No signals in context. Call fetch_data first.")
+        raise ValueError("No signals in context. Call fetch_from_source first.")
     featurizer = TimeSeriesFeaturizer(windows=windows, lags=lags)
     features = featurizer.transform(context.signals)
     context.features = features
@@ -174,7 +167,7 @@ def run_tabpfn(task: str, horizon: int = 20, context: AgentContext | None = None
     if "CL=F" not in context.signals:
         raise ValueError(
             "WTI price series ('CL=F') not found in context.signals. "
-            "Call fetch_data with tickers=['CL=F', ...]."
+            "Call fetch_from_source with source_name='yfinance'."
         )
 
     features = context.features.dropna()
@@ -440,26 +433,6 @@ def evaluate_features(
 @registry.tool(
     parameters={
         "type": "object",
-        "properties": {},
-        "required": [],
-    }
-)
-def fetch_geopolitical_risk(context: AgentContext) -> dict[str, Any]:
-    """Fetch the Geopolitical Risk (GPR) index and add it to context signals."""
-    series = fetch_gpr_series(context.date_range_start, context.date_range_end)
-    context.signals["GPR"] = series
-    context.data_manifest.setdefault("data_sources", {})["GPR"] = {
-        "rows": len(series),
-        "start": context.date_range_start,
-        "end": context.date_range_end,
-        "provider": "matteoiacoviello.com",
-    }
-    return {"fetched": {"GPR": len(series)}}
-
-
-@registry.tool(
-    parameters={
-        "type": "object",
         "properties": {
             "horizon": {
                 "type": "integer",
@@ -489,9 +462,12 @@ def backtest(
     if context is None or context.features is None:
         raise ValueError("No features in context. Call engineer_features first.")
     if "CL=F" not in context.signals:
-        raise ValueError("WTI signal ('CL=F') not found. Call fetch_data first.")
+        raise ValueError("WTI signal ('CL=F') not found. Call fetch_from_source first.")
     if "SPY" not in context.signals:
-        raise ValueError("SPY signal not found. Call fetch_data with tickers=['CL=F', ..., 'SPY'].")
+        raise ValueError(
+            "SPY signal not found. "
+            "Call fetch_from_source with source_name='yfinance' and include 'SPY' in tickers."
+        )
 
     from src.eval.backtest import walk_forward_backtest as _wfb
 

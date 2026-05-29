@@ -1,0 +1,23 @@
+name: fred
+description: >
+  Macro time series from the St. Louis Fed FRED database — industrial
+  production (INDPRO), unemployment (UNRATE), 10-year breakeven
+  inflation (T10YIE), trade-weighted USD (DTWEXBGS), and more.
+provides:
+  - macro_series
+  - economic_indicators
+params:
+  type: object
+  properties:
+    series_ids:
+      type: array
+      items:
+        type: string
+      description: "FRED series IDs, e.g. ['INDPRO', 'UNRATE']"
+  required:
+    - series_ids
+requires:
+  env: FRED_API_KEY
+compute_tier: low
+examples:
+  - series_ids: ["INDPRO", "UNRATE"]

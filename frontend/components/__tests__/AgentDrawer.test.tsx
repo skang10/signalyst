@@ -23,7 +23,7 @@ describe("AgentDrawer", () => {
   it("renders 9 phase dots (one per phase)", () => {
     useRunStore.setState({
       status: "running",
-      messages: [{ type: "phase", phase: "fetching_market_data" }],
+      messages: [{ type: "phase", phase: "discovering_data_sources" }],
     });
     const { container } = render(<AgentDrawer isOpen={true} />);
     const phaseDots = container.querySelectorAll("[data-phase-dot]");

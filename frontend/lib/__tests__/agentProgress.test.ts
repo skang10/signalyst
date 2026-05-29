@@ -14,15 +14,15 @@ describe("buildAgentProgress", () => {
     const state = buildAgentProgress([
       { type: "phase", phase: "starting" },
       { type: "phase", phase: "starting" },
-      { type: "phase", phase: "fetching_market_data" },
+      { type: "phase", phase: "discovering_data_sources" },
     ]);
 
-    expect(state.rawEvents).toEqual(["phase fetching_market_data"]);
+    expect(state.rawEvents).toEqual(["phase discovering_data_sources"]);
   });
 
   it("advances phases when a later backend phase starts", () => {
     const phases = phaseState([
-      { type: "phase", phase: "fetching_market_data" },
+      { type: "phase", phase: "discovering_data_sources" },
       { type: "phase", phase: "predicting_regime" },
     ]);
 
