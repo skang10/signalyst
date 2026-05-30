@@ -265,3 +265,45 @@ async def test_run_agent_loop_publishes_tabpfn_estimate_and_progress() -> None:
     progress = [message for message in messages if message.get("type") == "tabpfn_progress"]
     assert progress
     assert progress[-1]["tools_done"] == 1
+
+
+@pytest.mark.asyncio
+async def test_run_agent_loop_inserts_pre_messages_before_main_request() -> None:
+    """Pre-run messages are inserted between the system prompt and the main analysis request."""
+    run = MagicMock()
+    run.status = RunStatus.RUNNING
+    sessions = _SessionFactory(run)
+    redis_client = AsyncMock()
+    captured_messages: list[dict] = []
+
+    async def capture_and_cancel(*args: object, **kwargs: object) -> None:
+        captured_messages.extend(kwargs["messages"])
+        raise RunCanceled
+
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(side_effect=capture_and_cancel)
+
+    with (
+        patch("src.agent.loop.AsyncSession", sessions),
+        patch("src.agent.loop.aioredis.from_url", return_value=redis_client),
+        patch("src.agent.loop.openai.AsyncOpenAI", return_value=openai_client),
+    ):
+        await run_agent_loop(
+            uuid.uuid4(),
+            "2024-01-01",
+            "2024-02-01",
+            ["regime"],
+            pre_messages=["Add Baker Hughes rig count data"],
+        )
+
+    assert captured_messages, "expected the LLM to be called once before cancellation"
+    roles = [m["role"] for m in captured_messages]
+    contents = [m["content"] for m in captured_messages]
+    # system prompt first
+    assert roles[0] == "system"
+    # pre-run message second
+    assert roles[1] == "user"
+    assert contents[1] == "Add Baker Hughes rig count data"
+    # main analysis request last
+    assert roles[-1] == "user"
+    assert "Analyze" in contents[-1]
