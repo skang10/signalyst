@@ -307,3 +307,38 @@ async def test_run_agent_loop_inserts_pre_messages_before_main_request() -> None
     # main analysis request last
     assert roles[-1] == "user"
     assert "Analyze" in contents[-1]
+
+
+@pytest.mark.asyncio
+async def test_run_agent_loop_without_pre_messages_has_two_messages() -> None:
+    """When pre_messages is not provided, the message list is [system, main_request]."""
+    run = MagicMock()
+    run.status = RunStatus.RUNNING
+    sessions = _SessionFactory(run)
+    redis_client = AsyncMock()
+    captured_messages: list[dict] = []
+
+    async def capture_and_cancel(*args: object, **kwargs: object) -> None:
+        captured_messages.extend(kwargs["messages"])
+        raise RunCanceled
+
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(side_effect=capture_and_cancel)
+
+    with (
+        patch("src.agent.loop.AsyncSession", sessions),
+        patch("src.agent.loop.aioredis.from_url", return_value=redis_client),
+        patch("src.agent.loop.openai.AsyncOpenAI", return_value=openai_client),
+    ):
+        await run_agent_loop(
+            uuid.uuid4(),
+            "2024-01-01",
+            "2024-02-01",
+            ["regime"],
+            # no pre_messages argument — tests the None default
+        )
+
+    assert len(captured_messages) == 2
+    assert captured_messages[0]["role"] == "system"
+    assert captured_messages[1]["role"] == "user"
+    assert "Analyze" in captured_messages[1]["content"]

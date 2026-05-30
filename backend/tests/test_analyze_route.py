@@ -69,7 +69,7 @@ def test_trigger_analysis_defaults_to_quick_mode() -> None:
         app.dependency_overrides.pop(get_session, None)
 
     assert response.status_code == 202
-    assert mock_loop.call_args.args[-1] == "quick"
+    assert mock_loop.call_args.args[4] == "quick"
 
 
 def test_trigger_analysis_accepts_full_mode() -> None:
@@ -99,7 +99,7 @@ def test_trigger_analysis_accepts_full_mode() -> None:
         app.dependency_overrides.pop(get_session, None)
 
     assert response.status_code == 202
-    assert mock_loop.call_args.args[-1] == "full"
+    assert mock_loop.call_args.args[4] == "full"
 
 
 def test_get_run_returns_404_for_missing_run() -> None:
