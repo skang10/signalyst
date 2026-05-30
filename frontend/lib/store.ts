@@ -85,6 +85,8 @@ export const useRunStore = create<RunStore>((set) => ({
       error: null,
       messages: [],
       lastRunParams: params,
+      chatMessages: [],
+      pendingPreRunMessages: [],
     });
   },
   setResult: (result) => {

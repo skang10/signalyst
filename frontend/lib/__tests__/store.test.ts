@@ -163,4 +163,12 @@ describe("useRunStore — chat state", () => {
     expect(useRunStore.getState().chatMessages).toHaveLength(0);
     expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
   });
+
+  it("setRun resets chatMessages and pendingPreRunMessages", () => {
+    useRunStore.getState().addChatMessage({ id: "1", role: "user", content: "x", timestamp: 0 });
+    useRunStore.getState().queuePreRunMessage("x");
+    useRunStore.getState().setRun("run-123", params);
+    expect(useRunStore.getState().chatMessages).toHaveLength(0);
+    expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
+  });
 });

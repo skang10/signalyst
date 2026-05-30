@@ -43,7 +43,7 @@ describe("api.getRun", () => {
 describe("api.analyze", () => {
   it("sends POST with correct body", async () => {
     mockResponse({ run_id: "xyz" });
-    await api.analyze({ date_range_start: "2020-01-01", date_range_end: "2024-01-01" });
+    await api.analyze({ date_range_start: "2020-01-01", date_range_end: "2024-01-01", pre_messages: [] });
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/analyze"),
       expect.objectContaining({ method: "POST" })

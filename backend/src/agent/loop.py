@@ -253,8 +253,8 @@ async def run_agent_loop(
         messages: list[dict] = [  # type: ignore[type-arg]
             {"role": "system", "content": build_system_prompt(analysis_mode, tasks)},
         ]
-        for _pre_msg in pre_messages or []:
-            messages.append({"role": "user", "content": _pre_msg})
+        for pre_msg in pre_messages or []:
+            messages.append({"role": "user", "content": pre_msg})
         messages.append(
             {
                 "role": "user",

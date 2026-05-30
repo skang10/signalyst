@@ -8,7 +8,7 @@ export type AnalyzeRequest = {
   date_range_end: string;
   tasks?: string[];
   analysis_mode?: "quick" | "full";
-  pre_messages?: string[];
+  pre_messages: string[];
 };
 
 export type RegimeResult = {
