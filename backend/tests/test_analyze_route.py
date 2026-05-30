@@ -163,3 +163,54 @@ def test_cancel_run_returns_409_for_completed_run() -> None:
         app.dependency_overrides.pop(get_session, None)
 
     assert response.status_code == 409
+
+
+def test_trigger_analysis_forwards_pre_messages_to_loop() -> None:
+    async def override_session():  # type: ignore[return]
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.refresh = AsyncMock(return_value=None)
+        yield mock_session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        with patch("api.routes.analyze.run_agent_loop") as mock_loop:
+            client = TestClient(app)
+            response = client.post(
+                "/api/analyze",
+                json={
+                    "date_range_start": "2023-01-01",
+                    "date_range_end": "2023-06-30",
+                    "pre_messages": ["Add Baker Hughes rig count data"],
+                },
+            )
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 202
+    assert mock_loop.call_args.kwargs["pre_messages"] == ["Add Baker Hughes rig count data"]
+
+
+def test_trigger_analysis_defaults_pre_messages_to_empty_list() -> None:
+    async def override_session():  # type: ignore[return]
+        mock_session = AsyncMock()
+        mock_session.add = MagicMock()
+        mock_session.refresh = AsyncMock(return_value=None)
+        yield mock_session
+
+    app.dependency_overrides[get_session] = override_session
+    try:
+        with patch("api.routes.analyze.run_agent_loop") as mock_loop:
+            client = TestClient(app)
+            response = client.post(
+                "/api/analyze",
+                json={
+                    "date_range_start": "2023-01-01",
+                    "date_range_end": "2023-06-30",
+                },
+            )
+    finally:
+        app.dependency_overrides.pop(get_session, None)
+
+    assert response.status_code == 202
+    assert mock_loop.call_args.kwargs["pre_messages"] == []
