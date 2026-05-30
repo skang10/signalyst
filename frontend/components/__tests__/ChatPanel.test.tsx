@@ -36,6 +36,12 @@ describe("ChatPanel — visibility", () => {
     fireEvent.click(screen.getByRole("button", { name: /close chat/i }));
     expect(useRunStore.getState().chatOpen).toBe(false);
   });
+
+  it("shows empty state text when chatMessages is empty", () => {
+    useRunStore.setState({ chatOpen: true, chatMessages: [] });
+    render(<ChatPanel />);
+    expect(screen.getByText(/messages appear here/i)).toBeTruthy();
+  });
 });
 
 describe("ChatPanel — input states", () => {
@@ -136,5 +142,14 @@ describe("ChatPanel — send behaviour", () => {
     render(<ChatPanel />);
     expect(screen.getByText("Hello agent")).toBeTruthy();
     expect(screen.getByText("Hello user")).toBeTruthy();
+  });
+
+  it("Shift+Enter does not send", () => {
+    useRunStore.setState({ chatOpen: true, status: "idle" });
+    render(<ChatPanel />);
+    const textarea = screen.getByPlaceholderText(/ask the agent/i);
+    fireEvent.change(textarea, { target: { value: "draft" } });
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+    expect(useRunStore.getState().chatMessages).toHaveLength(0);
   });
 });
