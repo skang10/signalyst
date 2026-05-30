@@ -10,6 +10,14 @@ type LastRunParams = {
   analysis_mode: "quick" | "full";
 };
 
+export type ChatMessage = {
+  id: string;
+  role: "user" | "agent";
+  content: string;
+  timestamp: number;
+  toolPill?: { name: string; status: "running" | "done" | "failed" };
+};
+
 type RunStore = {
   runId: string | null;
   status: StoreStatus;
@@ -17,6 +25,9 @@ type RunStore = {
   error: string | null;
   messages: StreamMessage[];
   lastRunParams: LastRunParams | null;
+  chatOpen: boolean;
+  chatMessages: ChatMessage[];
+  pendingPreRunMessages: string[];
   setRun: (runId: string, params: LastRunParams) => void;
   setResult: (result: AnalysisResult) => void;
   setStatus: (status: StoreStatus) => void;
@@ -25,6 +36,10 @@ type RunStore = {
   setCanceled: () => void;
   clearRun: () => void;
   hydrate: () => void;
+  setChatOpen: (open: boolean) => void;
+  addChatMessage: (msg: ChatMessage) => void;
+  queuePreRunMessage: (msg: string) => void;
+  clearPreRunMessages: () => void;
 };
 
 const RUN_ID_KEY = "activeRunId";
@@ -57,6 +72,9 @@ export const useRunStore = create<RunStore>((set) => ({
   error: null,
   messages: [],
   lastRunParams: null,
+  chatOpen: false,
+  chatMessages: [],
+  pendingPreRunMessages: [],
   setRun: (runId, params) => {
     sessionStorage.setItem(RUN_ID_KEY, runId);
     sessionStorage.removeItem(MESSAGES_KEY);
@@ -95,6 +113,8 @@ export const useRunStore = create<RunStore>((set) => ({
       error: null,
       messages: [],
       lastRunParams: null,
+      chatMessages: [],
+      pendingPreRunMessages: [],
     });
   },
   hydrate: () => {
@@ -102,4 +122,10 @@ export const useRunStore = create<RunStore>((set) => ({
     const messages = readPersistedMessages();
     if (runId) set({ runId, messages });
   },
+  setChatOpen: (open) => set({ chatOpen: open }),
+  addChatMessage: (msg) =>
+    set((state) => ({ chatMessages: [...state.chatMessages, msg] })),
+  queuePreRunMessage: (msg) =>
+    set((state) => ({ pendingPreRunMessages: [...state.pendingPreRunMessages, msg] })),
+  clearPreRunMessages: () => set({ pendingPreRunMessages: [] }),
 }));
