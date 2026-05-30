@@ -220,4 +220,18 @@ describe("TopBar — pre_messages forwarding", () => {
       );
     });
   });
+
+  it("does NOT clear pendingPreRunMessages when analyze fails", async () => {
+    mockAnalyze.mockRejectedValueOnce(new Error("network error"));
+    useRunStore.setState({
+      status: "idle",
+      pendingPreRunMessages: ["Some message"],
+    });
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "▶ Run" }));
+    await waitFor(() => {
+      expect(screen.getByText(/network error/i)).toBeTruthy();
+    });
+    expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(1);
+  });
 });
