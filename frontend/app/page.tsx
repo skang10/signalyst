@@ -1,6 +1,7 @@
 import { TopBar } from "@/components/TopBar";
 import { AgentStream } from "@/components/AgentStream";
 import { ResultsPanel } from "@/components/ResultsPanel";
+import { ChatPanel } from "@/components/ChatPanel";
 
 export default function Home() {
   return (
@@ -11,6 +12,7 @@ export default function Home() {
         <section className="flex-1 overflow-hidden">
           <ResultsPanel />
         </section>
+        <ChatPanel />
       </main>
     </div>
   );
