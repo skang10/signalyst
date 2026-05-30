@@ -106,6 +106,7 @@ export const useRunStore = create<RunStore>((set) => ({
   setCanceled: () => set({ status: "canceled" }),
   clearRun: () => {
     clearPersisted();
+    // chatOpen is intentionally NOT reset — panel visibility persists across runs
     set({
       runId: null,
       status: "idle",
