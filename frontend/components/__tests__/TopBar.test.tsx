@@ -21,6 +21,9 @@ beforeEach(() => {
     error: null,
     messages: [],
     lastRunParams: null,
+    chatOpen: false,
+    chatMessages: [],
+    pendingPreRunMessages: [],
   });
 });
 
@@ -151,6 +154,70 @@ describe("TopBar — handlers", () => {
     fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
     await waitFor(() => {
       expect(useRunStore.getState().status).toBe("canceled");
+    });
+  });
+});
+
+describe("TopBar — chat toggle", () => {
+  it("renders a Chat toggle button", () => {
+    render(<TopBar />);
+    expect(screen.getByRole("button", { name: /chat/i })).toBeTruthy();
+  });
+
+  it("clicking the Chat button sets chatOpen to true when closed", () => {
+    useRunStore.setState({ chatOpen: false });
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole("button", { name: /chat/i }));
+    expect(useRunStore.getState().chatOpen).toBe(true);
+  });
+
+  it("clicking the Chat button sets chatOpen to false when open", () => {
+    useRunStore.setState({ chatOpen: true });
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole("button", { name: /chat/i }));
+    expect(useRunStore.getState().chatOpen).toBe(false);
+  });
+});
+
+describe("TopBar — pre_messages forwarding", () => {
+  it("passes pendingPreRunMessages as pre_messages when running analysis", async () => {
+    mockAnalyze.mockResolvedValueOnce({ run_id: "run-99" });
+    useRunStore.setState({
+      status: "idle",
+      pendingPreRunMessages: ["Add Baker Hughes data", "Focus on 2023 Q1"],
+    });
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "▶ Run" }));
+    await waitFor(() => {
+      expect(mockAnalyze).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pre_messages: ["Add Baker Hughes data", "Focus on 2023 Q1"],
+        })
+      );
+    });
+  });
+
+  it("clears pendingPreRunMessages after a successful run start", async () => {
+    mockAnalyze.mockResolvedValueOnce({ run_id: "run-100" });
+    useRunStore.setState({
+      status: "idle",
+      pendingPreRunMessages: ["Some message"],
+    });
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "▶ Run" }));
+    await waitFor(() => {
+      expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
+    });
+  });
+
+  it("passes empty pre_messages when there are no pending messages", async () => {
+    mockAnalyze.mockResolvedValueOnce({ run_id: "run-101" });
+    render(<TopBar />);
+    fireEvent.click(screen.getByRole("button", { name: "▶ Run" }));
+    await waitFor(() => {
+      expect(mockAnalyze).toHaveBeenCalledWith(
+        expect.objectContaining({ pre_messages: [] })
+      );
     });
   });
 });

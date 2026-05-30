@@ -16,7 +16,18 @@ export function TopBar() {
   const [mode, setMode] = useState<"quick" | "full">("quick");
   const [topbarError, setTopbarError] = useState<string | null>(null);
 
-  const { runId, status, setRun, setCanceled, setStatus, hydrate } = useRunStore();
+  const {
+    runId,
+    status,
+    chatOpen,
+    pendingPreRunMessages,
+    setRun,
+    setCanceled,
+    setStatus,
+    hydrate,
+    setChatOpen,
+    clearPreRunMessages,
+  } = useRunStore();
 
   useEffect(() => { hydrate(); }, [hydrate]);
 
@@ -31,7 +42,9 @@ export function TopBar() {
         date_range_start: start,
         date_range_end: end,
         analysis_mode: mode,
+        pre_messages: pendingPreRunMessages,
       });
+      clearPreRunMessages();
       setRun(run_id, { date_range_start: start, date_range_end: end, analysis_mode: mode });
     } catch (e) {
       setTopbarError(e instanceof Error ? e.message : "Failed to start analysis");
@@ -107,6 +120,14 @@ export function TopBar() {
         {topbarError && (
           <span className="text-xs text-red-500">{topbarError}</span>
         )}
+
+        <button
+          onClick={() => setChatOpen(!chatOpen)}
+          className={`${pillBase} ${chatOpen ? pillActive : pillInactive}`}
+          aria-label="Toggle chat"
+        >
+          💬 Chat
+        </button>
 
         {isRunning ? (
           <button
