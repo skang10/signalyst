@@ -40,6 +40,7 @@ type RunStore = {
   addChatMessage: (msg: ChatMessage) => void;
   queuePreRunMessage: (msg: string) => void;
   clearPreRunMessages: () => void;
+  continueToRun: (runId: string, params: LastRunParams) => void;
 };
 
 const RUN_ID_KEY = "activeRunId";
@@ -131,4 +132,18 @@ export const useRunStore = create<RunStore>((set) => ({
   queuePreRunMessage: (msg) =>
     set((state) => ({ pendingPreRunMessages: [...state.pendingPreRunMessages, msg] })),
   clearPreRunMessages: () => set({ pendingPreRunMessages: [] }),
+  continueToRun: (runId, params) => {
+    sessionStorage.setItem(RUN_ID_KEY, runId);
+    sessionStorage.removeItem(MESSAGES_KEY);
+    // chatMessages intentionally preserved — user bubble and agent response must survive the run transition
+    set({
+      runId,
+      status: "running",
+      result: null,
+      error: null,
+      messages: [],
+      lastRunParams: params,
+      pendingPreRunMessages: [],
+    });
+  },
 }));

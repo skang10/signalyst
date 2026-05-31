@@ -171,4 +171,30 @@ describe("useRunStore — chat state", () => {
     expect(useRunStore.getState().chatMessages).toHaveLength(0);
     expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
   });
+
+  it("continueToRun sets runId and status to running without clearing chatMessages", () => {
+    useRunStore.getState().addChatMessage({ id: "1", role: "user", content: "hello", timestamp: 0 });
+    useRunStore.getState().continueToRun("run-cont", params);
+    const { runId, status, chatMessages } = useRunStore.getState();
+    expect(runId).toBe("run-cont");
+    expect(status).toBe("running");
+    expect(chatMessages).toHaveLength(1);
+  });
+
+  it("continueToRun clears pendingPreRunMessages", () => {
+    useRunStore.getState().queuePreRunMessage("x");
+    useRunStore.getState().continueToRun("run-cont", params);
+    expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
+  });
+
+  it("continueToRun writes runId to sessionStorage", () => {
+    useRunStore.getState().continueToRun("run-cont", params);
+    expect(sessionStorage.getItem("activeRunId")).toBe("run-cont");
+  });
+
+  it("continueToRun resets result and error", () => {
+    useRunStore.getState().continueToRun("run-cont", params);
+    expect(useRunStore.getState().result).toBeNull();
+    expect(useRunStore.getState().error).toBeNull();
+  });
 });
