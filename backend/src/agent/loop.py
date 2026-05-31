@@ -221,6 +221,7 @@ async def run_agent_loop(
     date_range_end: str,
     tasks: list[str],
     analysis_mode: Literal["quick", "full"] = "quick",
+    pre_messages: list[str] | None = None,
 ) -> None:
     """Drive the ReAct loop for one analysis run.
 
@@ -251,14 +252,18 @@ async def run_agent_loop(
 
         messages: list[dict] = [  # type: ignore[type-arg]
             {"role": "system", "content": build_system_prompt(analysis_mode, tasks)},
+        ]
+        for pre_msg in pre_messages or []:
+            messages.append({"role": "user", "content": pre_msg})
+        messages.append(
             {
                 "role": "user",
                 "content": (
                     f"Analyze {date_range_start} to {date_range_end}. "
                     f"Tasks: {tasks}. Analysis mode: {analysis_mode}."
                 ),
-            },
-        ]
+            }
+        )
 
         log.info(
             "agent.loop.start",

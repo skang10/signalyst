@@ -19,6 +19,9 @@ beforeEach(() => {
     error: null,
     messages: [],
     lastRunParams: null,
+    chatOpen: false,
+    chatMessages: [],
+    pendingPreRunMessages: [],
   });
 });
 
@@ -119,5 +122,53 @@ describe("useRunStore - canceled status", () => {
     useRunStore.getState().setRun("run-123", params);
     useRunStore.getState().clearRun();
     expect(useRunStore.getState().lastRunParams).toBeNull();
+  });
+});
+
+describe("useRunStore — chat state", () => {
+  it("chatOpen defaults to false", () => {
+    expect(useRunStore.getState().chatOpen).toBe(false);
+  });
+
+  it("setChatOpen toggles chatOpen", () => {
+    useRunStore.getState().setChatOpen(true);
+    expect(useRunStore.getState().chatOpen).toBe(true);
+    useRunStore.getState().setChatOpen(false);
+    expect(useRunStore.getState().chatOpen).toBe(false);
+  });
+
+  it("addChatMessage appends to chatMessages", () => {
+    const msg = { id: "1", role: "user" as const, content: "hello", timestamp: 0 };
+    useRunStore.getState().addChatMessage(msg);
+    expect(useRunStore.getState().chatMessages).toHaveLength(1);
+    expect(useRunStore.getState().chatMessages[0]).toEqual(msg);
+  });
+
+  it("queuePreRunMessage appends to pendingPreRunMessages", () => {
+    useRunStore.getState().queuePreRunMessage("Add EIA data");
+    expect(useRunStore.getState().pendingPreRunMessages).toEqual(["Add EIA data"]);
+  });
+
+  it("clearPreRunMessages empties pendingPreRunMessages", () => {
+    useRunStore.getState().queuePreRunMessage("msg1");
+    useRunStore.getState().queuePreRunMessage("msg2");
+    useRunStore.getState().clearPreRunMessages();
+    expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
+  });
+
+  it("clearRun resets chatMessages and pendingPreRunMessages", () => {
+    useRunStore.getState().addChatMessage({ id: "1", role: "user", content: "x", timestamp: 0 });
+    useRunStore.getState().queuePreRunMessage("x");
+    useRunStore.getState().clearRun();
+    expect(useRunStore.getState().chatMessages).toHaveLength(0);
+    expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
+  });
+
+  it("setRun resets chatMessages and pendingPreRunMessages", () => {
+    useRunStore.getState().addChatMessage({ id: "1", role: "user", content: "x", timestamp: 0 });
+    useRunStore.getState().queuePreRunMessage("x");
+    useRunStore.getState().setRun("run-123", params);
+    expect(useRunStore.getState().chatMessages).toHaveLength(0);
+    expect(useRunStore.getState().pendingPreRunMessages).toHaveLength(0);
   });
 });

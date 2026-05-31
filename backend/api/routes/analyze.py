@@ -23,6 +23,7 @@ class AnalyzeRequest(BaseModel):
     date_range_end: str
     tasks: list[str] = ["regime_classification", "price_direction", "equity_outperformance"]
     analysis_mode: Literal["quick", "full"] = "quick"
+    pre_messages: list[str] = []
 
 
 class AnalyzeResponse(BaseModel):
@@ -59,6 +60,7 @@ async def trigger_analysis(
         request.date_range_end,
         request.tasks,
         request.analysis_mode,
+        pre_messages=request.pre_messages,
     )
 
     return AnalyzeResponse(run_id=str(run.id))

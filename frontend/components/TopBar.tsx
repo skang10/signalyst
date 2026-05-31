@@ -16,7 +16,20 @@ export function TopBar() {
   const [mode, setMode] = useState<"quick" | "full">("quick");
   const [topbarError, setTopbarError] = useState<string | null>(null);
 
-  const { runId, status, setRun, setCanceled, setStatus, hydrate } = useRunStore();
+  const {
+    runId,
+    status,
+    chatOpen,
+    chatMessages,
+    pendingPreRunMessages,
+    setRun,
+    setCanceled,
+    setStatus,
+    hydrate,
+    setChatOpen,
+    clearPreRunMessages,
+    clearRun,
+  } = useRunStore();
 
   useEffect(() => { hydrate(); }, [hydrate]);
 
@@ -31,7 +44,9 @@ export function TopBar() {
         date_range_start: start,
         date_range_end: end,
         analysis_mode: mode,
+        pre_messages: pendingPreRunMessages,
       });
+      clearPreRunMessages();
       setRun(run_id, { date_range_start: start, date_range_end: end, analysis_mode: mode });
     } catch (e) {
       setTopbarError(e instanceof Error ? e.message : "Failed to start analysis");
@@ -52,6 +67,16 @@ export function TopBar() {
   const handleResume = () => {
     setStatus("running");
   };
+
+  const handleNewSession = async () => {
+    if (isRunning) {
+      if (!window.confirm("Cancel the current run and start a new session?")) return;
+      try { await api.cancelRun(runId!); } catch { /* best-effort */ }
+    }
+    clearRun();
+  };
+
+  const showNewSession = runId !== null || chatMessages.length > 0;
 
   const inputClass =
     "rounded border border-slate-700 bg-slate-900 text-slate-100 text-sm px-2 py-1 " +
@@ -107,6 +132,24 @@ export function TopBar() {
         {topbarError && (
           <span className="text-xs text-red-500">{topbarError}</span>
         )}
+
+        {showNewSession && (
+          <button
+            onClick={handleNewSession}
+            className="text-xs text-slate-500 hover:text-slate-300 transition-colors"
+            aria-label="New session"
+          >
+            ↺ New Session
+          </button>
+        )}
+
+        <button
+          onClick={() => setChatOpen(!chatOpen)}
+          className={`${pillBase} ${chatOpen ? pillActive : pillInactive}`}
+          aria-label="Toggle chat"
+        >
+          💬 Chat
+        </button>
 
         {isRunning ? (
           <button
