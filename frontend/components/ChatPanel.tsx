@@ -73,7 +73,7 @@ export function ChatPanel() {
       setInput("");
     }
 
-    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
+    setTimeout(() => bottomRef.current?.scrollIntoView?.({ behavior: "smooth" }), 0);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
