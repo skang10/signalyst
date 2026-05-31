@@ -2,12 +2,30 @@
 
 import { useRef, useState } from "react";
 import { useRunStore } from "@/lib/store";
+import { api } from "@/lib/api";
 import type { ChatMessage } from "@/lib/store";
 
+const EXAMPLE_CHIPS = [
+  "Why is drift elevated?",
+  "Explain the regime classification",
+  "Add Baker Hughes rig count data",
+  "What are the top features driving this?",
+];
+
 export function ChatPanel() {
-  const { chatOpen, chatMessages, status, setChatOpen, addChatMessage, queuePreRunMessage } =
-    useRunStore();
+  const {
+    chatOpen,
+    chatMessages,
+    status,
+    runId,
+    lastRunParams,
+    setChatOpen,
+    addChatMessage,
+    queuePreRunMessage,
+    continueToRun,
+  } = useRunStore();
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   if (!chatOpen) return null;
@@ -24,9 +42,11 @@ export function ChatPanel() {
           ? "Run ended"
           : "Ask the agent — add a connector, set context…";
 
-  const handleSend = () => {
+  const showChips = status === "completed" && chatMessages.length === 0;
+
+  const handleSend = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isInputDisabled) return;
+    if (!trimmed || isInputDisabled || isSending) return;
 
     const msg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -34,11 +54,25 @@ export function ChatPanel() {
       content: trimmed,
       timestamp: Date.now(),
     };
-    addChatMessage(msg);
-    if (status === "idle") {
-      queuePreRunMessage(trimmed);
+
+    if (status === "completed" && runId && lastRunParams) {
+      setIsSending(true);
+      setInput("");
+      addChatMessage(msg);
+      try {
+        const { run_id } = await api.continueRun(runId, trimmed);
+        continueToRun(run_id, lastRunParams);
+      } catch {
+        // continuation failed — status stays completed, user message preserved in chat
+      } finally {
+        setIsSending(false);
+      }
+    } else {
+      addChatMessage(msg);
+      if (status === "idle") queuePreRunMessage(trimmed);
+      setInput("");
     }
-    setInput("");
+
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 0);
   };
 
@@ -63,10 +97,24 @@ export function ChatPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 min-h-0 flex flex-col justify-end gap-2">
-        {chatMessages.length === 0 && (
+        {chatMessages.length === 0 && !showChips && (
           <p className="text-xs text-slate-500 text-center">
             Messages appear here.
           </p>
+        )}
+        {showChips && (
+          <div className="flex flex-col gap-1 mb-2">
+            <p className="text-xs text-slate-500 text-center mb-1">Try asking…</p>
+            {EXAMPLE_CHIPS.map((chip) => (
+              <button
+                key={chip}
+                onClick={() => setInput(chip)}
+                className="text-left text-xs px-2 py-1.5 rounded border border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-300 transition-colors"
+              >
+                {chip}
+              </button>
+            ))}
+          </div>
         )}
         {chatMessages.map((msg) => (
           <div
@@ -103,7 +151,7 @@ export function ChatPanel() {
         />
         <button
           onClick={handleSend}
-          disabled={isInputDisabled || !input.trim()}
+          disabled={isInputDisabled || isSending || !input.trim()}
           aria-label="Send message"
           className={
             "px-2 py-1 rounded bg-violet-600 hover:bg-violet-700 text-white text-sm " +
