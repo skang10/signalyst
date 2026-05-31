@@ -146,6 +146,49 @@ def phase_for_tool(name: str, arguments: dict[str, Any]) -> str:
     return TOOL_PHASES.get(name, "running_tool")
 
 
+def format_result_context(
+    result: dict[str, Any],
+    date_range_start: str,
+    date_range_end: str,
+) -> str:
+    """Format a Run.result dict as a readable LLM context message."""
+    lines = [f"Previous analysis result ({date_range_start} to {date_range_end}):"]
+
+    regime = result.get("regime")
+    if isinstance(regime, dict):
+        lines.append(
+            f"Regime: {regime.get('regime')} (confidence {regime.get('confidence', 0):.2f})"
+        )
+
+    direction = result.get("direction")
+    if isinstance(direction, dict):
+        dir_conf = direction.get("confidence", 0)
+        lines.append(f"Direction: {direction.get('direction')} (confidence {dir_conf:.2f})")
+
+    drift = result.get("drift")
+    if isinstance(drift, dict):
+        detected = drift.get("drift_detected", False)
+        psi = drift.get("psi_score", 0)
+        features = drift.get("drifted_features") or []
+        features_str = ", ".join(features) if features else "none"
+        lines.append(
+            f"Drift detected: {detected}, PSI score {psi:.2f}, drifted features: {features_str}"
+        )
+
+    fi = result.get("feature_importance")
+    if isinstance(fi, dict):
+        top = (fi.get("top_features") or [])[:3]
+        if top:
+            top_str = ", ".join(f"{f['name']} ({f['importance']:.2f})" for f in top)
+            lines.append(f"Top features: {top_str}")
+
+    summary = result.get("summary", "")
+    if summary:
+        lines.append(f"Summary: {summary}")
+
+    return "\n".join(lines)
+
+
 def tabpfn_calls_for_tool(name: str, arguments: dict[str, Any], result: dict[str, Any]) -> int:
     if name == "run_tabpfn":
         return 1
@@ -441,6 +484,178 @@ async def run_agent_loop(
 
     except Exception as exc:
         log.error("agent.loop.error", run_id=str(run_id), error=str(exc), exc_info=True)
+        await _publish_phase(redis_client, channel, run_id, "failed")
+        await _publish(redis_client, channel, {"type": "error", "message": str(exc)})
+        async with AsyncSession(engine) as session:
+            run = await session.get(Run, run_id)
+            if run is not None:
+                run.status = RunStatus.FAILED
+                run.error = str(exc)
+                await session.commit()
+
+    finally:
+        _tabpfn_progress.unregister_run(str(run_id))
+        await redis_client.aclose()  # type: ignore[attr-defined]
+
+
+async def run_agent_continuation(
+    run_id: uuid.UUID,
+    messages: list[dict],  # type: ignore[type-arg]
+    date_range_start: str,
+    date_range_end: str,
+) -> None:
+    """Drive the ReAct loop for a post-run continuation.
+
+    Takes a pre-built messages list [system, result_context, user_message].
+    Creates its own DB session and Redis connection.
+    """
+    redis_client: aioredis.Redis = aioredis.from_url(settings.redis_url)  # type: ignore[type-arg]
+    channel = f"run:{run_id}"
+    _tabpfn_progress.register_run(str(run_id))
+
+    try:
+        await _raise_if_canceled(run_id)
+        async with AsyncSession(engine) as session:
+            run = await session.get(Run, run_id)
+            if run is None:
+                return
+            run.status = RunStatus.RUNNING
+            await session.commit()
+
+        openai_client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
+        context = AgentContext(
+            date_range_start=date_range_start,
+            date_range_end=date_range_end,
+        )
+
+        log.info("agent.continuation.start", run_id=str(run_id), model=settings.agent_model)
+        await _publish_phase(redis_client, channel, run_id, "starting")
+
+        last_text = ""
+        total_input_tokens = 0
+        total_output_tokens = 0
+
+        for _ in range(MAX_ITERATIONS):
+            await _raise_if_canceled(run_id)
+            response = await openai_client.chat.completions.create(
+                model=settings.agent_model,
+                tools=registry.schemas(),  # type: ignore[arg-type]
+                messages=messages,  # type: ignore[arg-type]
+            )
+            if response.usage:
+                total_input_tokens += response.usage.prompt_tokens
+                total_output_tokens += response.usage.completion_tokens
+            choice = response.choices[0]
+
+            if choice.message.content:
+                last_text = choice.message.content
+                await _publish(redis_client, channel, {"type": "thought", "content": last_text})
+
+            if choice.finish_reason == "tool_calls" and choice.message.tool_calls:
+                assistant_msg: dict = {  # type: ignore[type-arg]
+                    "role": "assistant",
+                    "content": choice.message.content,
+                    "tool_calls": [
+                        {
+                            "id": tc.id,
+                            "type": "function",
+                            "function": {
+                                "name": tc.function.name,  # type: ignore[union-attr]
+                                "arguments": tc.function.arguments,  # type: ignore[union-attr]
+                            },
+                        }
+                        for tc in choice.message.tool_calls
+                    ],
+                }
+                messages.append(assistant_msg)
+
+                for tc in choice.message.tool_calls:
+                    name = tc.function.name  # type: ignore[union-attr]
+                    arguments = json.loads(tc.function.arguments)  # type: ignore[union-attr]
+                    await _raise_if_canceled(run_id)
+                    await _publish_phase(
+                        redis_client, channel, run_id, phase_for_tool(name, arguments), tool=name
+                    )
+                    await _publish(
+                        redis_client,
+                        channel,
+                        {"type": "tool_call", "tool": name, "input": arguments},
+                    )
+                    log.info("agent.tool.start", run_id=str(run_id), tool=name)
+                    _t0 = perf_counter()
+                    try:
+                        result = await asyncio.to_thread(
+                            registry.dispatch, name, arguments, context
+                        )
+                    except _tabpfn_progress.RunCanceledInThread:
+                        raise RunCanceled
+                    finally:
+                        _tabpfn_progress.set_callback(None)
+                    _ms = round((perf_counter() - _t0) * 1000)
+                    log.info("agent.tool.done", run_id=str(run_id), tool=name, duration_ms=_ms)
+                    await _raise_if_canceled(run_id)
+                    await _publish(
+                        redis_client,
+                        channel,
+                        {"type": "tool_result", "tool": name, "output": result},
+                    )
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tc.id,
+                            "content": json.dumps(result, default=str),
+                        }
+                    )
+            else:
+                break
+        else:
+            raise RuntimeError(f"Agent loop exceeded max iterations ({MAX_ITERATIONS})")
+
+        estimated_cost = (
+            total_input_tokens / 1000 * settings.agent_model_input_cost_per_1k
+            + total_output_tokens / 1000 * settings.agent_model_output_cost_per_1k
+        )
+        usage = {
+            "input_tokens": total_input_tokens,
+            "output_tokens": total_output_tokens,
+            "estimated_cost_usd": round(estimated_cost, 6),
+        }
+
+        log.info("agent.continuation.done", run_id=str(run_id), model=settings.agent_model, **usage)
+        await _publish_phase(redis_client, channel, run_id, "completed")
+        await _publish(
+            redis_client, channel, {"type": "done", "summary": last_text, "usage": usage}
+        )
+
+        async with AsyncSession(engine) as session:
+            run = await session.get(Run, run_id)
+            if run is not None:
+                run.status = RunStatus.COMPLETED
+                run.completed_at = datetime.now(UTC).replace(tzinfo=None)
+                run.result = {
+                    "regime": context.regime_result,
+                    "direction": context.direction_result,
+                    "drift": context.drift_result,
+                    "feature_importance": context.shap_result,
+                    "backtest": context.backtest_result,
+                    "summary": last_text,
+                    "usage": usage,
+                    "data_manifest": context.data_manifest,
+                }
+                await session.commit()
+
+    except RunCanceled:
+        await _publish_phase(redis_client, channel, run_id, "canceled")
+        async with AsyncSession(engine) as session:
+            run = await session.get(Run, run_id)
+            if run is not None:
+                run.status = RunStatus.CANCELED
+                run.completed_at = datetime.now(UTC).replace(tzinfo=None)
+                run.error = run.error or "Canceled by user"
+                await session.commit()
+
+    except Exception as exc:
+        log.error("agent.continuation.error", run_id=str(run_id), error=str(exc), exc_info=True)
         await _publish_phase(redis_client, channel, run_id, "failed")
         await _publish(redis_client, channel, {"type": "error", "message": str(exc)})
         async with AsyncSession(engine) as session:

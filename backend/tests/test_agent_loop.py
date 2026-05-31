@@ -11,7 +11,9 @@ from src.agent.loop import (
     RunCanceled,
     build_system_prompt,
     estimate_tabpfn_calls,
+    format_result_context,
     phase_for_tool,
+    run_agent_continuation,
     run_agent_loop,
     tabpfn_calls_for_tool,
 )
@@ -342,3 +344,103 @@ async def test_run_agent_loop_without_pre_messages_has_two_messages() -> None:
     assert captured_messages[0]["role"] == "system"
     assert captured_messages[1]["role"] == "user"
     assert "Analyze" in captured_messages[1]["content"]
+
+
+def test_format_result_context_includes_all_fields() -> None:
+    result = {
+        "regime": {"regime": "range_bound", "confidence": 0.82},
+        "direction": {"direction": "up", "confidence": 0.71},
+        "drift": {
+            "drift_detected": True,
+            "psi_score": 0.23,
+            "drifted_features": ["CL=F_roc_20d"],
+        },
+        "feature_importance": {"top_features": [{"name": "CL=F_roc_20d", "importance": 0.18}]},
+        "summary": "Markets look range-bound.",
+    }
+    ctx = format_result_context(result, "2023-01-01", "2023-06-30")
+    assert "2023-01-01 to 2023-06-30" in ctx
+    assert "range_bound" in ctx
+    assert "0.82" in ctx
+    assert "up" in ctx
+    assert "0.71" in ctx
+    assert "True" in ctx
+    assert "CL=F_roc_20d" in ctx
+    assert "0.18" in ctx
+    assert "Markets look range-bound." in ctx
+
+
+def test_format_result_context_handles_missing_fields() -> None:
+    ctx = format_result_context({"summary": "Minimal."}, "2023-01-01", "2023-06-30")
+    assert "Minimal." in ctx
+    assert "Regime" not in ctx
+    assert "Drift" not in ctx
+
+
+def test_format_result_context_handles_no_drifted_features() -> None:
+    result = {"drift": {"drift_detected": False, "psi_score": 0.01, "drifted_features": []}}
+    ctx = format_result_context(result, "2023-01-01", "2023-06-30")
+    assert "none" in ctx
+
+
+@pytest.mark.asyncio
+async def test_run_agent_continuation_marks_completed_on_stop_response() -> None:
+    run = MagicMock()
+    run.status = RunStatus.RUNNING
+    sessions = _SessionFactory(run)
+    redis_client = AsyncMock()
+    openai_client = MagicMock()
+    openai_client.chat.completions.create = AsyncMock(
+        return_value=SimpleNamespace(
+            usage=SimpleNamespace(prompt_tokens=10, completion_tokens=5),
+            choices=[
+                SimpleNamespace(
+                    finish_reason="stop",
+                    message=SimpleNamespace(
+                        content="The drift is elevated because of macro shifts.",
+                        tool_calls=None,
+                    ),
+                )
+            ],
+        )
+    )
+
+    messages = [
+        {"role": "system", "content": "You are an analyst."},
+        {
+            "role": "user",
+            "content": "Previous analysis result (2023-01-01 to 2023-06-30):\nSummary: done.",
+        },
+        {"role": "user", "content": "Why is drift elevated?"},
+    ]
+
+    with (
+        patch("src.agent.loop.AsyncSession", sessions),
+        patch("src.agent.loop.aioredis.from_url", return_value=redis_client),
+        patch("src.agent.loop.openai.AsyncOpenAI", return_value=openai_client),
+    ):
+        await run_agent_continuation(uuid.uuid4(), messages, "2023-01-01", "2023-06-30")
+
+    assert run.status == RunStatus.COMPLETED
+    published = [json.loads(call.args[1]) for call in redis_client.publish.await_args_list]
+    assert any(m.get("type") == "done" for m in published)
+    done_msg = next(m for m in published if m.get("type") == "done")
+    assert "elevated" in done_msg["summary"]
+
+
+@pytest.mark.asyncio
+async def test_run_agent_continuation_marks_failed_on_error() -> None:
+    run = MagicMock()
+    run.status = RunStatus.RUNNING
+    sessions = _SessionFactory(run)
+    redis_client = AsyncMock()
+
+    with (
+        patch("src.agent.loop.AsyncSession", sessions),
+        patch("src.agent.loop.aioredis.from_url", return_value=redis_client),
+        patch("src.agent.loop.openai.AsyncOpenAI", side_effect=RuntimeError("boom")),
+    ):
+        await run_agent_continuation(uuid.uuid4(), [], "2023-01-01", "2023-06-30")
+
+    assert run.status == RunStatus.FAILED
+    assert "boom" in run.error
