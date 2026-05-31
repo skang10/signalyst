@@ -215,6 +215,81 @@ JWT-based auth on the backend, NextAuth.js on the frontend. All dependencies are
 
 ---
 
+## User Flow
+
+The intended UX experience. The technical implementation of this flow (session stages, agents, API) is defined in [`docs/backend-redesign.md`](docs/backend-redesign.md).
+
+### Step 1 — Home Page
+User opens the app and sees:
+- List of past sessions with market profile, timeframe, stage, last updated
+- A prominent "New Analysis" button
+
+### Step 2 — Configure Analysis
+User clicks "New Analysis" and sets:
+- **Market profile** — oil, S&P 500, EUR/USD, or custom
+- **Time range** — historical data window (e.g. past 5 years)
+- **Auto mode** — skip the data review gate and run all stages automatically
+- **Advanced options** (collapsible): feature window sizes, lag depths, enable anomaly detection
+
+### Step 3 — Data Discovery & Gathering
+Agent streams its reasoning as it selects and fetches data sources:
+```
+✓ Recommending: WTI/Brent prices, EIA inventory, GPR index, Baker Hughes rig count
+⚙️  Fetching: yfinance CL=F (2023-01-01 → 2023-06-30)...
+⚙️  Fetching: EIA weekly inventory builds...
+⚙️  Fetching: Federal Reserve GPR index...
+✅ Data ready — 126 rows × 8 series
+```
+
+### Step 4 — Data Review Gate
+User sees the data dashboard — coverage stats, missing data %, raw time series charts. Three options:
+- Click **"Run Analysis"** — proceed to featurizing + TabPFN
+- Type **"add Baker Hughes data"** — agent refetches with new source
+- Type **"focus on momentum features"** — agent updates feature config, proceeds
+
+### Step 5 — Agent Reasoning Stream (core experience)
+Real-time streaming view showing pipeline progress:
+```
+⚙️  Featurizing: rolling stats, momentum, lag features (187 features × 126 rows)
+⚙️  Running TabPFN — regime classification...
+📊  Regime: Geopolitical Spike (confidence 82%)
+⚙️  Running TabPFN — WTI direction prediction...
+💡  WTI likely up next 4 weeks (confidence 71%)
+🧠  Generating explanation...
+✅  Analysis complete
+```
+
+### Step 6 — Full Dashboard
+Once complete, the full dashboard renders:
+- **Regime card** — current regime + historical regime timeline
+- **WTI direction card** — predicted direction + confidence interval
+- **Geopolitical Risk chart** — GPR index overlay on WTI price
+- **Feature importance chart** — SHAP values showing which signals drove the prediction
+- **Backtest chart** — walk-forward strategy performance vs. SPY benchmark
+- **Agent analysis report** — natural language summary of the full reasoning chain
+
+### Step 7 — Follow-up Questions
+User types follow-up questions in the chat panel:
+- "Why is energy expected to outperform?"
+- "What if the GPR index rises another 10 points?"
+- "Re-run with 60-day windows instead"
+- "Show me how the model performed during the 2022 war spike"
+
+Agent calls tools and streams back the answer. Can trigger reruns of specific stages.
+
+### Step 8 — Derivatives Panel (Phase 2)
+Below the main dashboard, a "Derivatives Exposure" panel:
+- User inputs: spot price, strike, tenor, option style (European / American)
+- Regime auto-fills the vol assumption
+- Panel renders: Monte Carlo path fan chart, payoff surface, Greeks dashboard, Euro vs American comparison
+
+### Step 9 — Save & Export (Phase 2)
+- Session saved to history (accessible from home page)
+- Export as PDF report or CSV data
+- Shareable read-only link
+
+---
+
 ## Manual Setup Steps
 
 The following cannot be automated and require manual action:
