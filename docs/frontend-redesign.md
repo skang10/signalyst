@@ -102,7 +102,7 @@ Results tab shows a `✦` marker when it first unlocks. Data tab shows `✓` onc
 ### Concept
 A **single continuous feed** that accumulates across all stages. Stage dividers separate phases. Stream entries log agent thoughts and tool calls in real time. Gate messages appear at the bottom when the pipeline reaches an interactive stage. The user always has the full history visible — nothing is lost when transitioning from running to review.
 
-**Feed data source:** on page load, the feed is reconstructed from `session.conversation` (the append-only history stored in the DB, returned by `GET /api/sessions/{id}`). Live WS messages (`wsMessages` from `useSessionStore`) are appended on top as they arrive. On reconnect, the feed is re-hydrated from `conversation` — live stream entries from already-completed stages are not lost.
+**Feed data source:** on page load, the feed is reconstructed from `session.activity_events` (the append-only activity log stored in the DB, returned by `GET /api/sessions/{id}`). Chat bubbles are derived from `session.conversation`; operational entries are derived from `activity_events`. Live WS messages (`wsMessages` from `useSessionStore`) are appended as they arrive, then reconciled by event ID / timestamp after refetch. On reconnect, the feed is re-hydrated from `activity_events`, so completed stage entries remain visible.
 
 ### Feed entry types
 
@@ -126,8 +126,10 @@ Appears at the bottom of the feed when stage = USER_REVIEW. Contains:
   - Feature count estimate updates live (e.g. `≈ 187 features planned`)
   - "View full data manifest →" link to Data sub-page
 - Chat input enabled (placeholder: "Add a source, adjust config, or ask a question…")
-- "Run Analysis →" primary button — calls `POST /sessions/{id}/proceed`
-- Config changes sent via `POST /sessions/{id}/chat` → ReviewInterpreter patches `featurizer_config`
+- "Run Analysis →" primary button — calls `POST /api/sessions/{id}/proceed`
+- Config changes sent via `POST /api/sessions/{id}/chat` → ReviewInterpreter patches `featurizer_config`
+
+Backend requirement: `TimeSeriesFeaturizer` must support the controls exposed here: `windows`, `lags`, `feature_families`, and `energy_specific`. Until that backend support lands, the editor should only show controls that are actually honored by the API.
 
 ### FOLLOW_UP gate message
 Appears at the bottom of the feed when stage = FOLLOW_UP. Contains:
@@ -155,7 +157,7 @@ Unlocks after DATA_GATHERING completes. Read-only reference view.
 1. **Header row** — "Data Manifest" title + optional cache badge (`⚡ Cached from session #N`) if `cache_hit = true`
 2. **4 metric cards** — Rows, Series, Missing % (green if < 1%, amber if > 1%), Features (count after featurizing, once available)
 3. **Sources grid** — one chip per data source: connector name (bold), missing % (green/amber), source label (yfinance / EIA API / Federal Reserve / FRED API)
-4. **Time series sparklines** — one per key series, WTI (CL=F) always shown first. Filled area chart, blue stroke, min/mean/max/σ labels below.
+4. **Time series sparklines** — one per key series from `DataArtifact.series_preview`, WTI (CL=F) always shown first. Filled area chart, blue stroke, min/mean/max/σ labels below. `raw_data` is not exposed to the browser.
 
 No chat input on this page — all interaction happens in Activity.
 
@@ -197,6 +199,7 @@ type SessionStore = {
   status: SessionStatus | null
   featurizerConfig: FeaturizerConfig | null
   conversation: ChatMessage[]        // full conversation history
+  activityEvents: ActivityEvent[]     // persisted feed replay log
   wsMessages: WsMessage[]            // live stream entries (capped at 500)
   artifacts: {
     data: DataArtifactRef[]
@@ -227,9 +230,9 @@ On disconnect: reconnect with exponential backoff; re-fetch session state on rec
 Replace all existing types and endpoints. Key new types:
 
 ```typescript
-type Session = { session_id, market_profile, timeframe_start, timeframe_end, stage, status, error, auto, featurizer_config, conversation, artifacts, stage_history }
 type MarketSnapshot = { wti, brent, dxy, gpr, eia_inventory_change_mmbbl, fetched_at }
-type DataArtifact = { kind: 'data', artifact_id, round, sources, data_manifest, cache_hit, cached_from_session_id }
+type Session = { session_id, market_profile, timeframe_start, timeframe_end, stage, status, error, auto, featurizer_config, conversation, activity_events, artifacts, stage_history }
+type DataArtifact = { kind: 'data', artifact_id, round, sources, data_manifest, series_preview, cache_hit, cached_from_session_id }
 type AnalysisResult = { kind: 'analysis', artifact_id, regime, direction, feature_importance, drift, backtest, summary, cache_hit }
 ```
 

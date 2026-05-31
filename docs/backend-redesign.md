@@ -205,6 +205,7 @@ class Session(SQLModel, table=True):
     pending_sources:   JSON          = []      # DataSource[] written by DataSourceDiscoveryAgent,
                                                # read by DataAgent — cleared after DATA_GATHERING
     conversation:      JSON          = []      # ChatMessage[] — append-only, full history
+    activity_events:   JSON          = []      # ActivityEvent[] — append-only feed events for replay/recovery
     stage_history:     JSON          = []      # [{ stage, entered_at }] — append-only, set by transition_stage()
     created_at:        datetime
     updated_at:        datetime
@@ -223,6 +224,8 @@ class Session(SQLModel, table=True):
 On failure: `status = FAILED`, `error = <message>`, `stage` stays at the failed stage. The user can retry by calling `POST /rerun { stage: <failed_stage> }`.
 
 `conversation` is the shared context for all LLM agents. Every agent reads it at invocation. Every user message and agent response is appended here.
+
+`activity_events` is the durable activity feed. Every WebSocket event that should remain visible after refresh/reconnect is appended here before publish: stage transitions, thoughts, tool calls, tool results, artifact-ready events, cache hits, warnings, errors, and streamed explanation chunks. Each event has an `event_id` and `created_at` so the frontend can de-duplicate live WebSocket messages after refetch. This is UI replay state, not LLM context.
 
 `pending_sources` is the handoff channel between DataSourceDiscoveryAgent and DataAgent — see DataSourceDiscoveryAgent → DataAgent Handoff below.
 
@@ -251,7 +254,7 @@ class DataArtifact(SQLModel, table=True):
     data_manifest:           JSON       # shape, date coverage, missing %, summary stats
     raw_data:                JSON|None  # actual time series — null if raw_data_ref is set
     raw_data_ref:            str|None   # file path or S3 URI — used when size > 5MB
-    source_hash:             str        # hash(market_profile + timeframe + sources)
+    source_hash:             str        # stable hash(market_profile + timeframe + canonical sources)
     cached_from_session_id:  UUID|None  # provenance if cache hit
     cached_from_artifact_id: UUID|None
     cache_hit:               bool = False
@@ -291,7 +294,9 @@ class FeatureArtifact(SQLModel, table=True):
     data_artifact_id:            UUID       # FK → DataArtifact
     featurizer_config_snapshot:  JSON       # config at time of run (immutable snapshot)
     feature_manifest:            JSON       # column names, shapes — not the full matrix
-    config_hash:                 str        # hash(data_artifact_id + featurizer_config)
+    feature_matrix_ref:          str        # local path/S3 URI for the computed feature matrix parquet
+    matrix_hash:                 str        # stable hash of feature matrix content/schema
+    config_hash:                 str        # stable hash(data_artifact.source_hash + canonical featurizer_config)
     cached_from_session_id:      UUID|None
     cached_from_artifact_id:     UUID|None
     cache_hit:                   bool = False
@@ -313,7 +318,7 @@ class FeatureArtifact(SQLModel, table=True):
 }
 ```
 
-The full feature matrix is not stored in the DB — it is computed on demand and passed directly to TabPFN.
+The full feature matrix is not stored inline in the DB. It is written to parquet and referenced by `feature_matrix_ref`, while `feature_manifest` and `matrix_hash` remain queryable metadata. TabPFNService reads the matrix from `feature_matrix_ref`; on cache hit, the existing matrix file is copied or referenced with provenance.
 
 ---
 
@@ -338,7 +343,7 @@ class AnalysisResult(SQLModel, table=True):
     # --- LLM output (written by EXPLAINING stage) ---
     summary:             str|None
 
-    feature_hash:                str        # hash(feature_artifact_id)
+    feature_hash:                str        # stable hash(feature_artifact.matrix_hash + canonical market_profile regime labels + canonical analysis config)
     cached_from_session_id:      UUID|None
     cached_from_artifact_id:     UUID|None
     cache_hit:                   bool = False
@@ -464,9 +469,9 @@ list_available_connectors()
 
 **Reads from session:** latest `DataArtifact.raw_data`, `Session.featurizer_config`
 
-**Cache check:** `config_hash = hash(data_artifact_id + featurizer_config)` — searches all sessions for match. On hit: copies with provenance, skips computation.
+**Cache check:** `config_hash = stable_hash(data_artifact.source_hash + canonical_json(featurizer_config))` — searches all sessions for match. On hit: copies the `FeatureArtifact` metadata and `feature_matrix_ref` provenance, skips computation.
 
-**On miss:** runs `TimeSeriesFeaturizer` → writes `FeatureArtifact` with `feature_manifest` and `config_hash`.
+**On miss:** runs `TimeSeriesFeaturizer` with `windows`, `lags`, `feature_families`, and `energy_specific` support → writes the feature matrix to parquet and writes `FeatureArtifact` with `feature_manifest`, `feature_matrix_ref`, `matrix_hash`, and `config_hash`.
 
 No LLM involved.
 
@@ -478,9 +483,9 @@ No LLM involved.
 
 **Reads from session:** latest `FeatureArtifact`, `market_profile` (determines regime labels)
 
-**Cache check:** `feature_hash = hash(feature_artifact_id)` — searches all sessions. On hit: copies with provenance.
+**Cache check:** `feature_hash = stable_hash(feature_artifact.matrix_hash + canonical_json(market_profile.regime_labels) + canonical_json(analysis_config))` — searches all sessions. On hit: copies with provenance.
 
-**On miss:** runs:
+**On miss:** reads `FeatureArtifact.feature_matrix_ref` and runs:
 - `OilRegimeClassifier` → regime + confidence
 - `DirectionClassifier` → direction + confidence
 - SHAP via tabpfn-extensions → feature_importance
@@ -585,6 +590,7 @@ execute_in_sandbox → run tests
 │ featurizer_config: JSONB                         │
 │ pending_sources: JSONB                           │
 │ conversation: JSONB                              │
+│ activity_events: JSONB                           │
 │ stage_history: JSONB                             │
 │ created_at: TIMESTAMPTZ                          │
 │ updated_at: TIMESTAMPTZ                          │
@@ -631,6 +637,9 @@ execute_in_sandbox → run tests
             │   JSONB              │ │
             │ feature_manifest:    │ │
             │   JSONB              │ │
+            │ feature_matrix_ref:  │ │
+            │   TEXT               │ │
+            │ matrix_hash: TEXT    │ │
             │ config_hash:         │ │
             │   TEXT (IDX)         │ │
             │ cached_from_         │ │
@@ -759,11 +768,11 @@ The chat window behaves differently depending on the current session stage. Duri
 CHAT_ALLOWED_STAGES    = {SessionStage.USER_REVIEW, SessionStage.FOLLOW_UP}
 PROCEED_ALLOWED_STAGES = {SessionStage.USER_REVIEW}
 
-# POST /sessions/{id}/chat
+# POST /api/sessions/{id}/chat
 if session.stage not in CHAT_ALLOWED_STAGES:
     raise HTTPException(409, f"chat not available at stage {session.stage}")
 
-# POST /sessions/{id}/proceed
+# POST /api/sessions/{id}/proceed
 if session.stage not in PROCEED_ALLOWED_STAGES:
     raise HTTPException(409, f"proceed not available at stage {session.stage}")
 ```
@@ -809,9 +818,9 @@ def transition_stage(session: Session, new_stage: SessionStage) -> None:
 Before each deterministic stage runs, the service checks whether a matching artifact already exists in the current session:
 
 ```
-FEATURIZING:  config_hash = hash(data_artifact_id + featurizer_config)
+FEATURIZING:  config_hash = stable_hash(data_artifact.source_hash + canonical featurizer_config)
               → search FeatureArtifact WHERE session_id = current AND config_hash = X
-ANALYZING:    feature_hash = hash(feature_artifact_id)
+ANALYZING:    feature_hash = stable_hash(feature_artifact.matrix_hash + canonical market profile analysis config)
               → search AnalysisResult WHERE session_id = current AND feature_hash = X
 ```
 
@@ -820,8 +829,10 @@ ANALYZING:    feature_hash = hash(feature_artifact_id)
 When a new session starts, each stage checks globally:
 
 ```
-FEATURIZING:  → search FeatureArtifact WHERE config_hash = X (any session)
-ANALYZING:    → search AnalysisResult WHERE feature_hash = X (any session)
+FEATURIZING:  config_hash = stable_hash(data_artifact.source_hash + canonical featurizer_config)
+              → search FeatureArtifact WHERE config_hash = X (any session)
+ANALYZING:    feature_hash = stable_hash(feature_artifact.matrix_hash + canonical market profile analysis config)
+              → search AnalysisResult WHERE feature_hash = X (any session)
 ```
 
 On a hit, the artifact is **copied** into the new session with provenance:
@@ -907,6 +918,10 @@ The user can still influence this flow by calling `POST /cancel` during DATA_GAT
   "auto": false,
   "featurizer_config": { "windows": [5, 20, 60], "lags": [1, 5, 20], "feature_families": [...] },
   "conversation": [...],
+  "activity_events": [
+    { "event_id": "evt-1", "type": "stage_transition", "from": "data_gathering", "to": "user_review", "created_at": "..." },
+    { "event_id": "evt-2", "type": "tool_result", "agent": "DataAgent", "tool": "fetch_yfinance", "output": {...}, "created_at": "..." }
+  ],
   "stage_history": [
     { "stage": "configuring",    "entered_at": "2026-05-31T10:00:00Z" },
     { "stage": "data_gathering", "entered_at": "2026-05-31T10:00:01Z" },
@@ -990,6 +1005,12 @@ Supported upload formats: **CSV** and **Parquet**. Max file size: **50MB**. The 
   "round": 1,
   "sources": [...],
   "data_manifest": { "tickers": [...], "rows": 126, "missing_pct": {...}, "summary_stats": {...} },
+  "series_preview": {
+    "CL=F": [
+      { "date": "2023-01-01", "value": 78.4 },
+      { "date": "2023-01-02", "value": 79.1 }
+    ]
+  },
   "cache_hit": false,
   "cached_from_session_id": null
 }
@@ -1008,7 +1029,7 @@ Supported upload formats: **CSV** and **Parquet**. Max file size: **50MB**. The 
 }
 ```
 
-Note: `raw_data` is **never returned** to the frontend — it is server-side only, consumed exclusively by FeaturizerService.
+Note: `raw_data` is **never returned** to the frontend — it is server-side only, consumed exclusively by FeaturizerService. Dashboard charts use `series_preview`, a capped/downsampled projection derived from raw data. Default cap: 500 points per series, WTI first.
 
 ### `GET /api/market/snapshot`
 ```json
@@ -1047,11 +1068,11 @@ FeaturizerService reads from `raw_data` if set, otherwise reads from the file at
 The WebSocket stream is **live-only** — it does not replay past messages on reconnect. This keeps the infrastructure simple (plain Redis pub/sub, no message log).
 
 Recovery surface on reconnect or page refresh:
-1. Frontend calls `GET /api/sessions/{id}` — returns current `stage`, `status`, `artifacts`, `conversation`, and `stage_history`
+1. Frontend calls `GET /api/sessions/{id}` — returns current `stage`, `status`, `artifacts`, `conversation`, `activity_events`, and `stage_history`
 2. Frontend reconnects to `WS /ws/sessions/{id}/stream` for future messages
 3. If `status = RUNNING`, the stream resumes mid-stream (the background task is still publishing)
 
-For the dashboard: all completed artifact data is available via `GET /api/sessions/{id}/artifacts/{id}` at any time. Nothing is lost — only the live streaming log (thoughts, tool calls) of a completed stage cannot be replayed.
+For the dashboard: all completed artifact data is available via `GET /api/sessions/{id}/artifacts/{id}` at any time. For the activity feed: completed stage events are rebuilt from `activity_events`; only messages published before they were durably appended can be lost, so services must append before publish.
 
 ---
 
@@ -1124,6 +1145,8 @@ All messages are JSON lines on `WS /ws/sessions/{id}/stream`.
 { "type": "error",             "message": "..." }
 ```
 
+Before publishing any message, the backend appends the same payload plus `event_id` and `created_at` to `Session.activity_events` in the same logical operation that updates related session/artifact state.
+
 ---
 
 ## Market Profiles
@@ -1165,26 +1188,27 @@ A market profile drives: which data connectors are recommended, the default feat
 - WebSocket stub (connects, echoes events, no agents yet)
 
 ### PR 2 — Deterministic Pipeline Stages
+- Extend `TimeSeriesFeaturizer` to honor `feature_families` and `energy_specific` in addition to `windows` and `lags`
 - `FeaturizerService` wrapping existing `TimeSeriesFeaturizer`
 - `TabPFNService` wrapping existing `OilRegimeClassifier` + `DirectionClassifier`
 - Stage machine: `POST /proceed`, `POST /rerun`, `POST /cancel`
 - Within-session artifact cache (config_hash + feature_hash lookups)
+- `POST /api/sessions/{id}/upload` → DataArtifact, so deterministic stages can run before DataAgent exists
 - Background task pattern wired for both services
-- Full pipeline: FEATURIZING → ANALYZING runs end-to-end
+- Deterministic pipeline: uploaded/seeded DataArtifact → FEATURIZING → ANALYZING runs end-to-end
 
 ### PR 3 — DataSourceDiscoveryAgent + DataAgent
 - Built-in connector registry seeded (yfinance, FRED, EIA, GPR)
 - `DataSourceDiscoveryAgent` with HTTP primitive tools
 - `DataAgent` with full tool set + connector dispatch
 - `ReviewInterpreter` (thin LLM call at USER_REVIEW)
-- `POST /sessions/{id}/upload` → DataArtifact
 - `GET /api/connectors`, `POST /api/connectors`
 - Full pipeline from session creation to USER_REVIEW gate
 
 ### PR 4 — ExplanationAgent + FollowUpAgent
 - `ExplanationAgent` with WebSocket streaming
 - `FollowUpAgent` with stage regression tools
-- `POST /sessions/{id}/chat` wired to both agents based on current stage
+- `POST /api/sessions/{id}/chat` wired to both agents based on current stage
 - `GET /api/sessions/{id}/artifacts/{artifact_id}` for dashboard rendering
 - Full end-to-end pipeline working
 
