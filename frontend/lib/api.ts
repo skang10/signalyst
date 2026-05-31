@@ -112,6 +112,12 @@ export const api = {
       method: "POST",
     }),
 
+  continueRun: (runId: string, message: string) =>
+    request<{ run_id: string }>(`/api/runs/${runId}/continue`, {
+      method: "POST",
+      body: JSON.stringify({ message }),
+    }),
+
   getHistory: () =>
     request<HistoryItem[]>("/api/history"),
 
