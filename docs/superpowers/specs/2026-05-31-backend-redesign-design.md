@@ -195,6 +195,7 @@ class Session(SQLModel, table=True):
     auto:              bool          = False   # skip USER_REVIEW gate
     featurizer_config: JSON          = {}      # mutable; patched by ReviewInterpreter / FollowUpAgent
     conversation:      JSON          = []      # ChatMessage[] — append-only, full history
+    stage_history:     JSON          = []      # [{ stage, entered_at }] — append-only, set by transition_stage()
     created_at:        datetime
     updated_at:        datetime
 ```
@@ -556,6 +557,7 @@ execute_in_sandbox → run tests
 │ auto: BOOLEAN                                    │
 │ featurizer_config: JSONB                         │
 │ conversation: JSONB                              │
+│ stage_history: JSONB                             │
 │ created_at: TIMESTAMPTZ                          │
 │ updated_at: TIMESTAMPTZ                          │
 └──────────────────────┬───────────────────────────┘
@@ -701,6 +703,73 @@ CREATE INDEX idx_analysis_result_session_id    ON analysis_result(session_id);
 
 -- Connector active lookup
 CREATE INDEX idx_connector_is_active           ON connector(is_active);
+```
+
+---
+
+## Chat Window Stage Gating
+
+### Stage Behaviour
+
+The chat window behaves differently depending on the current session stage. During active stages (agent or service running), input is disabled and the window shows the live stream. During interactive stages, the user can type.
+
+| Stage | Chat input | `/proceed` | What the chat window shows |
+|---|---|---|---|
+| CONFIGURING | disabled | — | "Starting data discovery..." |
+| DATA_GATHERING | disabled | — | Live agent stream: thoughts, tool calls, results |
+| USER_REVIEW | **enabled** | **enabled** | Data dashboard + chat input |
+| FEATURIZING | disabled | — | "Running featurizer..." with progress |
+| ANALYZING | disabled | — | "Running TabPFN..." with progress |
+| EXPLAINING | disabled | — | Live explanation streaming |
+| FOLLOW_UP | **enabled** | — | Full dashboard + chat input |
+
+### Stage Validation on Endpoints
+
+`POST /chat` and `POST /proceed` enforce stage constraints on the backend. Calling them at the wrong stage returns `409 Conflict` — the frontend disables input during active stages, but the backend enforces it as a hard rule regardless.
+
+```python
+CHAT_ALLOWED_STAGES    = {SessionStage.USER_REVIEW, SessionStage.FOLLOW_UP}
+PROCEED_ALLOWED_STAGES = {SessionStage.USER_REVIEW}
+
+# POST /sessions/{id}/chat
+if session.stage not in CHAT_ALLOWED_STAGES:
+    raise HTTPException(409, f"chat not available at stage {session.stage}")
+
+# POST /sessions/{id}/proceed
+if session.stage not in PROCEED_ALLOWED_STAGES:
+    raise HTTPException(409, f"proceed not available at stage {session.stage}")
+```
+
+All other stage-triggering endpoints (`/rerun`, `/cancel`) are valid only when an appropriate background task is active; they also return `409` otherwise.
+
+### Stage History
+
+`Session` carries an append-only `stage_history` field — a log of when each stage was entered. Used by the frontend to show how long each stage took, and by debugging/observability tooling.
+
+```python
+# Added to Session model
+stage_history: JSONB  # append-only
+
+# Shape — one entry appended each time session.stage changes
+[
+  { "stage": "configuring",    "entered_at": "2026-05-31T10:00:00Z" },
+  { "stage": "data_gathering", "entered_at": "2026-05-31T10:00:01Z" },
+  { "stage": "user_review",    "entered_at": "2026-05-31T10:00:18Z" },
+  { "stage": "featurizing",    "entered_at": "2026-05-31T10:01:45Z" },
+  ...
+]
+```
+
+The stage transition helper that all agents and services call:
+
+```python
+def transition_stage(session: Session, new_stage: SessionStage) -> None:
+    session.stage = new_stage
+    session.stage_history = [
+        *session.stage_history,
+        {"stage": new_stage.value, "entered_at": datetime.now(UTC).isoformat()},
+    ]
+    session.updated_at = datetime.now(UTC)
 ```
 
 ---
