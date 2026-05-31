@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from api.models import RunResult
-from src.agent import run_agent_loop
+from src.agent import run_agent_continuation, run_agent_loop
 from src.agent import tabpfn_progress as _tabpfn_progress
+from src.agent.loop import build_system_prompt, format_result_context
 from src.db.models import Run, RunStatus
 from src.db.session import get_session
 
@@ -33,6 +34,14 @@ class AnalyzeResponse(BaseModel):
 class CancelRunResponse(BaseModel):
     run_id: str
     status: RunStatus
+
+
+class ContinueRequest(BaseModel):
+    message: str
+
+
+class ContinueResponse(BaseModel):
+    run_id: str
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -104,6 +113,65 @@ async def cancel_run(run_id: str, session: SessionDep) -> CancelRunResponse:
     _tabpfn_progress.cancel(run_id)
 
     return CancelRunResponse(run_id=run_id, status=RunStatus.CANCELED)
+
+
+@router.post(
+    "/runs/{run_id}/continue",
+    response_model=ContinueResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def continue_run(
+    run_id: str,
+    request: ContinueRequest,
+    background_tasks: BackgroundTasks,
+    session: SessionDep,
+) -> ContinueResponse:
+    try:
+        source_uid = uuid.UUID(run_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid run_id"
+        )
+
+    source_run = await session.get(Run, source_uid)
+    if source_run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    if source_run.status != RunStatus.COMPLETED:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Source run is not completed"
+        )
+    if source_run.result is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Source run has no result")
+
+    context_str = format_result_context(
+        source_run.result,
+        source_run.date_range_start,
+        source_run.date_range_end,
+    )
+    messages: list[dict] = [  # type: ignore[type-arg]
+        {"role": "system", "content": build_system_prompt()},
+        {"role": "user", "content": context_str},
+        {"role": "user", "content": request.message},
+    ]
+
+    new_run = Run(
+        date_range_start=source_run.date_range_start,
+        date_range_end=source_run.date_range_end,
+        tasks=source_run.tasks,
+    )
+    session.add(new_run)
+    await session.commit()
+    await session.refresh(new_run)
+
+    background_tasks.add_task(
+        run_agent_continuation,
+        new_run.id,
+        messages,
+        source_run.date_range_start,
+        source_run.date_range_end,
+    )
+
+    return ContinueResponse(run_id=str(new_run.id))
 
 
 @router.get("/history", response_model=list[RunResult])
