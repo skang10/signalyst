@@ -1010,6 +1010,23 @@ Supported upload formats: **CSV** and **Parquet**. Max file size: **50MB**. The 
 
 Note: `raw_data` is **never returned** to the frontend — it is server-side only, consumed exclusively by FeaturizerService.
 
+### `GET /api/market/snapshot`
+```json
+// Response — 200 OK
+// Live indicator values fetched via yfinance + FRED. No session needed.
+// Used by the home page to populate the indicators strip.
+{
+  "wti":  { "price": 83.21, "change_pct": 1.4 },
+  "brent": { "price": 86.44, "change_pct": 1.1 },
+  "dxy":  { "price": 103.4, "change_pct": -0.3 },
+  "gpr":  { "value": 214,   "change_pct": 8.3 },
+  "eia_inventory_change_mmbbl": 2.1,
+  "fetched_at": "2026-05-31T10:00:00Z"
+}
+```
+
+Fetches: `CL=F` and `BZ=F` via yfinance (latest close + prior close for % change), DXY via yfinance, GPR index via FRED, EIA weekly inventory build via EIA API. Returns a lightweight snapshot — no caching, no session dependency. If a source is unavailable, its field is `null`.
+
 ---
 
 ## Operational Concerns
@@ -1079,6 +1096,9 @@ Connectors
   POST   /api/connectors                             register connector spec manually
   DELETE /api/connectors/{id}                        remove user-registered connector
   POST   /api/connectors/build                       trigger ConnectorBuilderAgent
+
+Market
+  GET    /api/market/snapshot                        live indicator snapshot for home page — no session needed
 
 WebSocket
   WS     /ws/sessions/{id}/stream                   stream all activity + stage transitions
