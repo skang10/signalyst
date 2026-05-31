@@ -186,21 +186,45 @@ class SessionStage(str, Enum):
     EXPLAINING     = "explaining"
     FOLLOW_UP      = "follow_up"
 
+class SessionStatus(str, Enum):
+    RUNNING  = "running"   # a background task is actively executing
+    WAITING  = "waiting"   # at a user gate (USER_REVIEW, FOLLOW_UP) or idle
+    FAILED   = "failed"    # background task crashed — see session.error
+    CANCELED = "canceled"  # user canceled via POST /cancel
+
 class Session(SQLModel, table=True):
     id:                UUID       # primary key
     market_profile:    str        # "oil" | "sp500" | "eurusd" | ...
     timeframe_start:   date
     timeframe_end:     date
     stage:             SessionStage  = CONFIGURING
+    status:            SessionStatus = WAITING
+    error:             str | None    = None    # set when status = FAILED
     auto:              bool          = False   # skip USER_REVIEW gate
     featurizer_config: JSON          = {}      # mutable; patched by ReviewInterpreter / FollowUpAgent
+    pending_sources:   JSON          = []      # DataSource[] written by DataSourceDiscoveryAgent,
+                                               # read by DataAgent — cleared after DATA_GATHERING
     conversation:      JSON          = []      # ChatMessage[] — append-only, full history
     stage_history:     JSON          = []      # [{ stage, entered_at }] — append-only, set by transition_stage()
     created_at:        datetime
     updated_at:        datetime
 ```
 
+`stage` tracks *where* in the pipeline the session is. `status` tracks *what it is doing* at that stage. Together they give the full picture:
+
+| stage | status | Meaning |
+|---|---|---|
+| DATA_GATHERING | RUNNING | DataAgent is fetching data |
+| USER_REVIEW | WAITING | Waiting for user to proceed or chat |
+| FEATURIZING | RUNNING | FeaturizerService is computing |
+| DATA_GATHERING | FAILED | DataAgent crashed — see `error` |
+| FOLLOW_UP | CANCELED | User canceled mid-run |
+
+On failure: `status = FAILED`, `error = <message>`, `stage` stays at the failed stage. The user can retry by calling `POST /rerun { stage: <failed_stage> }`.
+
 `conversation` is the shared context for all LLM agents. Every agent reads it at invocation. Every user message and agent response is appended here.
+
+`pending_sources` is the handoff channel between DataSourceDiscoveryAgent and DataAgent — see DataSourceDiscoveryAgent → DataAgent Handoff below.
 
 `featurizer_config` default for the oil profile:
 ```json
@@ -225,7 +249,8 @@ class DataArtifact(SQLModel, table=True):
     round:                   int        # 1, 2, 3 ... increments on refetch
     sources:                 JSON       # DataSource[] — what was fetched
     data_manifest:           JSON       # shape, date coverage, missing %, summary stats
-    raw_data:                JSON       # actual time series (or S3 ref for large sets)
+    raw_data:                JSON|None  # actual time series — null if raw_data_ref is set
+    raw_data_ref:            str|None   # file path or S3 URI — used when size > 5MB
     source_hash:             str        # hash(market_profile + timeframe + sources)
     cached_from_session_id:  UUID|None  # provenance if cache hit
     cached_from_artifact_id: UUID|None
@@ -554,8 +579,11 @@ execute_in_sandbox → run tests
 │ timeframe_start: DATE                            │
 │ timeframe_end: DATE                              │
 │ stage: TEXT                                      │
+│ status: TEXT                                     │
+│ error: TEXT (nullable)                           │
 │ auto: BOOLEAN                                    │
 │ featurizer_config: JSONB                         │
+│ pending_sources: JSONB                           │
 │ conversation: JSONB                              │
 │ stage_history: JSONB                             │
 │ created_at: TIMESTAMPTZ                          │
@@ -812,6 +840,215 @@ The WebSocket stream includes a `cache_hit` event:
 ```
 
 `ExplanationAgent` always re-runs regardless of cache state.
+
+---
+
+## DataSourceDiscoveryAgent → DataAgent Handoff
+
+DataSourceDiscoveryAgent and DataAgent run **sequentially and automatically** — there is no user gate between them. Adding a second gate here would create three user interruption points (source approval, data review, analysis), which is too many for the common case.
+
+**Flow:**
+
+```
+POST /api/sessions
+  → DataSourceDiscoveryAgent starts in background
+  → streams recommendations to frontend
+  → writes approved sources to Session.pending_sources
+  → session.stage stays CONFIGURING during this phase
+  → on completion: session.stage → DATA_GATHERING, DataAgent starts automatically
+       │
+       ▼
+DataAgent reads Session.pending_sources
+  → fetches each source
+  → clears pending_sources on completion
+  → writes DataArtifact
+  → session.stage → USER_REVIEW
+```
+
+`pending_sources` is the handoff channel — a JSONB array of `DataSource` objects written by DataSourceDiscoveryAgent and consumed by DataAgent. It is cleared after DATA_GATHERING completes.
+
+The user can still influence this flow by calling `POST /cancel` during DATA_GATHERING if they want to stop and adjust.
+
+**Auto mode:** DataSourceDiscoveryAgent still runs and streams recommendations (its output is useful context), but the USER_REVIEW gate is skipped — FEATURIZING starts immediately after DATA_GATHERING completes.
+
+---
+
+## Request & Response Shapes
+
+### `POST /api/sessions`
+```json
+// Request
+{
+  "market_profile": "oil",
+  "timeframe_start": "2023-01-01",
+  "timeframe_end": "2023-06-30",
+  "auto": false
+}
+
+// Response — 202 Accepted
+{
+  "session_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### `GET /api/sessions/{id}`
+```json
+// Response — 200 OK
+// Returns session state with artifact IDs only — not full artifact data.
+// Full artifact data is fetched separately via GET /api/sessions/{id}/artifacts/{artifact_id}
+{
+  "session_id": "550e8400-...",
+  "market_profile": "oil",
+  "timeframe_start": "2023-01-01",
+  "timeframe_end": "2023-06-30",
+  "stage": "follow_up",
+  "status": "waiting",
+  "error": null,
+  "auto": false,
+  "featurizer_config": { "windows": [5, 20, 60], "lags": [1, 5, 20], "feature_families": [...] },
+  "conversation": [...],
+  "stage_history": [
+    { "stage": "configuring",    "entered_at": "2026-05-31T10:00:00Z" },
+    { "stage": "data_gathering", "entered_at": "2026-05-31T10:00:01Z" },
+    ...
+  ],
+  "artifacts": {
+    "data": [
+      { "artifact_id": "uuid-1", "round": 1, "cache_hit": false, "created_at": "..." }
+    ],
+    "features": [
+      { "artifact_id": "uuid-2", "cache_hit": false, "created_at": "..." }
+    ],
+    "analysis": [
+      { "artifact_id": "uuid-3", "cache_hit": false, "has_summary": true, "created_at": "..." }
+    ]
+  },
+  "created_at": "2026-05-31T10:00:00Z",
+  "updated_at": "2026-05-31T10:05:30Z"
+}
+```
+
+### `POST /api/sessions/{id}/chat`
+```json
+// Request
+{ "message": "Why is drift elevated?" }
+
+// Response — 202 Accepted
+// The agent's reply arrives over WebSocket, not in this response
+{ "session_id": "550e8400-..." }
+```
+
+### `POST /api/sessions/{id}/rerun`
+```json
+// Request
+{
+  "stage": "featurizing",
+  "featurizer_config_patch": { "windows": [5, 30, 90] }   // optional — applied before rerun
+}
+
+// Response — 202 Accepted
+{ "session_id": "550e8400-..." }
+```
+
+### `POST /api/sessions/{id}/proceed`
+```json
+// No request body required
+
+// Response — 202 Accepted
+{ "session_id": "550e8400-..." }
+```
+
+### `POST /api/sessions/{id}/cancel`
+```json
+// No request body required
+
+// Response — 200 OK
+{ "session_id": "550e8400-...", "stage": "data_gathering", "status": "canceled" }
+```
+
+### `POST /api/sessions/{id}/upload`
+```json
+// Request — multipart/form-data
+// Field: file (CSV or Parquet)
+// Field: source_name (string, e.g. "My Custom OPEC Data")
+
+// Response — 202 Accepted
+{ "artifact_id": "uuid-new-data-artifact" }
+```
+
+Supported upload formats: **CSV** and **Parquet**. Max file size: **50MB**. The backend parses the file, builds the `data_manifest`, and writes a `DataArtifact` with `source_type: "upload"`. This bypasses DataAgent entirely.
+
+### `GET /api/sessions/{id}/artifacts/{artifact_id}`
+```json
+// Response — 200 OK — full artifact data for dashboard rendering
+// Shape varies by artifact kind:
+
+// DataArtifact
+{
+  "kind": "data",
+  "artifact_id": "...",
+  "round": 1,
+  "sources": [...],
+  "data_manifest": { "tickers": [...], "rows": 126, "missing_pct": {...}, "summary_stats": {...} },
+  "cache_hit": false,
+  "cached_from_session_id": null
+}
+
+// AnalysisResult
+{
+  "kind": "analysis",
+  "artifact_id": "...",
+  "regime": { "regime": "geopolitical_spike", "confidence": 0.82 },
+  "direction": { "direction": "up", "confidence": 0.71 },
+  "feature_importance": { "top_features": [...] },
+  "drift": { "drift_detected": true, "psi_score": 0.23 },
+  "backtest": { "sharpe": 1.4, "accuracy": 0.71 },
+  "summary": "Markets are in a geopolitical spike regime...",
+  "cache_hit": false
+}
+```
+
+Note: `raw_data` is **never returned** to the frontend — it is server-side only, consumed exclusively by FeaturizerService.
+
+---
+
+## Operational Concerns
+
+### raw_data Storage
+
+`DataArtifact.raw_data` is stored as JSONB for datasets under **5MB** (typically ≤ 3 years × 10 tickers × daily frequency). Above that threshold, data is written to a file and `raw_data_ref` holds the path/URI instead (`raw_data` is null).
+
+- **Early PRs (1–4):** local filesystem only. `raw_data_ref` is a relative file path under `data/artifacts/{artifact_id}.parquet`.
+- **PR 5+:** S3-compatible storage (configurable via `ARTIFACT_STORAGE_BACKEND` env var: `local` | `s3`).
+
+FeaturizerService reads from `raw_data` if set, otherwise reads from the file at `raw_data_ref`. This is transparent to callers.
+
+---
+
+### WebSocket Reconnection
+
+The WebSocket stream is **live-only** — it does not replay past messages on reconnect. This keeps the infrastructure simple (plain Redis pub/sub, no message log).
+
+Recovery surface on reconnect or page refresh:
+1. Frontend calls `GET /api/sessions/{id}` — returns current `stage`, `status`, `artifacts`, `conversation`, and `stage_history`
+2. Frontend reconnects to `WS /ws/sessions/{id}/stream` for future messages
+3. If `status = RUNNING`, the stream resumes mid-stream (the background task is still publishing)
+
+For the dashboard: all completed artifact data is available via `GET /api/sessions/{id}/artifacts/{id}` at any time. Nothing is lost — only the live streaming log (thoughts, tool calls) of a completed stage cannot be replayed.
+
+---
+
+### Concurrency Protection
+
+Every endpoint that starts a background task checks `session.status` first. If `status == RUNNING`, the endpoint returns `409 Conflict` — a task is already active for this session.
+
+```python
+# Applied to: POST /proceed, POST /rerun, POST /chat (at FOLLOW_UP)
+if session.status == SessionStatus.RUNNING:
+    raise HTTPException(409, "a task is already running for this session — POST /cancel to stop it")
+```
+
+`POST /cancel` is the only endpoint valid while `status == RUNNING`. After cancellation (`status = CANCELED`), the user can call `POST /rerun` to restart from the failed/canceled stage.
 
 ---
 
