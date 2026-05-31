@@ -622,11 +622,9 @@ async def run_agent_continuation(
         }
 
         log.info("agent.continuation.done", run_id=str(run_id), model=settings.agent_model, **usage)
-        await _publish_phase(redis_client, channel, run_id, "completed")
-        await _publish(
-            redis_client, channel, {"type": "done", "summary": last_text, "usage": usage}
-        )
 
+        # Commit to DB before publishing done — frontend calls api.getRun immediately
+        # on receiving the done event, so the result must already be persisted.
         async with AsyncSession(engine) as session:
             run = await session.get(Run, run_id)
             if run is not None:
@@ -643,6 +641,11 @@ async def run_agent_continuation(
                     "data_manifest": context.data_manifest,
                 }
                 await session.commit()
+
+        await _publish_phase(redis_client, channel, run_id, "completed")
+        await _publish(
+            redis_client, channel, {"type": "done", "summary": last_text, "usage": usage}
+        )
 
     except RunCanceled:
         await _publish_phase(redis_client, channel, run_id, "canceled")
