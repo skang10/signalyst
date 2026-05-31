@@ -174,6 +174,25 @@ The backend redesign is backend-only. The entire frontend needs rebuilding to ma
 
 ---
 
+## Authentication (Mid Tier)
+
+JWT-based auth on the backend, NextAuth.js on the frontend. All dependencies are already installed (`python-jose`, `passlib[bcrypt]`, `next-auth`) — not yet wired up.
+
+**Backend:**
+- User model in PostgreSQL (SQLModel)
+- `POST /api/auth/register` — hashed password via `passlib[bcrypt]`
+- `POST /api/auth/token` — OAuth2 password flow, returns short-lived JWT access token
+- `Depends(get_current_user)` guard on all non-public routes
+- Session history scoped per user — `GET /api/sessions` returns only the authenticated user's sessions
+
+**Frontend:**
+- NextAuth.js Credentials provider backed by `POST /api/auth/token`
+- `useSession()` hook gates the dashboard; unauthenticated users redirected to `/login`
+- API client attaches `Authorization: Bearer <token>` on every request
+- OAuth providers (GitHub, Google) can be added later via NextAuth.js config — no backend changes needed
+
+---
+
 ## Scope Tiers
 
 | Tier | Scope |
