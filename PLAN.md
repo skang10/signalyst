@@ -9,7 +9,7 @@ Most real-world prediction problems have both a temporal dimension (things chang
 **Key TabPFN advantage exploited**: In-context learning means no retraining. When new data arrives, just update the context window — a genuine architectural advantage over tree models for streaming/online scenarios.
 
 For the current backend architecture, agent definitions, session data model, API design, and PR breakdown see:
-**[`docs/superpowers/specs/2026-05-31-backend-redesign-design.md`](docs/superpowers/specs/2026-05-31-backend-redesign-design.md)**
+**[`docs/backend-redesign.md`](docs/backend-redesign.md)**
 
 ---
 
