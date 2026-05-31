@@ -143,11 +143,14 @@ async def continue_run(
     if source_run.result is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Source run has no result")
 
-    context_str = format_result_context(
-        source_run.result,
-        source_run.date_range_start,
-        source_run.date_range_end,
-    )
+    # Read all attributes before the commit — SQLAlchemy expires objects after commit,
+    # and lazy-loading in an async context raises MissingGreenlet.
+    src_result = source_run.result
+    src_date_start = source_run.date_range_start
+    src_date_end = source_run.date_range_end
+    src_tasks = list(source_run.tasks)
+
+    context_str = format_result_context(src_result, src_date_start, src_date_end)
     messages: list[dict] = [  # type: ignore[type-arg]
         {"role": "system", "content": build_system_prompt()},
         {"role": "user", "content": context_str},
@@ -155,9 +158,9 @@ async def continue_run(
     ]
 
     new_run = Run(
-        date_range_start=source_run.date_range_start,
-        date_range_end=source_run.date_range_end,
-        tasks=source_run.tasks,
+        date_range_start=src_date_start,
+        date_range_end=src_date_end,
+        tasks=src_tasks,
     )
     session.add(new_run)
     await session.commit()
@@ -167,8 +170,8 @@ async def continue_run(
         run_agent_continuation,
         new_run.id,
         messages,
-        source_run.date_range_start,
-        source_run.date_range_end,
+        src_date_start,
+        src_date_end,
     )
 
     return ContinueResponse(run_id=str(new_run.id))
