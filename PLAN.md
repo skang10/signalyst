@@ -146,6 +146,34 @@ Satellite image → DINOv2 encoder → embedding vector
 
 ---
 
+## Remaining Frontend Work
+
+The backend redesign is backend-only. The entire frontend needs rebuilding to match the new session-based, multi-stage flow. This is separate from the 7 backend PRs.
+
+### Core (required for the new flow)
+- **Session creation form** — market profile dropdown, timeframe, auto mode toggle
+- **DataSourceDiscovery stream** — show agent recommendations before data fetch starts
+- **Data review dashboard** (USER_REVIEW gate) — data manifest, coverage stats, raw time series charts; chat input enabled
+- **Stage progress indicators** — per-stage status (RUNNING / WAITING / FAILED) with live stream during active stages
+- **Results dashboard** (FOLLOW_UP) — regime card, direction card, SHAP feature importance, backtest chart, agent summary
+- **Chat panel** — enabled at USER_REVIEW and FOLLOW_UP, disabled during active stages
+- **Session history page** — list of past sessions with stage, status, last updated; `GET /api/sessions`
+- **Cache hit indicators** — badge showing "Retrieved from session #N · Cached" on cached artifacts
+
+### Gaps from previous frontend (not yet rebuilt)
+- **Geopolitical Risk Chart** — GPR index overlay on WTI price; data is fetched by the agent but no chart component exists
+- **History Page** — `GET /api/sessions` endpoint exists on the backend; no UI
+
+### Phase 2 Frontend
+- **Derivatives Panel** — backend fully implemented (`src/derivatives/` — GBM/Heston, options pricing, Greeks); frontend not built
+  - Animated Monte Carlo path fan chart
+  - Payoff surface (price vs. time)
+  - Greeks dashboard (delta, gamma, vega, theta)
+  - European vs. American side-by-side comparison
+- **Save & export** — PDF report, CSV data, shareable read-only link
+
+---
+
 ## Scope Tiers
 
 | Tier | Scope |
