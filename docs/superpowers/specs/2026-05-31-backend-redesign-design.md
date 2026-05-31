@@ -527,6 +527,184 @@ execute_in_sandbox → run tests
 
 ---
 
+## Database Model Relationships
+
+### Entity Relationship Diagram
+
+```
+┌─────────────────────┐
+│    MarketProfile    │
+│─────────────────────│
+│ id: TEXT (PK)       │
+│ name                │
+│ description         │
+│ default_connectors  │
+│ default_feat_config │
+│ regime_labels       │
+│ created_at          │
+└──────────┬──────────┘
+           │ referenced by string (not FK — profiles are config, not rows)
+           │
+┌──────────▼──────────────────────────────────────┐
+│                     Session                      │
+│──────────────────────────────────────────────────│
+│ id: UUID (PK)                                    │
+│ market_profile: TEXT                             │
+│ timeframe_start: DATE                            │
+│ timeframe_end: DATE                              │
+│ stage: TEXT                                      │
+│ auto: BOOLEAN                                    │
+│ featurizer_config: JSONB                         │
+│ conversation: JSONB                              │
+│ created_at: TIMESTAMPTZ                          │
+│ updated_at: TIMESTAMPTZ                          │
+└──────────────────────┬───────────────────────────┘
+                       │ 1
+          ┌────────────┼─────────────┐
+          │ *          │ *           │ *
+          ▼            │             │
+┌─────────────────┐    │             │
+│  DataArtifact   │    │             │
+│─────────────────│    │             │
+│ id: UUID (PK)   │    │             │
+│ session_id: UUID│    │             │
+│   (FK→Session)  │    │             │
+│ round: INTEGER  │    │             │
+│ sources: JSONB  │    │             │
+│ data_manifest:  │    │             │
+│   JSONB         │    │             │
+│ raw_data: JSONB │    │             │
+│ source_hash:    │    │             │
+│   TEXT (IDX)    │    │             │
+│ cached_from_    │    │             │
+│   session_id:   │    │             │
+│   UUID (nullable│    │             │
+│   FK→Session)   │    │             │
+│ cached_from_    │    │             │
+│   artifact_id:  │    │             │
+│   UUID (nullable│    │             │
+│   self-ref)     │    │             │
+│ cache_hit: BOOL │    │             │
+│ created_at      │    │             │
+└────────┬────────┘    │             │
+         │ 1           │             │
+         │ *           ▼             │
+         │  ┌──────────────────────┐ │
+         │  │   FeatureArtifact    │ │
+         │  │──────────────────────│ │
+         └─►│ id: UUID (PK)        │ │
+            │ session_id: UUID     │ │
+            │   (FK→Session)       │ │
+            │ data_artifact_id:    │ │
+            │   UUID (FK→Data...)  │ │
+            │ feat_config_snapshot │ │
+            │   JSONB              │ │
+            │ feature_manifest:    │ │
+            │   JSONB              │ │
+            │ config_hash:         │ │
+            │   TEXT (IDX)         │ │
+            │ cached_from_         │ │
+            │   session_id: UUID   │ │
+            │ cached_from_         │ │
+            │   artifact_id: UUID  │ │
+            │ cache_hit: BOOL      │ │
+            │ created_at           │ │
+            └─────────┬────────────┘ │
+                      │ 1            │
+                      │ *            ▼
+                      │  ┌───────────────────────┐
+                      │  │    AnalysisResult      │
+                      │  │───────────────────────│
+                      └─►│ id: UUID (PK)          │
+                         │ session_id: UUID        │
+                         │   (FK→Session)          │
+                         │ feature_artifact_id:    │
+                         │   UUID (FK→Feature...)  │
+                         │ regime: JSONB           │
+                         │ direction: JSONB        │
+                         │ feature_importance:JSONB│
+                         │ drift: JSONB            │
+                         │ backtest: JSONB         │
+                         │ summary: TEXT (nullable)│
+                         │ feature_hash:           │
+                         │   TEXT (IDX)            │
+                         │ cached_from_            │
+                         │   session_id: UUID      │
+                         │ cached_from_            │
+                         │   artifact_id: UUID     │
+                         │ cache_hit: BOOL         │
+                         │ created_at              │
+                         └─────────────────────────┘
+
+┌──────────────────────┐
+│      Connector       │   (independent — no FK to Session)
+│──────────────────────│
+│ id: TEXT (PK)        │   referenced via DataArtifact.sources[].connector_id (JSONB)
+│ name: TEXT           │
+│ description: TEXT    │
+│ type: TEXT           │   "builtin" | "spec" | "generated"
+│ spec: JSONB (null)   │
+│ code: TEXT (null)    │
+│ tests: TEXT (null)   │
+│ is_active: BOOLEAN   │
+│ created_at           │
+└──────────────────────┘
+```
+
+### Key Relationships
+
+| Relationship | Cardinality | Foreign Key |
+|---|---|---|
+| Session → DataArtifact | 1 : many | `data_artifact.session_id` |
+| Session → FeatureArtifact | 1 : many | `feature_artifact.session_id` |
+| Session → AnalysisResult | 1 : many | `analysis_result.session_id` |
+| DataArtifact → FeatureArtifact | 1 : many | `feature_artifact.data_artifact_id` |
+| FeatureArtifact → AnalysisResult | 1 : many | `analysis_result.feature_artifact_id` |
+| Session → Session (cache provenance) | 1 : many | `*.cached_from_session_id` (nullable) |
+| Artifact → Artifact (cache provenance) | self-ref | `*.cached_from_artifact_id` (nullable) |
+
+`MarketProfile` is not a foreign key — `Session.market_profile` stores the profile `id` as a plain string. Profiles are configuration, not transactional data. They are seeded at startup and rarely change.
+
+`Connector` is not directly FK'd to `Session` — connectors are referenced inside `DataArtifact.sources` as a JSONB array, keeping the data fetch record self-contained.
+
+### PostgreSQL Column Types
+
+| Python / SQLModel type | PostgreSQL type | Notes |
+|---|---|---|
+| `UUID` | `UUID` | Native PostgreSQL UUID, generated via `gen_random_uuid()` |
+| `str` | `TEXT` | No `VARCHAR(n)` — PostgreSQL TEXT is equally performant |
+| `int` | `INTEGER` | `round`, counters |
+| `bool` | `BOOLEAN` | `auto`, `cache_hit`, `is_active` |
+| `date` | `DATE` | `timeframe_start`, `timeframe_end` |
+| `datetime` | `TIMESTAMPTZ` | Always timezone-aware; stored as UTC |
+| `dict` / `list` | `JSONB` | **Not JSON** — JSONB is binary, indexed, queryable |
+| `str` (hash) | `TEXT` | `source_hash`, `config_hash`, `feature_hash` |
+| `Enum` | `TEXT` | SQLModel stores enums as TEXT with Python-level validation |
+
+All `JSONB` fields benefit from GIN indexes if queried frequently. Hash fields (`source_hash`, `config_hash`, `feature_hash`) use B-tree indexes for equality lookups in the cache system.
+
+### Indexes
+
+```sql
+-- Cache lookup indexes (most performance-critical)
+CREATE INDEX idx_data_artifact_source_hash     ON data_artifact(source_hash);
+CREATE INDEX idx_feature_artifact_config_hash  ON feature_artifact(config_hash);
+CREATE INDEX idx_analysis_result_feature_hash  ON analysis_result(feature_hash);
+
+-- Session history listing
+CREATE INDEX idx_session_created_at            ON session(created_at DESC);
+
+-- Artifact lookup by session (used on every session GET)
+CREATE INDEX idx_data_artifact_session_id      ON data_artifact(session_id);
+CREATE INDEX idx_feature_artifact_session_id   ON feature_artifact(session_id);
+CREATE INDEX idx_analysis_result_session_id    ON analysis_result(session_id);
+
+-- Connector active lookup
+CREATE INDEX idx_connector_is_active           ON connector(is_active);
+```
+
+---
+
 ## Artifact Cache
 
 ### Within-session cache
