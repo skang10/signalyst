@@ -7,7 +7,8 @@ import { api } from "@/lib/api";
 import type { AnalysisResult } from "@/lib/api";
 
 export function AgentStream() {
-  const { runId, status, setResult, setStatus, setError, setMessages, clearRun } = useRunStore();
+  const { runId, status, setResult, setStatus, setError, setMessages, clearRun, addChatMessage } =
+    useRunStore();
   const { messages: wsMessages } = useRunStream(runId);
 
   // Capture values at mount to detect sessionStorage-restored runId/messages.
@@ -50,17 +51,29 @@ export function AgentStream() {
     const last = wsMessages[wsMessages.length - 1];
     if (last?.type !== "done" || !runId || status === "completed") return;
 
+    const summary = last.summary;
+
     api
       .getRun(runId)
       .then((runResult) => {
         if (runResult.result) {
           setResult(runResult.result as AnalysisResult);
+          // Add agent bubble if this was a continuation (user had sent a message)
+          const currentChatMessages = useRunStore.getState().chatMessages;
+          if (currentChatMessages.length > 0) {
+            addChatMessage({
+              id: crypto.randomUUID(),
+              role: "agent",
+              content: summary,
+              timestamp: Date.now(),
+            });
+          }
         } else {
           setStatus("failed");
         }
       })
       .catch(() => setStatus("failed"));
-  }, [wsMessages, runId, status, setResult, setStatus]);
+  }, [wsMessages, runId, status, setResult, setStatus, addChatMessage]);
 
   return null;
 }
