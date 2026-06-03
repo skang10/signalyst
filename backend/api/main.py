@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import Response
 
 from api.logging import configure_logging, request_log_level, should_log_request
-from api.routes import derivatives, sessions
+from api.routes import derivatives, profiles, sessions
 from api.ws import stream_handler
 from src.config import settings
 
@@ -39,6 +39,7 @@ app.add_middleware(
 )
 
 app.include_router(sessions.router, prefix="/api")
+app.include_router(profiles.router, prefix="/api")
 app.include_router(derivatives.router, prefix="/api")
 app.add_api_websocket_route("/ws/runs/{run_id}/stream", stream_handler)
 
