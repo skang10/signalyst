@@ -94,6 +94,7 @@ include = ["src*", "api*"]
 
 [dependency-groups]
 dev = [
+    "aiosqlite>=0.22.1",
     "pre-commit>=4.6.0",
     "types-PyYAML>=6.0",
     "types-redis>=4.6.0.20241004",
