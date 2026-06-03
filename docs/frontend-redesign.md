@@ -322,6 +322,32 @@ indigo:        #6366f1   lower-ranked SHAP bars
 
 ---
 
+## PR Breakdown
+
+Frontend PRs are sequenced to match backend PRs — the frontend is only built once the API it depends on exists. Where the frontend scope is small enough, it is combined into the same PR as the backend work.
+
+| PR | Scope | Strategy | Frontend work |
+|---|---|---|---|
+| **PR 1** | Backend: Session data model, CRUD endpoints, WebSocket stub | **Combined** | Routing skeleton (`/`, `/sessions/[id]/activity`), shared layout shell, home page (sessions table + new analysis modal + indicators strip stub), `lib/api.ts` + `lib/store.ts` + `lib/websocket.ts` rewrites |
+| **PR 2** | Backend: FeaturizerService, TabPFNService, stage machine, upload endpoint | **Combined** | Stage progress strip, passive activity feed (stage transitions only — no live agent stream yet), Data sub-page (reads DataArtifact from upload), session header with stage/status badge |
+| **PR 3** | Backend: DataSourceDiscoveryAgent, DataAgent, ReviewInterpreter | **Separate** | Live activity feed with WebSocket streaming (thoughts, tool calls, tool results), USER_REVIEW gate message, FeaturizerConfigEditor (windows/lags/families tag editor), chat input wired to `POST /chat` |
+| **PR 4** | Backend: ExplanationAgent, FollowUpAgent, full end-to-end pipeline | **Separate** | Results sub-page (regime card, direction card, SHAP chart, backtest chart, drift table, agent summary), FOLLOW_UP gate message, follow-up chat wired, `GET /api/market/snapshot` indicators strip live |
+| **PR 5** | Backend: Cross-session artifact cache | **Combined** | Cache badges on Data sub-page and Results sub-page (`⚡ Cached from session #N`), `cache_hit` WebSocket event shown in activity feed |
+| **PR 6** | Backend: Market profiles | **Combined** | Market profile dropdown in new analysis modal populated from `GET /api/profiles` (was hardcoded to "oil") |
+| **PR 7** | Backend: ConnectorBuilderAgent | **Separate (deferred)** | Connector builder UI — out of scope until backend quality gate is proven |
+
+### Why separate for PR 3 and PR 4?
+
+PR 3 introduces live WebSocket streaming — the activity feed needs to handle `thought`, `tool_call`, `tool_result`, and `artifact_ready` events reliably, with reconnect and replay from `activity_events`. This is enough frontend surface area to deserve its own review.
+
+PR 4 introduces the Results sub-page — the most data-dense part of the UI with five distinct chart/table components. Combining with backend PR 4 would make the PR too large to review effectively.
+
+### Combined PR rationale
+
+PRs 1, 2, 5, and 6 combine backend and frontend because the frontend changes are small relative to the backend work and they share the same reviewable context. Splitting them would produce frontend PRs with almost no substance.
+
+---
+
 ## Out of Scope
 
 - Authentication (JWT + NextAuth.js) — separate mid-tier spec
