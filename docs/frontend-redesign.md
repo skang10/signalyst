@@ -330,14 +330,14 @@ Frontend PRs are sequenced to match backend PRs — the frontend is only built o
 
 | Merge order | PR label | Backend PR | Frontend work | Strategy |
 |---|---|---|---|---|
-| 1 | **PR 1** | Backend PR 1 — Session data model, CRUD, WebSocket stub | Routing skeleton, shared layout shell, home page (sessions table + new analysis modal + indicators strip stub), `lib/api.ts` + `lib/store.ts` + `lib/websocket.ts` rewrites | **Combined** |
+| 1 | **PR 1** | Backend PR 1 — Session data model, CRUD, `GET /api/profiles`, `GET /api/market/snapshot` | Routing skeleton, shared layout shell, home page (sessions table + new analysis modal with profile dropdown wired to `GET /api/profiles` + live indicators strip from `GET /api/market/snapshot`), `lib/api.ts` + `lib/store.ts` + `lib/websocket.ts` rewrites | **Combined** |
 | 2 | **PR 2** | Backend PR 2 — FeaturizerService, TabPFNService, stage machine, upload | Stage progress strip, passive activity feed (stage transitions only), Data sub-page, session header | **Combined** |
-| 3 | **PR 3-backend** | Backend PR 3 — DataSourceDiscoveryAgent, DataAgent, ReviewInterpreter | — | Backend only |
-| 4 | **PR 3-frontend** | *(depends on PR 3-backend)* | Live activity feed with WebSocket streaming (thoughts, tool calls, tool results), USER_REVIEW gate message, FeaturizerConfigEditor, chat input wired to `POST /chat` | **Separate** |
-| 5 | **PR 4-backend** | Backend PR 4 — ExplanationAgent, FollowUpAgent, full end-to-end pipeline | — | Backend only |
-| 6 | **PR 4-frontend** | *(depends on PR 4-backend)* | Results sub-page (regime card, direction card, SHAP chart, backtest chart, drift table, agent summary), FOLLOW_UP gate message, follow-up chat, `GET /api/market/snapshot` indicators strip live | **Separate** |
+| 3 | **PR 3-backend** | Backend PR 3 — DataSourceDiscoveryAgent, DataAgent, ReviewInterpreter, `POST /chat` (USER_REVIEW only) | — | Backend only |
+| 4 | **PR 3-frontend** | *(depends on PR 3-backend)* | Live activity feed with WebSocket streaming (thoughts, tool calls, tool results), USER_REVIEW gate message, FeaturizerConfigEditor, chat input wired to `POST /chat` (USER_REVIEW path) | **Separate** |
+| 5 | **PR 4-backend** | Backend PR 4 — ExplanationAgent, FollowUpAgent, `POST /chat` extended to FOLLOW_UP | — | Backend only |
+| 6 | **PR 4-frontend** | *(depends on PR 4-backend)* | Results sub-page (regime card, direction card, SHAP chart, backtest chart, drift table, agent summary), FOLLOW_UP gate message, follow-up chat wired to `POST /chat` (FOLLOW_UP path) | **Separate** |
 | 7 | **PR 5** | Backend PR 5 — Cross-session artifact cache | Cache badges on Data and Results sub-pages (`⚡ Cached from session #N`), `cache_hit` event in activity feed | **Combined** |
-| 8 | **PR 6** | Backend PR 6 — Market profiles | Market profile dropdown populated from `GET /api/profiles` (was hardcoded to "oil") | **Combined** |
+| 8 | **PR 6** | Backend PR 6 — Market profiles fully wired (connectors, featurizer config, regime labels per profile) | Multi-profile behavior: profile selection drives DataSourceDiscoveryAgent recommendations and regime labels — dropdown already wired from PR 1, no new UI | **Combined** |
 | 9 | **PR 7-backend** | Backend PR 7 — ConnectorBuilderAgent | — | Backend only |
 | 10 | **PR 7-frontend** | *(depends on PR 7-backend, deferred)* | Connector builder UI — out of scope until backend quality gate is proven | **Deferred** |
 
@@ -350,6 +350,8 @@ Frontend PRs are sequenced to match backend PRs — the frontend is only built o
 ### Why combined for PR 1, 2, 5, 6?
 
 The frontend changes are small relative to the backend work and share the same reviewable context — splitting them would produce frontend-only PRs with almost no substance.
+
+Note on PR 6: `GET /api/profiles` and the dropdown UI land in PR 1 (seeded oil profile only). PR 6 is not about the dropdown API first becoming available — it is about the full multi-profile abstraction working end-to-end (profile drives connector recommendations, featurizer config defaults, and regime labels). The only frontend touch in PR 6 is confirming the dropdown behaves correctly with new profiles.
 
 ---
 
