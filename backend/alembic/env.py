@@ -5,7 +5,7 @@ from sqlalchemy import Connection, pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from sqlmodel import SQLModel
 
-import src.db.models  # noqa: F401 — registers Run table with SQLModel.metadata
+import src.db.models  # noqa: F401 — registers all tables with SQLModel.metadata
 from alembic import context
 from src.config import settings
 
