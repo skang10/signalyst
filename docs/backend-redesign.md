@@ -1185,6 +1185,7 @@ A market profile drives: which data connectors are recommended, the default feat
 - Alembic migrations
 - Basic session CRUD endpoints: `POST`, `GET`, `DELETE /api/sessions`, `GET /api/sessions/{id}`
 - `GET /api/profiles`, `GET /api/profiles/{id}` (seeded oil profile)
+- `GET /api/market/snapshot` (thin yfinance + FRED fetch — no session dependency)
 - WebSocket stub (connects, echoes events, no agents yet)
 
 ### PR 2 — Deterministic Pipeline Stages
@@ -1202,13 +1203,14 @@ A market profile drives: which data connectors are recommended, the default feat
 - `DataSourceDiscoveryAgent` with HTTP primitive tools
 - `DataAgent` with full tool set + connector dispatch
 - `ReviewInterpreter` (thin LLM call at USER_REVIEW)
+- `POST /api/sessions/{id}/chat` — USER_REVIEW stage only, routes to ReviewInterpreter
 - `GET /api/connectors`, `POST /api/connectors`
 - Full pipeline from session creation to USER_REVIEW gate
 
 ### PR 4 — ExplanationAgent + FollowUpAgent
 - `ExplanationAgent` with WebSocket streaming
 - `FollowUpAgent` with stage regression tools
-- `POST /api/sessions/{id}/chat` wired to both agents based on current stage
+- `POST /api/sessions/{id}/chat` extended to FOLLOW_UP stage — routes to FollowUpAgent (USER_REVIEW path from PR 3 unchanged)
 - `GET /api/sessions/{id}/artifacts/{artifact_id}` for dashboard rendering
 - Full end-to-end pipeline working
 

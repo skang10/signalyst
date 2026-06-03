@@ -322,6 +322,39 @@ indigo:        #6366f1   lower-ranked SHAP bars
 
 ---
 
+## PR Breakdown
+
+Frontend PRs are sequenced to match backend PRs — the frontend is only built once the API it depends on exists. Where the frontend scope is small enough, it is folded into the same PR as the backend work. Where it is large enough to deserve its own review, it ships as a separate PR immediately after the backend PR it depends on.
+
+### Merge order
+
+| Merge order | PR label | Backend PR | Frontend work | Strategy |
+|---|---|---|---|---|
+| 1 | **PR 1** | Backend PR 1 — Session data model, CRUD, `GET /api/profiles`, `GET /api/market/snapshot` | Routing skeleton, shared layout shell, home page (sessions table + new analysis modal with profile dropdown wired to `GET /api/profiles` + live indicators strip from `GET /api/market/snapshot`), `lib/api.ts` + `lib/store.ts` + `lib/websocket.ts` rewrites | **Combined** |
+| 2 | **PR 2** | Backend PR 2 — FeaturizerService, TabPFNService, stage machine, upload | Stage progress strip, passive activity feed (stage transitions only), Data sub-page, session header | **Combined** |
+| 3 | **PR 3-backend** | Backend PR 3 — DataSourceDiscoveryAgent, DataAgent, ReviewInterpreter, `POST /chat` (USER_REVIEW only) | — | Backend only |
+| 4 | **PR 3-frontend** | *(depends on PR 3-backend)* | Live activity feed with WebSocket streaming (thoughts, tool calls, tool results), USER_REVIEW gate message, FeaturizerConfigEditor, chat input wired to `POST /chat` (USER_REVIEW path) | **Separate** |
+| 5 | **PR 4-backend** | Backend PR 4 — ExplanationAgent, FollowUpAgent, `POST /chat` extended to FOLLOW_UP | — | Backend only |
+| 6 | **PR 4-frontend** | *(depends on PR 4-backend)* | Results sub-page (regime card, direction card, SHAP chart, backtest chart, drift table, agent summary), FOLLOW_UP gate message, follow-up chat wired to `POST /chat` (FOLLOW_UP path) | **Separate** |
+| 7 | **PR 5** | Backend PR 5 — Cross-session artifact cache | Cache badges on Data and Results sub-pages (`⚡ Cached from session #N`), `cache_hit` event in activity feed | **Combined** |
+| 8 | **PR 6** | Backend PR 6 — Market profiles fully wired (connectors, featurizer config, regime labels per profile) | Multi-profile behavior: profile selection drives DataSourceDiscoveryAgent recommendations and regime labels — dropdown already wired from PR 1, no new UI | **Combined** |
+| 9 | **PR 7-backend** | Backend PR 7 — ConnectorBuilderAgent | — | Backend only |
+| 10 | **PR 7-frontend** | *(depends on PR 7-backend, deferred)* | Connector builder UI — out of scope until backend quality gate is proven | **Deferred** |
+
+### Why separate for PR 3-frontend and PR 4-frontend?
+
+**PR 3-frontend:** live WebSocket streaming — the activity feed needs to handle `thought`, `tool_call`, `tool_result`, and `artifact_ready` events reliably, with reconnect and replay from `activity_events`. Enough surface area to deserve its own review. Merges only after PR 3-backend is in main.
+
+**PR 4-frontend:** the Results sub-page is the most data-dense part of the UI with five distinct chart/table components. Combining with backend PR 4 would make the PR too large to review effectively. Merges only after PR 4-backend is in main.
+
+### Why combined for PR 1, 2, 5, 6?
+
+The frontend changes are small relative to the backend work and share the same reviewable context — splitting them would produce frontend-only PRs with almost no substance.
+
+Note on PR 6: `GET /api/profiles` and the dropdown UI land in PR 1 (seeded oil profile only). PR 6 is not about the dropdown API first becoming available — it is about the full multi-profile abstraction working end-to-end (profile drives connector recommendations, featurizer config defaults, and regime labels). The only frontend touch in PR 6 is confirming the dropdown behaves correctly with new profiles.
+
+---
+
 ## Out of Scope
 
 - Authentication (JWT + NextAuth.js) — separate mid-tier spec
