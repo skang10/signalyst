@@ -18,14 +18,14 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "framer-motion": "^12.40.0",
-    "lucide-react": "^1.16.0",
+    "lucide-react": "^1.17.0",
     "next": "^16.2.6",
     "next-auth": "^4.24.14",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "recharts": "^3.8.1",
     "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.13"
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.5",
