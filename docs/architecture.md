@@ -52,7 +52,7 @@ graph LR
 
 ## 2. Session Pipeline & Stage Machine
 
-All 7 stages, transition triggers, USER_REVIEW gate branches, auto mode bypass, FOLLOW_UP rerun regression, and terminal FAILED / CANCELED states.
+All 7 stages, transition triggers, USER_REVIEW gate branches, auto mode bypass, FOLLOW_UP rerun regression, and terminal FAILED / CANCELED states. `POST /rerun { stage }` can resume from any prior stage — existing artifacts in the DB are reused, only the specified stage and beyond re-run.
 
 ```mermaid
 flowchart TD
@@ -84,11 +84,16 @@ flowchart TD
     DATA_GATHERING -->|task crash| FAILED
     FEATURIZING -->|task crash| FAILED
     ANALYZING -->|task crash| FAILED
-    FAILED -->|"POST /rerun"| DATA_GATHERING
+    FAILED -->|"POST /rerun\nstage=data_gathering"| DATA_GATHERING
+    FAILED -->|"POST /rerun\nstage=featurizing\n(DataArtifact reused)"| FEATURIZING
+    FAILED -->|"POST /rerun\nstage=analyzing\n(FeatureArtifact reused)"| ANALYZING
 
     DATA_GATHERING -->|"POST /cancel"| CANCELED
     FEATURIZING -->|"POST /cancel"| CANCELED
-    CANCELED -->|"POST /rerun"| DATA_GATHERING
+    ANALYZING -->|"POST /cancel"| CANCELED
+    CANCELED -->|"POST /rerun\nstage=data_gathering"| DATA_GATHERING
+    CANCELED -->|"POST /rerun\nstage=featurizing\n(DataArtifact reused)"| FEATURIZING
+    CANCELED -->|"POST /rerun\nstage=analyzing\n(FeatureArtifact reused)"| ANALYZING
 ```
 
 ---
