@@ -49,10 +49,10 @@ class SessionDetail(BaseModel):
     status: str
     error: str | None
     auto: bool
-    featurizer_config: dict
-    conversation: list
-    activity_events: list
-    stage_history: list
+    featurizer_config: dict[str, object]
+    conversation: list[object]
+    activity_events: list[object]
+    stage_history: list[object]
     artifacts: SessionArtifacts
     created_at: str
     updated_at: str
@@ -74,7 +74,7 @@ class ProfileResponse(BaseModel):
     name: str
     description: str
     default_connectors: list[str]
-    default_featurizer_config: dict
+    default_featurizer_config: dict[str, object]
     regime_labels: list[str]
 
 

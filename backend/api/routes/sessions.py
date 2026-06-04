@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -29,8 +29,8 @@ router = APIRouter(tags=["sessions"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-def _iso(dt: object) -> str:
-    return dt.isoformat() if dt is not None else ""  # type: ignore[union-attr]
+def _iso(dt: Any) -> str:
+    return dt.isoformat() if dt is not None else ""
 
 
 async def _build_artifacts(db: AsyncSession, session_id: uuid.UUID) -> SessionArtifacts:
@@ -127,11 +127,8 @@ async def create_session(req: CreateSessionRequest, db: SessionDep) -> CreateSes
 
 @router.get("/sessions", response_model=list[SessionListItem])
 async def list_sessions(db: SessionDep) -> list[SessionListItem]:
-    rows = (
-        (await db.execute(select(SessionModel).order_by(SessionModel.created_at.desc()).limit(100)))
-        .scalars()
-        .all()
-    )
+    stmt = select(SessionModel).order_by(SessionModel.created_at.desc()).limit(100)  # type: ignore[attr-defined]
+    rows = (await db.execute(stmt)).scalars().all()
     log.debug("session.list", count=len(rows))
     return [
         SessionListItem(
@@ -163,7 +160,7 @@ async def get_session_detail(session_id: str, db: SessionDep) -> SessionDetail:
 
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str, db: SessionDep) -> dict:
+async def delete_session(session_id: str, db: SessionDep) -> dict[str, str]:
     try:
         uid = uuid.UUID(session_id)
     except ValueError:

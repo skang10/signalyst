@@ -13,7 +13,7 @@ router = APIRouter(tags=["market"])
 log = structlog.get_logger()
 
 
-def _fetch_price_change(ticker: str) -> dict:
+def _fetch_price_change(ticker: str) -> dict[str, float]:
     end = datetime.now(UTC).date()
     start = end - timedelta(days=7)
     data = yf.download(
@@ -37,7 +37,7 @@ def _safe_fetch(ticker: str) -> IndicatorValue | None:
         return None
 
 
-def _fetch_gpr() -> IndicatorValue | None:
+def _fetch_gpr() -> GprValue | None:
     try:
         end = datetime.now(UTC).date()
         start = end - timedelta(days=30)

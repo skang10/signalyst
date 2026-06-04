@@ -52,8 +52,11 @@ export function useSessionStream(sessionId: string | null) {
     connect();
 
     return () => {
-      wsRef.current?.close();
       if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      if (wsRef.current) {
+        wsRef.current.onclose = null;
+        wsRef.current.close();
+      }
     };
   }, [sessionId, appendWsMessage, setSession]);
 }
