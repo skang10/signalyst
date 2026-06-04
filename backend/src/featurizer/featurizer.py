@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 import pandas as pd
+
+_ALL_FAMILIES = {"rolling_stats", "lag", "momentum"}
 
 
 class TimeSeriesFeaturizer:
@@ -6,9 +10,15 @@ class TimeSeriesFeaturizer:
         self,
         windows: list[int] | None = None,
         lags: list[int] | None = None,
+        feature_families: list[str] | None = None,
+        energy_specific: bool = False,
     ):
         self.windows: list[int] = windows or [5, 20, 60]
         self.lags: list[int] = lags or [1, 5, 20]
+        self.feature_families: set[str] = (
+            set(feature_families) if feature_families else _ALL_FAMILIES
+        )
+        self.energy_specific = energy_specific  # reserved for oil-specific features in PR 3
 
     def align(self, series_dict: dict[str, pd.Series]) -> pd.DataFrame:
         """Align all series to a common daily index using forward-fill only.
@@ -52,12 +62,17 @@ class TimeSeriesFeaturizer:
         )
 
     def transform(self, series_dict: dict[str, pd.Series]) -> pd.DataFrame:
-        """Full pipeline: align → compute features → drop NaN rows."""
+        """Full pipeline: align → compute selected feature families → drop NaN rows."""
         aligned = self.align(series_dict)
         feature_frames = []
         for col in aligned.columns:
             s = aligned[col]
-            feature_frames.append(self._rolling_features(s, col))
-            feature_frames.append(self._lag_features(s, col))
-            feature_frames.append(self._momentum_features(s, col))
+            if "rolling_stats" in self.feature_families:
+                feature_frames.append(self._rolling_features(s, col))
+            if "lag" in self.feature_families:
+                feature_frames.append(self._lag_features(s, col))
+            if "momentum" in self.feature_families:
+                feature_frames.append(self._momentum_features(s, col))
+        if not feature_frames:
+            return pd.DataFrame(index=aligned.index)
         return pd.concat(feature_frames, axis=1).dropna()
