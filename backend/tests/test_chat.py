@@ -40,7 +40,10 @@ def test_chat_at_user_review_returns_202(client):
     session_id = _setup_session_at_user_review(client)
 
     fake_result = {"action": "advance", "updates": {}, "reply": "Running analysis now."}
-    with patch("api.routes.chat.ReviewInterpreter") as mock_cls:
+    with (
+        patch("api.routes.chat.ReviewInterpreter") as mock_cls,
+        patch("api.routes.chat._run_featurizer_background", new_callable=AsyncMock),
+    ):
         mock_cls.return_value.interpret = AsyncMock(return_value=fake_result)
         res = client.post(
             f"/api/sessions/{session_id}/chat",
