@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { FeaturesTab } from "../FeaturesTab";
-import type { FeatureImportanceResult } from "../../../lib/api";
+type FeatureImportanceResult = Record<string, unknown>;
 
 const features: FeatureImportanceResult = {
   top_features: [

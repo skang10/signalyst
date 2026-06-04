@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { OverviewTab } from "../OverviewTab";
-import type { AnalysisResult } from "../../../lib/api";
+type AnalysisResult = Record<string, unknown>;
 
 const result: AnalysisResult = {
   regime: {

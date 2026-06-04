@@ -1,5 +1,6 @@
-import type { AnalysisResult } from "../../lib/api";
 import { TabPlaceholder } from "./TabPlaceholder";
+
+type AnalysisResult = Record<string, unknown>;
 
 const REGIME_LABELS: Record<string, string> = {
   range_bound: "Range-Bound",

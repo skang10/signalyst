@@ -17,8 +17,8 @@ vi.mock("recharts", () => ({
 }));
 
 import { BacktestTab } from "../BacktestTab";
-import type { BacktestResult } from "../../../lib/api";
 
+type BacktestResult = Record<string, unknown>;
 const backtest: BacktestResult = {
   regime_accuracy: 0.74,
   strategy_sharpe: 1.42,

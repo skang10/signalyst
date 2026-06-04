@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { DriftTab } from "../DriftTab";
-import type { DriftResult } from "../../../lib/api";
+type DriftResult = Record<string, unknown>;
 
 const drift: DriftResult = {
   drift_detected: true,

@@ -1,6 +1,6 @@
-import type { DriftResult } from "../../lib/api";
 import { TabPlaceholder } from "./TabPlaceholder";
 
+type DriftResult = Record<string, unknown>;
 type Props = { drift: DriftResult | null };
 
 function StatTile({

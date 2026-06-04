@@ -8,9 +8,9 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import type { BacktestResult } from "../../lib/api";
 import { TabPlaceholder } from "./TabPlaceholder";
 
+type BacktestResult = Record<string, unknown>;
 type Props = { backtest: BacktestResult | null };
 
 function MetricTile({
