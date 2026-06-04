@@ -53,18 +53,20 @@ export default function DataPage() {
   const { id } = useParams<{ id: string }>();
   const { artifacts } = useSessionStore();
   const [artifact, setArtifact] = useState<DataArtifactDetail | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [fetchedId, setFetchedId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id || artifacts.data.length === 0) return;
     const latestRef = artifacts.data[artifacts.data.length - 1];
-    setLoading(true);
+    if (latestRef.artifact_id === fetchedId) return;
     api
       .getArtifact(id, latestRef.artifact_id)
-      .then(setArtifact)
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [id, artifacts.data]);
+      .then((data) => {
+        setArtifact(data);
+        setFetchedId(latestRef.artifact_id);
+      })
+      .catch(() => {});
+  }, [id, artifacts.data, fetchedId]);
 
   if (artifacts.data.length === 0) {
     return (
@@ -74,7 +76,7 @@ export default function DataPage() {
     );
   }
 
-  if (loading || !artifact) {
+  if (!artifact) {
     return (
       <div className="flex items-center justify-center h-full text-[#4b5563] text-sm">
         Loading…
