@@ -1,9 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { DriftTab } from "../DriftTab";
-type DriftResult = Record<string, unknown>;
-
-const drift: DriftResult = {
+const drift = {
   drift_detected: true,
   psi_score: 0.32,
   drifted_features: ["rsi_14", "macd_signal"],

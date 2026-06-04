@@ -1,9 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { FeaturesTab } from "../FeaturesTab";
-type FeatureImportanceResult = Record<string, unknown>;
-
-const features: FeatureImportanceResult = {
+const features = {
   top_features: [
     { name: "rsi_14", importance: 0.42 },
     { name: "macd_signal", importance: 0.27 },

@@ -10,7 +10,12 @@ import {
 } from "recharts";
 import { TabPlaceholder } from "./TabPlaceholder";
 
-type BacktestResult = Record<string, unknown>;
+type BacktestResult = {
+  strategy_sharpe: number;
+  benchmark_sharpe: number;
+  regime_accuracy: number;
+  n_windows: number;
+};
 type Props = { backtest: BacktestResult | null };
 
 function MetricTile({

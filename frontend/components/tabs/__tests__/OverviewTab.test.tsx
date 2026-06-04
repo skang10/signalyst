@@ -1,9 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { OverviewTab } from "../OverviewTab";
-type AnalysisResult = Record<string, unknown>;
-
-const result: AnalysisResult = {
+const result = {
   regime: {
     regime: "range_bound",
     confidence: 0.9503,
