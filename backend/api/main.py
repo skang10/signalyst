@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
 from api.logging import configure_logging, request_log_level, should_log_request
-from api.routes import derivatives, market, pipeline, profiles, sessions
+from api.routes import connectors, derivatives, market, pipeline, profiles, sessions
 from api.ws import session_stream_handler
 from src.config import settings
 from src.db.seed import seed_profiles
@@ -28,6 +28,10 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         async with AsyncSession(engine) as db:
             await seed_profiles(db)
+        async with AsyncSession(engine) as db:
+            from src.db.seed import seed_connectors
+
+            await seed_connectors(db)
     except Exception as exc:
         log.warning("startup.seed_failed", error=str(exc))
     log.info("startup", environment=settings.environment)
@@ -50,6 +54,7 @@ app.include_router(pipeline.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
 app.include_router(derivatives.router, prefix="/api")
+app.include_router(connectors.router, prefix="/api")
 app.add_api_websocket_route("/ws/sessions/{session_id}/stream", session_stream_handler)
 
 
