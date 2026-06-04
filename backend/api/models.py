@@ -83,10 +83,15 @@ class IndicatorValue(BaseModel):
     change_pct: float
 
 
+class GprValue(BaseModel):
+    value: float
+    change_pct: float
+
+
 class MarketSnapshotResponse(BaseModel):
     wti: IndicatorValue | None = None
     brent: IndicatorValue | None = None
     dxy: IndicatorValue | None = None
-    gpr: IndicatorValue | None = None
+    gpr: GprValue | None = None
     eia_inventory_change_mmbbl: float | None = None
     fetched_at: str

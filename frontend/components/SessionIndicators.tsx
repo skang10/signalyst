@@ -67,7 +67,7 @@ export function SessionIndicators() {
       />
       <IndicatorCard
         label="GPR Index"
-        value={snapshot?.gpr ? String(snapshot.gpr.value) : "—"}
+        value={snapshot?.gpr ? snapshot.gpr.value.toFixed(1) : "—"}
         changePct={snapshot?.gpr?.change_pct ?? null}
         warn={(snapshot?.gpr?.value ?? 0) > 200}
       />
