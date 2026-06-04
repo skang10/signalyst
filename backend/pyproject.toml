@@ -48,6 +48,7 @@ dependencies = [
     "xlrd>=2.0.2",
     "urllib3>=2.7.0",
     "idna>=3.17",
+    "python-multipart>=0.0.30",
 ]
 
 [project.optional-dependencies]
