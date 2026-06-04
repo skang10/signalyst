@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.5.0...signalyst-frontend-v0.6.0) (2026-06-04)
+
+
+### Features
+
+* **chat window:** collapsible chat panel with pre-run message context ([#15](https://github.com/skang10/signalyst/issues/15)) ([cbaeb89](https://github.com/skang10/signalyst/commit/cbaeb89f25b79f745c73dfd09787f215e8c6362f))
+* session data model, CRUD API, and frontend rebuild ([#29](https://github.com/skang10/signalyst/issues/29)) ([baab910](https://github.com/skang10/signalyst/commit/baab9107e0a31919508c764f9d4ab24ff653221d))
+
 ## [0.5.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.4.0...signalyst-frontend-v0.5.0) (2026-05-29)
 
 
