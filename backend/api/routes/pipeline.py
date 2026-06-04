@@ -81,6 +81,9 @@ def _build_manifest(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+_MIN_ROWS = 70  # max(windows=60) + max(lags=20) + 10 for default oil config
+
+
 def _parse_upload(content: bytes, filename: str) -> pd.DataFrame:
     buf = io.BytesIO(content)
     if filename.endswith(".parquet"):
@@ -88,11 +91,32 @@ def _parse_upload(content: bytes, filename: str) -> pd.DataFrame:
     else:
         df = pd.read_csv(buf)
 
+    # Validation 1: parseable date index
+    _NO_DATE_MSG = "No parseable date column found. Include a 'date' column in YYYY-MM-DD format."
     if "date" in df.columns:
         df = df.set_index("date")
-    df.index = pd.DatetimeIndex(df.index)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        # Only try to parse if the index looks like strings, not integers
+        if df.index.dtype == object or str(df.index.dtype).startswith("datetime"):
+            try:
+                df.index = pd.DatetimeIndex(df.index)
+            except Exception:
+                raise ValueError(_NO_DATE_MSG)
+        else:
+            raise ValueError(_NO_DATE_MSG)
+    try:
+        df.index = pd.DatetimeIndex(df.index)
+    except Exception:
+        raise ValueError(_NO_DATE_MSG)
+
     df = df.sort_index()
-    return df.select_dtypes(include="number")
+    df = df.select_dtypes(include="number")
+
+    # Validation 2: minimum row count
+    if len(df) < _MIN_ROWS:
+        raise ValueError(f"Uploaded file has {len(df)} rows; at least {_MIN_ROWS} are required.")
+
+    return df
 
 
 async def _get_session_or_404(session_id: str, db: AsyncSession) -> tuple[uuid.UUID, SessionModel]:
@@ -139,13 +163,37 @@ async def upload_data(
     if len(content) > _UPLOAD_SIZE_LIMIT:
         raise HTTPException(status_code=413, detail="File exceeds 50 MB limit")
 
-    df = _parse_upload(content, file.filename or "")
+    try:
+        df = _parse_upload(content, file.filename or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     if df.empty:
         raise HTTPException(status_code=422, detail="No numeric columns found in uploaded file")
 
     file_hash = hashlib.sha256(content).hexdigest()[:16]
     source_hash = stable_hash(f"upload:{source_name}:{file_hash}")
     data_manifest = _build_manifest(df)
+
+    # Validation 3: date range overlap warning (non-blocking)
+    warnings: list[str] = []
+    upload_start = df.index.min().date()
+    upload_end = df.index.max().date()
+    if upload_end < s.timeframe_start or upload_start > s.timeframe_end:
+        warnings.append(
+            f"Uploaded date range {upload_start}–{upload_end} does not overlap with "
+            f"session timeframe {s.timeframe_start}–{s.timeframe_end}."
+        )
+
+    # Validation 4: oil profile — no WTI column hint (non-blocking)
+    wti_cols = [c for c in df.columns if "CL=F" in c or "wti" in c.lower()]
+    if not wti_cols and s.market_profile == "oil":
+        warnings.append(
+            "No column matching 'CL=F' or 'wti' found. "
+            "TabPFNService will use the first column as a WTI proxy for regime labelling."
+        )
+
+    if warnings:
+        data_manifest["warnings"] = warnings
 
     artifact_id = uuid.uuid4()
     raw_data: dict[str, Any] | None = None
