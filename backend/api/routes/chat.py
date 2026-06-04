@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 import structlog
@@ -14,7 +15,7 @@ from src.agents.review_interpreter import ReviewInterpreter
 from src.db.models import DataArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
-from src.services.stage import append_activity_event, set_status, transition_stage
+from src.services.stage import set_status, transition_stage
 
 router = APIRouter(tags=["chat"])
 log = structlog.get_logger()
@@ -65,11 +66,14 @@ async def chat(
     if s.stage not in _CHAT_ALLOWED_STAGES:
         raise HTTPException(status_code=409, detail=f"chat not available at stage {s.stage}")
 
-    # Snapshot what we need before any async calls that could expire s
+    # Snapshot all fields before any async calls that could expire s
     user_conversation = [*s.conversation, {"role": "user", "content": req.message}]
     current_stage = s.stage
     current_pending = list(s.pending_sources or [])
     current_featurizer_config = dict(s.featurizer_config or {})
+    current_activity_events = list(s.activity_events or [])
+    current_stage_history = list(s.stage_history or [])
+
     latest_artifact = (
         (
             await db.execute(
@@ -95,10 +99,17 @@ async def chat(
     reply = result.get("reply", "")
     updates = result.get("updates", {})
 
-    # Re-fetch s to avoid working with expired state after awaits
-    await db.refresh(s)
+    # Write back to s using snapshots (avoids lazy-loads on expired state after awaits)
+    chat_event = {
+        "event_id": str(uuid.uuid4()),
+        "created_at": datetime.now(UTC).isoformat(),
+        "type": "chat_reply",
+        "action": action,
+        "reply": reply,
+    }
     s.conversation = [*user_conversation, {"role": "assistant", "content": reply}]
-    append_activity_event(s, {"type": "chat_reply", "action": action, "reply": reply})
+    s.activity_events = [*current_activity_events, chat_event]
+    s.stage_history = current_stage_history
 
     if action == "advance":
         transition_stage(s, SessionStage.FEATURIZING)
