@@ -126,6 +126,23 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
 }
 
+export type DataArtifactDetail = {
+  kind: "data";
+  artifact_id: string;
+  round: number;
+  sources: unknown[];
+  data_manifest: {
+    tickers: string[];
+    date_range: { start: string; end: string };
+    rows: number;
+    missing_pct: Record<string, number>;
+    summary_stats: Record<string, { mean: number; std: number; min: number; max: number }>;
+  };
+  series_preview: Record<string, { date: string; value: number | null }[]>;
+  cache_hit: boolean;
+  cached_from_session_id: string | null;
+};
+
 export const api = {
   getMarketSnapshot: () => request<MarketSnapshot>("/api/market/snapshot"),
 
@@ -148,4 +165,51 @@ export const api = {
     request<void>(`/api/sessions/${id}`, { method: "DELETE" }),
 
   getProfiles: () => request<MarketProfile[]>("/api/profiles"),
+
+  proceed: (sessionId: string) =>
+    request<{ session_id: string }>(`/api/sessions/${sessionId}/proceed`, { method: "POST" }),
+
+  rerun: (
+    sessionId: string,
+    stage: string,
+    featurizerConfigPatch?: Record<string, unknown>,
+  ) =>
+    request<{ session_id: string }>(`/api/sessions/${sessionId}/rerun`, {
+      method: "POST",
+      body: JSON.stringify({
+        stage,
+        featurizer_config_patch: featurizerConfigPatch ?? null,
+      }),
+    }),
+
+  cancelSession: (sessionId: string) =>
+    request<{ session_id: string; stage: string; status: string }>(
+      `/api/sessions/${sessionId}/cancel`,
+      { method: "POST" },
+    ),
+
+  uploadData: (sessionId: string, file: File, sourceName: string): Promise<{ artifact_id: string }> => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("source_name", sourceName);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 60_000);
+    return fetch(`${API_URL}/api/sessions/${sessionId}/upload`, {
+      method: "POST",
+      body: form,
+      signal: controller.signal,
+    })
+      .then((res) => {
+        clearTimeout(timeout);
+        if (!res.ok) throw new Error(`API error ${res.status}`);
+        return res.json() as Promise<{ artifact_id: string }>;
+      })
+      .catch((err) => {
+        clearTimeout(timeout);
+        throw err;
+      });
+  },
+
+  getArtifact: (sessionId: string, artifactId: string) =>
+    request<DataArtifactDetail>(`/api/sessions/${sessionId}/artifacts/${artifactId}`),
 };
