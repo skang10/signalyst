@@ -98,7 +98,7 @@ export function SessionsTable({ sessions, onDelete }: Props) {
                   className="text-[#6b7280] hover:text-[#ef4444] text-xs transition-colors disabled:opacity-40"
                   aria-label="Delete session"
                 >
-                  {deletingId === s.session_id ? "…" : "✕"}
+                  {deletingId === s.session_id ? "Deleting…" : "Delete"}
                 </button>
               </div>
             </td>
