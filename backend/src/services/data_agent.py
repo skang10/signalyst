@@ -104,11 +104,17 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         await r.publish(channel, json.dumps(enriched))
 
     try:
+        pending = list(s.pending_sources or [])
+        log.info(
+            "data_agent.starting",
+            session_id=str(s.id),
+            n_pending_sources=len(pending),
+            sources=[p.get("connector_id") for p in pending],
+        )
         ctx = AgentContext(
             date_range_start=str(s.timeframe_start),
             date_range_end=str(s.timeframe_end),
         )
-        pending = list(s.pending_sources or [])
         initial_msg = (
             f"Fetch the following approved data sources: {json.dumps(pending)}"
             if pending

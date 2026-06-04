@@ -44,6 +44,12 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         await r.publish(channel, json.dumps(enriched))
 
     try:
+        log.info(
+            "discovery.starting",
+            session_id=str(s.id),
+            market_profile=s.market_profile,
+            timeframe=f"{s.timeframe_start} → {s.timeframe_end}",
+        )
         ctx = DiscoveryContext(
             market_profile=s.market_profile,
             timeframe_start=str(s.timeframe_start),
