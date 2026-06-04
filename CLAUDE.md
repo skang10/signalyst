@@ -161,8 +161,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 **Complete the full plan before pushing. CI must pass before a PR is created.**
 
 When executing a superpowers plan:
+- `git add` and `git commit` freely as each step completes — no need to ask for confirmation.
 - Do not `git push` until every step in the plan is fully implemented and verified locally.
-- Commit incrementally as steps are completed, but hold off on pushing until the plan is done.
+- When the plan is complete, check with the user before pushing.
 
 After every `git push` (whether creating a PR or pushing follow-up commits):
 - Check CI immediately with `gh pr checks` (if a PR exists) or `gh run list --branch <branch>`.
