@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import structlog
+
 from src.agent.tools import AgentContext
 from src.agents.base import BaseAgent
 from src.data.registry import connector_registry
+
+log = structlog.get_logger()
 
 _SYSTEM_PROMPT = """\
 You are DataAgent. Your job is to fetch all approved data sources for the analysis session.
@@ -26,25 +30,37 @@ def make_data_agent() -> BaseAgent:
         """Fetch daily price series from Yahoo Finance for the given tickers."""
         if context is None:
             return {"error": "no context"}
-        return connector_registry.fetch("yfinance", {"tickers": tickers}, context)
+        log.info("data_agent.fetch", connector="yfinance", tickers=tickers)
+        result = connector_registry.fetch("yfinance", {"tickers": tickers}, context)
+        log.info("data_agent.fetch_done", connector="yfinance", result=result)
+        return result
 
     def fetch_fred(series_ids: list[str], context: AgentContext | None = None) -> dict[str, Any]:
         """Fetch macro time series from FRED for the given series IDs."""
         if context is None:
             return {"error": "no context"}
-        return connector_registry.fetch("fred", {"series_ids": series_ids}, context)
+        log.info("data_agent.fetch", connector="fred", series_ids=series_ids)
+        result = connector_registry.fetch("fred", {"series_ids": series_ids}, context)
+        log.info("data_agent.fetch_done", connector="fred", result=result)
+        return result
 
     def fetch_eia(context: AgentContext | None = None) -> dict[str, Any]:
         """Fetch weekly EIA crude oil inventory change series."""
         if context is None:
             return {"error": "no context"}
-        return connector_registry.fetch("eia", {}, context)
+        log.info("data_agent.fetch", connector="eia")
+        result = connector_registry.fetch("eia", {}, context)
+        log.info("data_agent.fetch_done", connector="eia", result=result)
+        return result
 
     def fetch_gpr(context: AgentContext | None = None) -> dict[str, Any]:
         """Fetch daily Geopolitical Risk Index (GPR)."""
         if context is None:
             return {"error": "no context"}
-        return connector_registry.fetch("gpr", {}, context)
+        log.info("data_agent.fetch", connector="gpr")
+        result = connector_registry.fetch("gpr", {}, context)
+        log.info("data_agent.fetch_done", connector="gpr", result=result)
+        return result
 
     def list_available_connectors(context: AgentContext | None = None) -> dict[str, Any]:
         """List available data connectors."""
@@ -52,7 +68,9 @@ def make_data_agent() -> BaseAgent:
 
     def complete(summary: str = "", context: AgentContext | None = None) -> dict[str, Any]:
         """Signal that data gathering is complete."""
-        return {"n_signals": len(context.signals) if context else 0, "summary": summary}
+        n_signals = len(context.signals) if context else 0
+        log.info("data_agent.complete_called", n_signals=n_signals, summary=summary)
+        return {"n_signals": n_signals, "summary": summary}
 
     agent.register_tool(
         fetch_yfinance,
