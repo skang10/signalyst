@@ -20,8 +20,9 @@ def _fetch_price_change(ticker: str) -> dict:
     )
     if len(data) < 2:
         raise ValueError(f"insufficient data for {ticker}")
-    latest = float(data["Close"].iloc[-1])
-    prev = float(data["Close"].iloc[-2])
+    close = data["Close"].squeeze()
+    latest = float(close.iloc[-1])
+    prev = float(close.iloc[-2])
     change_pct = round((latest - prev) / prev * 100, 2)
     return {"price": round(latest, 2), "change_pct": change_pct}
 
