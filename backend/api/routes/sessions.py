@@ -4,6 +4,7 @@ import uuid
 from datetime import date
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -22,6 +23,7 @@ from src.db.models import AnalysisResult, DataArtifact, FeatureArtifact
 from src.db.models import Session as SessionModel
 from src.db.session import get_session
 
+log = structlog.get_logger()
 router = APIRouter(tags=["sessions"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -113,6 +115,13 @@ async def create_session(req: CreateSessionRequest, db: SessionDep) -> CreateSes
     db.add(s)
     await db.commit()
     await db.refresh(s)
+    log.info(
+        "session.created",
+        session_id=str(s.id),
+        market_profile=req.market_profile,
+        timeframe=f"{req.timeframe_start} → {req.timeframe_end}",
+        auto=req.auto,
+    )
     return CreateSessionResponse(session_id=str(s.id))
 
 
@@ -123,6 +132,7 @@ async def list_sessions(db: SessionDep) -> list[SessionListItem]:
         .scalars()
         .all()
     )
+    log.debug("session.list", count=len(rows))
     return [
         SessionListItem(
             session_id=str(s.id),
@@ -147,6 +157,7 @@ async def get_session_detail(session_id: str, db: SessionDep) -> SessionDetail:
     s = await db.get(SessionModel, uid)
     if s is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    log.debug("session.get", session_id=session_id, stage=s.stage, status=s.status)
     artifacts = await _build_artifacts(db, uid)
     return _to_detail(s, artifacts)
 
@@ -162,4 +173,5 @@ async def delete_session(session_id: str, db: SessionDep) -> dict:
         raise HTTPException(status_code=404, detail="Session not found")
     await db.delete(s)
     await db.commit()
+    log.info("session.deleted", session_id=session_id)
     return {"session_id": session_id}

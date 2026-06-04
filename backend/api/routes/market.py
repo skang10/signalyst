@@ -38,9 +38,16 @@ def _safe_fetch(ticker: str) -> IndicatorValue | None:
 
 @router.get("/market/snapshot", response_model=MarketSnapshotResponse)
 async def get_market_snapshot() -> MarketSnapshotResponse:
-    return MarketSnapshotResponse(
+    snapshot = MarketSnapshotResponse(
         wti=_safe_fetch("CL=F"),
         brent=_safe_fetch("BZ=F"),
         dxy=_safe_fetch("DX-Y.NYB"),
         fetched_at=datetime.now(UTC).isoformat(),
     )
+    log.debug(
+        "market.snapshot",
+        wti=snapshot.wti.price if snapshot.wti else None,
+        brent=snapshot.brent.price if snapshot.brent else None,
+        dxy=snapshot.dxy.price if snapshot.dxy else None,
+    )
+    return snapshot
