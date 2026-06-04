@@ -22,7 +22,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 async def list_connectors(db: SessionDep) -> list[ConnectorOut]:
     rows = (
         (await db.execute(select(Connector).where(Connector.is_active)))
-          # type: ignore[arg-type]
+        # type: ignore[arg-type]
         .scalars()
         .all()
     )
