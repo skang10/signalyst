@@ -19,7 +19,6 @@ from src.config import settings
 from src.db.models import DataArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
 from src.services.hashing import stable_hash
-from src.services.stage import append_activity_event, set_status, transition_stage
 
 log = structlog.get_logger()
 _ARTIFACTS_DIR = pathlib.Path("data/artifacts")
@@ -37,15 +36,7 @@ async def run_data_agent_service(session_id: uuid.UUID, engine: AsyncEngine) -> 
         if s.stage != SessionStage.DATA_GATHERING:
             log.info("data_agent.wrong_stage", session_id=str(session_id), stage=s.stage)
             return
-        try:
-            await _run(s, db)
-        except Exception as exc:
-            log.error("data_agent.failed", session_id=str(session_id), error=str(exc))
-            set_status(s, SessionStatus.FAILED, error=str(exc))
-            append_activity_event(
-                s, {"type": "error", "stage": "data_gathering", "message": str(exc)}
-            )
-            await db.commit()
+        await _run(s, db)
 
 
 def _series_to_raw_data(signals: dict[str, Any]) -> dict[str, Any]:
@@ -96,21 +87,30 @@ def _build_manifest(signals: dict[str, Any]) -> dict[str, Any]:
 
 
 async def _run(s: SessionModel, db: AsyncSession) -> None:
+    # Snapshot everything before the first await — asyncpg expires the object
+    # when the connection returns to the pool between async calls.
+    session_id = s.id
+    session_id_str = str(session_id)
+    current_activity_events = list(s.activity_events or [])
+    current_stage_history = list(s.stage_history or [])
+    is_auto = s.auto
+
+    pending = list(s.pending_sources or [])
+    log.info(
+        "data_agent.starting",
+        session_id=session_id_str,
+        n_pending_sources=len(pending),
+        sources=[p.get("connector_id") for p in pending],
+    )
+
     r = aioredis.Redis.from_url(settings.redis_url, decode_responses=True)
-    channel = f"session:{s.id}:stream"
+    channel = f"session:{session_id_str}:stream"
 
     async def publisher(event: dict[str, Any]) -> None:
         enriched = {**event, "created_at": datetime.now(UTC).isoformat()}
         await r.publish(channel, json.dumps(enriched))
 
     try:
-        pending = list(s.pending_sources or [])
-        log.info(
-            "data_agent.starting",
-            session_id=str(s.id),
-            n_pending_sources=len(pending),
-            sources=[p.get("connector_id") for p in pending],
-        )
         ctx = AgentContext(
             date_range_start=str(s.timeframe_start),
             date_range_end=str(s.timeframe_end),
@@ -126,6 +126,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         agent = make_data_agent()
         await agent.run(context=ctx, publisher=publisher, initial_user_message=initial_msg)
 
+        # All reads below use snapshots — s is expired after the await above
         raw_data = _series_to_raw_data(ctx.signals)
         data_manifest = _build_manifest(ctx.signals)
 
@@ -135,7 +136,9 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         source_hash = stable_hash(hashlib.sha256(source_str.encode()).hexdigest())
 
         artifact_id = uuid.uuid4()
-        count_result = await db.execute(select(func.count()).where(DataArtifact.session_id == s.id))
+        count_result = await db.execute(
+            select(func.count()).where(DataArtifact.session_id == session_id)
+        )
         round_num = (count_result.scalar() or 0) + 1
 
         raw_json = json.dumps(raw_data).encode()
@@ -160,7 +163,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         ]
         a = DataArtifact(
             id=artifact_id,
-            session_id=s.id,
+            session_id=session_id,
             round=round_num,
             sources=sources,
             data_manifest=data_manifest,
@@ -170,31 +173,54 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         )
         db.add(a)
 
-        s.pending_sources = []
-        append_activity_event(
-            s,
-            {
-                "type": "artifact_ready",
-                "kind": "data",
-                "artifact_id": str(artifact_id),
-                "rows": data_manifest["rows"],
-                "tickers": data_manifest["tickers"],
-            },
-        )
+        now = datetime.now(UTC)
+        artifact_event: dict[str, Any] = {
+            "event_id": str(uuid.uuid4()),
+            "created_at": now.isoformat(),
+            "type": "artifact_ready",
+            "kind": "data",
+            "artifact_id": str(artifact_id),
+            "rows": data_manifest["rows"],
+            "tickers": data_manifest["tickers"],
+        }
 
-        if s.auto:
-            transition_stage(s, SessionStage.FEATURIZING)
-            set_status(s, SessionStatus.RUNNING)
+        if is_auto:
+            next_stage = SessionStage.FEATURIZING
+            next_status = SessionStatus.RUNNING
         else:
-            transition_stage(s, SessionStage.USER_REVIEW)
-            set_status(s, SessionStatus.WAITING)
+            next_stage = SessionStage.USER_REVIEW
+            next_status = SessionStatus.WAITING
+
+        new_stage_entry = {"stage": next_stage.value, "entered_at": now.isoformat()}
+
+        s.pending_sources = []
+        s.activity_events = [*current_activity_events, artifact_event]
+        s.stage = next_stage.value
+        s.stage_history = [*current_stage_history, new_stage_entry]
+        s.status = next_status.value
+        s.updated_at = now.replace(tzinfo=None)
 
         await db.commit()
         log.info(
             "data_agent.complete",
-            session_id=str(s.id),
+            session_id=session_id_str,
             n_signals=len(ctx.signals),
             round=round_num,
         )
+    except Exception as exc:
+        log.error("data_agent.failed", session_id=session_id_str, error=str(exc))
+        now = datetime.now(UTC)
+        error_event: dict[str, Any] = {
+            "event_id": str(uuid.uuid4()),
+            "created_at": now.isoformat(),
+            "type": "error",
+            "stage": "data_gathering",
+            "message": str(exc),
+        }
+        s.status = SessionStatus.FAILED.value
+        s.error = str(exc)
+        s.updated_at = now.replace(tzinfo=None)
+        s.activity_events = [*current_activity_events, error_event]
+        await db.commit()
     finally:
         await r.aclose()  # type: ignore[attr-defined]
