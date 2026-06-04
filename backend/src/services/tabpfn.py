@@ -89,6 +89,9 @@ async def run_tabpfn_service(session_id: uuid.UUID, engine: AsyncEngine) -> None
         if s.status == SessionStatus.CANCELED:
             log.info("tabpfn.canceled", session_id=str(session_id))
             return
+        if s.stage != SessionStage.ANALYZING:
+            log.info("tabpfn.wrong_stage", session_id=str(session_id), stage=s.stage)
+            return
 
         try:
             await _run(s, db, engine)

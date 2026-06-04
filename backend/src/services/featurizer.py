@@ -48,6 +48,9 @@ async def run_featurizer_service(session_id: uuid.UUID, engine: AsyncEngine) -> 
         if s.status == SessionStatus.CANCELED:
             log.info("featurizer.canceled", session_id=str(session_id))
             return
+        if s.stage != SessionStage.FEATURIZING:
+            log.info("featurizer.wrong_stage", session_id=str(session_id), stage=s.stage)
+            return
 
         try:
             await _run(s, db, engine)

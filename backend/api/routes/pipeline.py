@@ -145,6 +145,16 @@ async def _run_tabpfn_background(session_id: uuid.UUID) -> None:
     await run_tabpfn_service(session_id, engine)
 
 
+async def _run_data_agent_background(session_id: uuid.UUID) -> None:
+    from src.services.data_agent import run_data_agent_service
+    from src.services.featurizer import run_featurizer_service
+    from src.services.tabpfn import run_tabpfn_service
+
+    await run_data_agent_service(session_id, engine)
+    await run_featurizer_service(session_id, engine)
+    await run_tabpfn_service(session_id, engine)
+
+
 @router.post(
     "/sessions/{session_id}/upload",
     response_model=UploadResponse,
@@ -310,6 +320,8 @@ async def rerun(
         background_tasks.add_task(_run_featurizer_background, uid)
     elif target == SessionStage.ANALYZING:
         background_tasks.add_task(_run_tabpfn_background, uid)
+    elif target == SessionStage.DATA_GATHERING:
+        background_tasks.add_task(_run_data_agent_background, uid)
 
     log.info("session.rerun", session_id=session_id, stage=req.stage)
     return RerunResponse(session_id=session_id)

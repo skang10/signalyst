@@ -1,4 +1,5 @@
 import io
+from unittest.mock import AsyncMock, patch
 
 import pandas as pd
 
@@ -11,14 +12,15 @@ def _make_csv(dates, col="CL=F") -> bytes:
 
 
 def _create_session(client) -> str:
-    res = client.post(
-        "/api/sessions",
-        json={
-            "market_profile": "oil",
-            "timeframe_start": "2023-01-01",
-            "timeframe_end": "2023-06-30",
-        },
-    )
+    with patch("api.routes.sessions._run_data_pipeline_background", new_callable=AsyncMock):
+        res = client.post(
+            "/api/sessions",
+            json={
+                "market_profile": "oil",
+                "timeframe_start": "2023-01-01",
+                "timeframe_end": "2023-06-30",
+            },
+        )
     return res.json()["session_id"]
 
 
