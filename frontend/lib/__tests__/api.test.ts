@@ -71,6 +71,52 @@ describe("api.getProfiles", () => {
   });
 });
 
+describe("api.proceed", () => {
+  it("posts to /proceed", async () => {
+    const { api } = await import("../api");
+    mockOk({ session_id: "ses-1" });
+    await api.proceed("ses-1");
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining("/api/sessions/ses-1/proceed"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+});
+
+describe("api.cancelSession", () => {
+  it("posts to /cancel and returns status", async () => {
+    const { api } = await import("../api");
+    mockOk({ session_id: "ses-1", stage: "featurizing", status: "canceled" });
+    const result = await api.cancelSession("ses-1");
+    expect(result.status).toBe("canceled");
+  });
+});
+
+describe("api.getArtifact", () => {
+  it("fetches artifact detail", async () => {
+    const { api } = await import("../api");
+    mockOk({
+      kind: "data",
+      artifact_id: "art-1",
+      round: 1,
+      sources: [],
+      data_manifest: {
+        tickers: ["CL=F"],
+        rows: 100,
+        date_range: { start: "2023-01-01", end: "2023-06-30" },
+        missing_pct: {},
+        summary_stats: {},
+      },
+      series_preview: { "CL=F": [{ date: "2023-01-01", value: 78.4 }] },
+      cache_hit: false,
+      cached_from_session_id: null,
+    });
+    const result = await api.getArtifact("ses-1", "art-1");
+    expect(result.kind).toBe("data");
+    expect(result.artifact_id).toBe("art-1");
+  });
+});
+
 describe("api.getMarketSnapshot", () => {
   it("fetches /api/market/snapshot", async () => {
     const { api } = await import("../api");

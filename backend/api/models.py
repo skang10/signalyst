@@ -95,3 +95,42 @@ class MarketSnapshotResponse(BaseModel):
     gpr: GprValue | None = None
     eia_inventory_change_mmbbl: float | None = None
     fetched_at: str
+
+
+class ProceedResponse(BaseModel):
+    session_id: str
+
+
+class RerunRequest(BaseModel):
+    stage: str
+    featurizer_config_patch: dict[str, object] | None = None
+
+
+class RerunResponse(BaseModel):
+    session_id: str
+
+
+class CancelResponse(BaseModel):
+    session_id: str
+    stage: str
+    status: str
+
+
+class UploadResponse(BaseModel):
+    artifact_id: str
+
+
+class SeriesPoint(BaseModel):
+    date: str
+    value: float | None
+
+
+class DataArtifactDetail(BaseModel):
+    kind: str = "data"
+    artifact_id: str
+    round: int
+    sources: list[object]
+    data_manifest: dict[str, object]
+    series_preview: dict[str, list[SeriesPoint]]
+    cache_hit: bool
+    cached_from_session_id: str | None

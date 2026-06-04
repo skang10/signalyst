@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { StageStrip } from "@/components/StageStrip";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
@@ -19,9 +19,11 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
   const router = useRouter();
   const pathname = usePathname();
   const { sessionId, stage, status, setSession } = useSessionStore();
+  const [canceling, setCanceling] = useState(false);
 
   useSessionStream(id ?? null);
 
+  // Initial fetch
   useEffect(() => {
     if (!id) return;
     api
@@ -29,6 +31,30 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
       .then(setSession)
       .catch(() => router.push("/"));
   }, [id, router, setSession]);
+
+  // Poll while a background task is running (WS stub doesn't push events yet)
+  useEffect(() => {
+    if (!id || status !== "running") return;
+    const interval = setInterval(() => {
+      api.getSession(id).then(setSession).catch(() => {});
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [id, status, setSession]);
+
+  const handleCancel = async () => {
+    if (!id) return;
+    setCanceling(true);
+    try {
+      await api.cancelSession(id);
+      // Refresh session state after cancel
+      const updated = await api.getSession(id);
+      setSession(updated);
+    } catch {
+      // swallow — status will update on next poll/WS event
+    } finally {
+      setCanceling(false);
+    }
+  };
 
   return (
     <div className="flex flex-col h-screen bg-[#060b14] text-[#f9fafb]">
@@ -43,10 +69,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
       </header>
 
       <div className="flex items-center gap-3 px-4 py-2 border-b border-[#21262d] bg-[#111827]">
-        <Link
-          href="/"
-          className="text-[#9ca3af] hover:text-[#f9fafb] text-sm transition-colors"
-        >
+        <Link href="/" className="text-[#9ca3af] hover:text-[#f9fafb] text-sm transition-colors">
           ← Sessions
         </Link>
         {sessionId && (
@@ -71,6 +94,15 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
                 {status === "running" && "● "}
                 {status}
               </span>
+            )}
+            {status === "running" && (
+              <button
+                onClick={handleCancel}
+                disabled={canceling}
+                className="ml-auto text-xs px-2 py-0.5 rounded border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444] hover:text-white transition-colors disabled:opacity-40"
+              >
+                {canceling ? "Canceling…" : "Cancel"}
+              </button>
             )}
           </>
         )}

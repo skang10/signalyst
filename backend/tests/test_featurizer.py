@@ -144,3 +144,46 @@ def test_transform_temporal_ordering_preserved():
     f = TimeSeriesFeaturizer(windows=[5], lags=[1])
     result = f.transform({"wti": _daily_series("wti", n=100)})
     assert result.index.is_monotonic_increasing
+
+
+def _make_series(n: int = 100) -> pd.Series:
+    dates = pd.date_range("2023-01-01", periods=n, freq="D")
+    return pd.Series(range(n), index=dates, dtype=float, name="wti")
+
+
+def test_feature_families_rolling_stats_only():
+    f = TimeSeriesFeaturizer(windows=[5], lags=[1], feature_families=["rolling_stats"])
+    result = f.transform({"wti": _make_series()})
+    cols = list(result.columns)
+    assert all("mean" in c or "std" in c or "min" in c or "max" in c for c in cols)
+    assert not any("lag" in c or "roc" in c for c in cols)
+
+
+def test_feature_families_lag_only():
+    f = TimeSeriesFeaturizer(windows=[5], lags=[1], feature_families=["lag"])
+    result = f.transform({"wti": _make_series()})
+    cols = list(result.columns)
+    assert all("lag" in c for c in cols)
+    assert not any("mean" in c or "roc" in c for c in cols)
+
+
+def test_feature_families_momentum_only():
+    f = TimeSeriesFeaturizer(windows=[5], lags=[1], feature_families=["momentum"])
+    result = f.transform({"wti": _make_series()})
+    cols = list(result.columns)
+    assert all("roc" in c for c in cols)
+    assert not any("lag" in c or "mean" in c for c in cols)
+
+
+def test_energy_specific_flag_is_stored():
+    f = TimeSeriesFeaturizer(energy_specific=True)
+    assert f.energy_specific is True
+
+
+def test_all_families_by_default():
+    f = TimeSeriesFeaturizer(windows=[5], lags=[1])
+    result = f.transform({"wti": _make_series()})
+    cols = list(result.columns)
+    assert any("mean" in c for c in cols)
+    assert any("lag" in c for c in cols)
+    assert any("roc" in c for c in cols)
