@@ -1,89 +1,118 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 const REQUEST_TIMEOUT_MS = 30_000;
 
-export type RunStatus = "pending" | "running" | "completed" | "failed" | "canceled";
+export type SessionStage =
+  | "configuring"
+  | "data_gathering"
+  | "user_review"
+  | "featurizing"
+  | "analyzing"
+  | "explaining"
+  | "follow_up";
 
-export type AnalyzeRequest = {
-  date_range_start: string;
-  date_range_end: string;
-  tasks?: string[];
-  analysis_mode?: "quick" | "full";
-  pre_messages: string[];
+export type SessionStatus = "running" | "waiting" | "failed" | "canceled";
+
+export type FeaturizerConfig = {
+  windows: number[];
+  lags: number[];
+  feature_families: string[];
+  energy_specific: boolean;
 };
 
-export type RegimeResult = {
-  regime: string;
-  confidence: number;
-  entropy: number;
-  distribution: Record<string, number>;
-};
-
-export type DirectionResult = {
-  direction: string;
-  confidence: number;
-  entropy: number;
-  prediction_date: string;
-  distribution: Record<string, number>;
-};
-
-export type DriftResult = {
-  drift_detected: boolean;
-  psi_score: number;
-  drifted_features: string[];
-  ks_results: Record<string, { statistic: number; p_value: number }>;
-};
-
-export type FeatureImportanceResult = {
-  top_features: Array<{ name: string; importance: number }>;
-  n_features_evaluated: number;
-  n_samples_explained: number;
-};
-
-export type BacktestResult = {
-  regime_accuracy: number;
-  strategy_sharpe: number;
-  benchmark_sharpe: number;
-  n_windows: number;
-};
-
-export type AnalysisResult = {
-  regime: RegimeResult | null;
-  direction: DirectionResult | null;
-  drift: DriftResult | null;
-  feature_importance: FeatureImportanceResult | null;
-  backtest: BacktestResult | null;
-  summary: string;
-  usage: { input_tokens: number; output_tokens: number; estimated_cost_usd: number };
-  data_manifest: unknown;
-};
-
-export type RunResult = {
-  run_id: string;
-  status: RunStatus;
-  result: AnalysisResult | null;
-};
-
-export type HistoryItem = {
-  run_id: string;
+export type DataArtifactRef = {
+  artifact_id: string;
+  round: number;
+  cache_hit: boolean;
   created_at: string;
-  regime: string | null;
-  status: RunStatus;
 };
 
-export type DerivativesPriceRequest = {
-  regime: string;
-  spot: number;
-  strike: number;
-  tenor_days: number;
-  option_type?: "call" | "put";
-  style?: "european" | "american";
-  n_paths?: number;
+export type FeatureArtifactRef = {
+  artifact_id: string;
+  cache_hit: boolean;
+  created_at: string;
+};
+
+export type AnalysisResultRef = {
+  artifact_id: string;
+  cache_hit: boolean;
+  has_summary: boolean;
+  created_at: string;
+};
+
+export type SessionArtifacts = {
+  data: DataArtifactRef[];
+  features: FeatureArtifactRef[];
+  analysis: AnalysisResultRef[];
+};
+
+export type ChatMessage = {
+  role: "user" | "agent";
+  content: string;
+  created_at: string;
+};
+
+export type ActivityEvent = {
+  event_id: string;
+  type: string;
+  created_at: string;
+  [key: string]: unknown;
+};
+
+export type StageHistoryEntry = {
+  stage: SessionStage;
+  entered_at: string;
+};
+
+export type Session = {
+  session_id: string;
+  market_profile: string;
+  timeframe_start: string;
+  timeframe_end: string;
+  stage: SessionStage;
+  status: SessionStatus;
+  error: string | null;
+  auto: boolean;
+  featurizer_config: FeaturizerConfig;
+  conversation: ChatMessage[];
+  activity_events: ActivityEvent[];
+  stage_history: StageHistoryEntry[];
+  artifacts: SessionArtifacts;
+  created_at: string;
+  updated_at: string;
+};
+
+export type SessionListItem = {
+  session_id: string;
+  market_profile: string;
+  timeframe_start: string;
+  timeframe_end: string;
+  stage: SessionStage;
+  status: SessionStatus;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MarketProfile = {
+  id: string;
+  name: string;
+  description: string;
+  default_connectors: string[];
+  default_featurizer_config: FeaturizerConfig;
+  regime_labels: string[];
+};
+
+export type MarketSnapshot = {
+  wti: { price: number; change_pct: number } | null;
+  brent: { price: number; change_pct: number } | null;
+  dxy: { price: number; change_pct: number } | null;
+  gpr: { value: number; change_pct: number } | null;
+  eia_inventory_change_mmbbl: number | null;
+  fetched_at: string;
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
   try {
     const res = await fetch(`${API_URL}${path}`, {
       headers: { "Content-Type": "application/json" },
@@ -98,26 +127,25 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
-  analyze: (body: AnalyzeRequest) =>
-    request<{ run_id: string }>("/api/analyze", {
+  getMarketSnapshot: () => request<MarketSnapshot>("/api/market/snapshot"),
+
+  createSession: (body: {
+    market_profile: string;
+    timeframe_start: string;
+    timeframe_end: string;
+    auto?: boolean;
+  }) =>
+    request<{ session_id: string }>("/api/sessions", {
       method: "POST",
       body: JSON.stringify(body),
     }),
 
-  getRun: (runId: string) =>
-    request<RunResult>(`/api/runs/${runId}`),
+  getSessions: () => request<SessionListItem[]>("/api/sessions"),
 
-  cancelRun: (runId: string) =>
-    request<{ run_id: string; status: RunStatus }>(`/api/runs/${runId}/cancel`, {
-      method: "POST",
-    }),
+  getSession: (id: string) => request<Session>(`/api/sessions/${id}`),
 
-  getHistory: () =>
-    request<HistoryItem[]>("/api/history"),
+  deleteSession: (id: string) =>
+    request<void>(`/api/sessions/${id}`, { method: "DELETE" }),
 
-  priceDerivative: (body: DerivativesPriceRequest) =>
-    request("/api/derivatives/price", {
-      method: "POST",
-      body: JSON.stringify(body),
-    }),
+  getProfiles: () => request<MarketProfile[]>("/api/profiles"),
 };
