@@ -155,3 +155,16 @@ For multi-step tasks, state a brief plan:
 ```
 
 Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+### 5. Plan Implementation & Git Discipline
+
+**Complete the full plan before pushing. CI must pass before a PR is created.**
+
+When executing a superpowers plan:
+- Do not `git push` until every step in the plan is fully implemented and verified locally.
+- Commit incrementally as steps are completed, but hold off on pushing until the plan is done.
+
+When creating a pull request:
+- After pushing, check GitHub CI with `gh run list` and `gh run watch` (or `gh pr checks`).
+- If CI fails, investigate the failure, fix it, and push again before considering the PR ready.
+- Do not leave a PR open with failing CI — fix it.
