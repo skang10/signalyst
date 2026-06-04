@@ -8,9 +8,14 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import type { BacktestResult } from "../../lib/api";
 import { TabPlaceholder } from "./TabPlaceholder";
 
+type BacktestResult = {
+  strategy_sharpe: number;
+  benchmark_sharpe: number;
+  regime_accuracy: number;
+  n_windows: number;
+};
 type Props = { backtest: BacktestResult | null };
 
 function MetricTile({

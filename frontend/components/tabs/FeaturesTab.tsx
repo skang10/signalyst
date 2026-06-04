@@ -1,6 +1,11 @@
-import type { FeatureImportanceResult } from "../../lib/api";
 import { TabPlaceholder } from "./TabPlaceholder";
 
+type FeatureEntry = { name: string; importance: number };
+type FeatureImportanceResult = {
+  top_features: FeatureEntry[];
+  n_features_evaluated: number;
+  n_samples_explained: number;
+};
 type Props = { features: FeatureImportanceResult | null };
 
 export function FeaturesTab({ features }: Props) {

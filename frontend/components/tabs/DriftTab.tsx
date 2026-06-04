@@ -1,6 +1,12 @@
-import type { DriftResult } from "../../lib/api";
 import { TabPlaceholder } from "./TabPlaceholder";
 
+type KsEntry = { statistic: number; p_value: number };
+type DriftResult = {
+  psi_score: number;
+  drift_detected: boolean;
+  drifted_features: string[];
+  ks_results: Record<string, KsEntry>;
+};
 type Props = { drift: DriftResult | null };
 
 function StatTile({

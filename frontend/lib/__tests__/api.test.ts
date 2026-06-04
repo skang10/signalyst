@@ -1,67 +1,81 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { api } from "../api";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mockFetch = vi.fn();
+vi.stubGlobal("fetch", mockFetch);
 
 beforeEach(() => {
-  vi.stubGlobal("fetch", mockFetch);
-  vi.useFakeTimers();
+  vi.clearAllMocks();
+  vi.resetModules();
 });
 
-afterEach(() => {
-  vi.restoreAllMocks();
-  vi.useRealTimers();
-});
-
-function mockResponse(body: object, status = 200) {
+function mockOk(data: unknown) {
   mockFetch.mockResolvedValueOnce({
-    ok: status >= 200 && status < 300,
-    status,
-    json: () => Promise.resolve(body),
-    text: () => Promise.resolve(JSON.stringify(body)),
+    ok: true,
+    json: () => Promise.resolve(data),
+    text: () => Promise.resolve(""),
   });
 }
 
-describe("api.getRun", () => {
-  it("returns parsed JSON on success", async () => {
-    mockResponse({ run_id: "abc", status: "completed", result: null });
-    const result = await api.getRun("abc");
-    expect(result.run_id).toBe("abc");
-    expect(result.status).toBe("completed");
+function mockError(status: number, text = "error") {
+  mockFetch.mockResolvedValueOnce({
+    ok: false,
+    status,
+    text: () => Promise.resolve(text),
   });
+}
 
-  it("throws on non-ok response", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 404,
-      text: () => Promise.resolve("not found"),
+describe("api.createSession", () => {
+  it("posts to /api/sessions and returns session_id", async () => {
+    const { api } = await import("../api");
+    mockOk({ session_id: "abc-123" });
+    const result = await api.createSession({
+      market_profile: "oil",
+      timeframe_start: "2024-01-01",
+      timeframe_end: "2024-06-30",
     });
-    await expect(api.getRun("missing")).rejects.toThrow("API error 404");
-  });
-});
-
-describe("api.analyze", () => {
-  it("sends POST with correct body", async () => {
-    mockResponse({ run_id: "xyz" });
-    await api.analyze({ date_range_start: "2020-01-01", date_range_end: "2024-01-01", pre_messages: [] });
+    expect(result.session_id).toBe("abc-123");
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining("/api/analyze"),
-      expect.objectContaining({ method: "POST" })
+      expect.stringContaining("/api/sessions"),
+      expect.objectContaining({ method: "POST" }),
     );
+  });
+
+  it("throws on API error", async () => {
+    const { api } = await import("../api");
+    mockError(422, "validation error");
+    await expect(
+      api.createSession({
+        market_profile: "oil",
+        timeframe_start: "2024-01-01",
+        timeframe_end: "2024-06-30",
+      }),
+    ).rejects.toThrow("API error 422");
   });
 });
 
-describe("request timeout", () => {
-  it("aborts after 30s", async () => {
-    mockFetch.mockImplementationOnce(
-      (_url: string, init: { signal: AbortSignal }) =>
-        new Promise((_resolve, reject) => {
-          init.signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
-        })
-    );
+describe("api.getSessions", () => {
+  it("fetches /api/sessions", async () => {
+    const { api } = await import("../api");
+    mockOk([]);
+    const result = await api.getSessions();
+    expect(Array.isArray(result)).toBe(true);
+  });
+});
 
-    const promise = api.getRun("slow");
-    vi.advanceTimersByTime(30_001);
-    await expect(promise).rejects.toThrow();
+describe("api.getProfiles", () => {
+  it("fetches /api/profiles", async () => {
+    const { api } = await import("../api");
+    mockOk([{ id: "oil", name: "Oil Markets" }]);
+    const result = await api.getProfiles();
+    expect(result[0].id).toBe("oil");
+  });
+});
+
+describe("api.getMarketSnapshot", () => {
+  it("fetches /api/market/snapshot", async () => {
+    const { api } = await import("../api");
+    mockOk({ wti: { price: 83.0, change_pct: 1.2 }, fetched_at: "2024-01-01T00:00:00Z" });
+    const result = await api.getMarketSnapshot();
+    expect(result.wti?.price).toBe(83.0);
   });
 });

@@ -1,5 +1,28 @@
-import type { AnalysisResult } from "../../lib/api";
 import { TabPlaceholder } from "./TabPlaceholder";
+
+type RegimeResult = {
+  regime: string;
+  confidence: number;
+  distribution: Record<string, number>;
+};
+type DirectionResult = {
+  direction: string;
+  confidence: number;
+  distribution: Record<string, number>;
+};
+type DriftSummary = {
+  psi_score: number;
+  drift_detected: boolean;
+};
+type FeatureImportanceSummary = {
+  top_features: { name: string; importance: number }[];
+};
+type AnalysisResult = {
+  regime?: RegimeResult | null;
+  direction?: DirectionResult | null;
+  drift?: DriftSummary | null;
+  feature_importance?: FeatureImportanceSummary | null;
+};
 
 const REGIME_LABELS: Record<string, string> = {
   range_bound: "Range-Bound",
