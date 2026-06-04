@@ -23,6 +23,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
 
   useSessionStream(id ?? null);
 
+  // Initial fetch
   useEffect(() => {
     if (!id) return;
     api
@@ -30,6 +31,15 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
       .then(setSession)
       .catch(() => router.push("/"));
   }, [id, router, setSession]);
+
+  // Poll while a background task is running (WS stub doesn't push events yet)
+  useEffect(() => {
+    if (!id || status !== "running") return;
+    const interval = setInterval(() => {
+      api.getSession(id).then(setSession).catch(() => {});
+    }, 3000);
+    return () => clearInterval(interval);
+  }, [id, status, setSession]);
 
   const handleCancel = async () => {
     if (!id) return;

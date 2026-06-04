@@ -108,8 +108,11 @@ async def _get_session_or_404(session_id: str, db: AsyncSession) -> tuple[uuid.U
 
 async def _run_featurizer_background(session_id: uuid.UUID) -> None:
     from src.services.featurizer import run_featurizer_service
+    from src.services.tabpfn import run_tabpfn_service
 
     await run_featurizer_service(session_id, engine)
+    # Chain to TabPFN; it reads current status and exits if featurizer failed/canceled
+    await run_tabpfn_service(session_id, engine)
 
 
 async def _run_tabpfn_background(session_id: uuid.UUID) -> None:

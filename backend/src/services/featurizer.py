@@ -50,7 +50,7 @@ async def run_featurizer_service(session_id: uuid.UUID, engine: AsyncEngine) -> 
             return
 
         try:
-            await _run(s, db)
+            await _run(s, db, engine)
         except Exception as exc:
             log.error("featurizer.failed", session_id=str(session_id), error=str(exc))
             set_status(s, SessionStatus.FAILED, error=str(exc))
@@ -58,7 +58,7 @@ async def run_featurizer_service(session_id: uuid.UUID, engine: AsyncEngine) -> 
             await db.commit()
 
 
-async def _run(s: SessionModel, db: AsyncSession) -> None:
+async def _run(s: SessionModel, db: AsyncSession, engine: AsyncEngine) -> None:
     session_id = s.id
     cfg = s.featurizer_config
 
@@ -156,8 +156,15 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         matrix_hash=matrix_hash,
         config_hash=config_hash,
     )
-    db.add(fa)
 
+    # Guard: check for cancellation that arrived while we were computing
+    async with AsyncSession(engine) as check_db:
+        fresh = await check_db.get(SessionModel, s.id)
+        if fresh is None or fresh.status == SessionStatus.CANCELED:
+            log.info("featurizer.canceled_midrun", session_id=str(s.id))
+            return
+
+    db.add(fa)
     append_activity_event(
         s,
         {
