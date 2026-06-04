@@ -60,7 +60,7 @@ Two top-level pages. Session detail uses Next.js App Router nested routes with a
    - EIA Inventory Change — weekly build/draw in Mbbl
    - US Dollar Index (DXY) — price + % change
 2. **Latest session banner** — shown only if at least one session with `stage = FOLLOW_UP` exists. Displays the most recent such session (first row by `created_at DESC`). Blue border card with: profile + timeframe, regime badge, direction badge, Sharpe badge, drift badge, one-line agent summary. "Open session →" link.
-3. **Sessions table** — columns: Profile, Timeframe, Regime, Stage badge, Status dot, Last Updated, "Open →" link. Rows sorted by `created_at DESC`. Failed/old rows shown at reduced opacity.
+3. **Sessions table** — columns: Profile, Timeframe, Regime, Stage badge, Status dot, Last Updated, "Open →" link, delete button (✕). Rows sorted by `created_at DESC`. Failed/old rows shown at reduced opacity. Delete calls `DELETE /api/sessions/{id}` with a confirmation prompt and refreshes the list on success.
 4. **"+ NEW ANALYSIS" button** — top-right in nav bar, opens New Analysis modal.
 
 ### New Analysis Modal

@@ -36,7 +36,7 @@ export default function Home() {
       <main className="flex-1 px-4 py-4">
         <h1 className="text-xs text-[#6b7280] uppercase tracking-wider mb-3">Sessions</h1>
         <div className="rounded-lg border border-[#21262d] overflow-hidden">
-          <SessionsTable sessions={sessions} />
+          <SessionsTable sessions={sessions} onDelete={refresh} />
         </div>
       </main>
 

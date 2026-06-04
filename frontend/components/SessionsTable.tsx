@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
+import { api } from "@/lib/api";
 import type { SessionListItem, SessionStage, SessionStatus } from "@/lib/api";
 
 const STAGE_LABELS: Record<SessionStage, string> = {
@@ -20,9 +22,24 @@ const STATUS_DOT: Record<SessionStatus, string> = {
   canceled: "bg-[#f59e0b]",
 };
 
-type Props = { sessions: SessionListItem[] };
+type Props = { sessions: SessionListItem[]; onDelete: () => void };
 
-export function SessionsTable({ sessions }: Props) {
+export function SessionsTable({ sessions, onDelete }: Props) {
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDelete = async (sessionId: string) => {
+    if (!window.confirm("Delete this session? This cannot be undone.")) return;
+    setDeletingId(sessionId);
+    try {
+      await api.deleteSession(sessionId);
+      onDelete();
+    } catch {
+      // swallow — row stays visible if delete fails
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (sessions.length === 0) {
     return (
       <div className="flex items-center justify-center py-16 text-[#6b7280] text-sm">
@@ -67,13 +84,23 @@ export function SessionsTable({ sessions }: Props) {
             <td className="px-4 py-3 text-[#6b7280] text-xs">
               {new Date(s.updated_at).toLocaleString()}
             </td>
-            <td className="px-4 py-3 text-right">
-              <Link
-                href={`/sessions/${s.session_id}/activity`}
-                className="text-[#3b82f6] hover:text-[#60a5fa] text-xs transition-colors"
-              >
-                Open →
-              </Link>
+            <td className="px-4 py-3">
+              <div className="flex items-center justify-end gap-3">
+                <Link
+                  href={`/sessions/${s.session_id}/activity`}
+                  className="text-[#3b82f6] hover:text-[#60a5fa] text-xs transition-colors"
+                >
+                  Open →
+                </Link>
+                <button
+                  onClick={() => handleDelete(s.session_id)}
+                  disabled={deletingId === s.session_id}
+                  className="text-[#6b7280] hover:text-[#ef4444] text-xs transition-colors disabled:opacity-40"
+                  aria-label="Delete session"
+                >
+                  {deletingId === s.session_id ? "…" : "✕"}
+                </button>
+              </div>
             </td>
           </tr>
         ))}
