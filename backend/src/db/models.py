@@ -54,8 +54,8 @@ class Session(SQLModel, table=True):
         default_factory=list, sa_column=Column(SAJson, nullable=False)
     )
     stage_history: list[Any] = Field(default_factory=list, sa_column=Column(SAJson, nullable=False))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class DataArtifact(SQLModel, table=True):
@@ -72,7 +72,7 @@ class DataArtifact(SQLModel, table=True):
     cached_from_session_id: uuid.UUID | None = Field(default=None)
     cached_from_artifact_id: uuid.UUID | None = Field(default=None)
     cache_hit: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class FeatureArtifact(SQLModel, table=True):
@@ -91,7 +91,7 @@ class FeatureArtifact(SQLModel, table=True):
     cached_from_session_id: uuid.UUID | None = Field(default=None)
     cached_from_artifact_id: uuid.UUID | None = Field(default=None)
     cache_hit: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class AnalysisResult(SQLModel, table=True):
@@ -110,7 +110,7 @@ class AnalysisResult(SQLModel, table=True):
     cached_from_session_id: uuid.UUID | None = Field(default=None)
     cached_from_artifact_id: uuid.UUID | None = Field(default=None)
     cache_hit: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class ConnectorType(StrEnum):
@@ -131,7 +131,7 @@ class Connector(SQLModel, table=True):
     code: str | None = Field(default=None)
     tests: str | None = Field(default=None)
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
 class MarketProfile(SQLModel, table=True):
@@ -145,4 +145,4 @@ class MarketProfile(SQLModel, table=True):
         default_factory=dict, sa_column=Column(SAJson, nullable=False)
     )
     regime_labels: list[str] = Field(default_factory=list, sa_column=Column(SAJson, nullable=False))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))

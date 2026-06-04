@@ -26,7 +26,7 @@ async def seed_profiles(db: AsyncSession) -> None:
                     "energy_specific": True,
                 },
                 regime_labels=["bull_supercycle", "range_bound", "bust", "geopolitical_spike"],
-                created_at=datetime.now(UTC),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
             )
         )
         await db.commit()
