@@ -164,7 +164,8 @@ When executing a superpowers plan:
 - Do not `git push` until every step in the plan is fully implemented and verified locally.
 - Commit incrementally as steps are completed, but hold off on pushing until the plan is done.
 
-When creating a pull request:
-- After pushing, check GitHub CI with `gh run list` and `gh run watch` (or `gh pr checks`).
-- If CI fails, investigate the failure, fix it, and push again before considering the PR ready.
-- Do not leave a PR open with failing CI — fix it.
+After every `git push` (whether creating a PR or pushing follow-up commits):
+- Check CI immediately with `gh pr checks` (if a PR exists) or `gh run list --branch <branch>`.
+- Wait for all checks to complete — do not report the task as done while CI is still running.
+- If any check fails, read the logs with `gh run view <run-id> --log-failed`, fix the root cause, and push again.
+- Do not leave a PR open with failing CI — fix it before moving on.
