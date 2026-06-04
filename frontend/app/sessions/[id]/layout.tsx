@@ -28,7 +28,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
       .getSession(id)
       .then(setSession)
       .catch(() => router.push("/"));
-  }, [id]);
+  }, [id, router, setSession]);
 
   return (
     <div className="flex flex-col h-screen bg-[#060b14] text-[#f9fafb]">
