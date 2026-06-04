@@ -7,15 +7,17 @@ import sentry_sdk
 import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
 from api.logging import configure_logging, request_log_level, should_log_request
 from api.routes import derivatives, market, profiles, sessions
-from api.ws import stream_handler
+from api.ws import session_stream_handler
 from src.config import settings
+from src.db.seed import seed_profiles
+from src.db.session import engine
 
 configure_logging()
-
 log = structlog.get_logger()
 
 
@@ -23,6 +25,11 @@ log = structlog.get_logger()
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     if settings.sentry_dsn:
         sentry_sdk.init(dsn=settings.sentry_dsn, environment=settings.environment)
+    try:
+        async with AsyncSession(engine) as db:
+            await seed_profiles(db)
+    except Exception as exc:
+        log.warning("startup.seed_failed", error=str(exc))
     log.info("startup", environment=settings.environment)
     yield
     log.info("shutdown")
@@ -42,7 +49,7 @@ app.include_router(sessions.router, prefix="/api")
 app.include_router(profiles.router, prefix="/api")
 app.include_router(market.router, prefix="/api")
 app.include_router(derivatives.router, prefix="/api")
-app.add_api_websocket_route("/ws/runs/{run_id}/stream", stream_handler)
+app.add_api_websocket_route("/ws/sessions/{session_id}/stream", session_stream_handler)
 
 
 @app.middleware("http")
