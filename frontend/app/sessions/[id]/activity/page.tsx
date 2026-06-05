@@ -166,7 +166,6 @@ function StageCard({ group, defaultOpen }: { group: StageGroup; defaultOpen: boo
   const hasContent =
     group.fetchRows.length > 0 ||
     group.thoughts.length > 0 ||
-    group.chatMessages.length > 0 ||
     group.completionEvent !== null ||
     group.errorEvent !== null;
 
@@ -206,9 +205,6 @@ function StageCard({ group, defaultOpen }: { group: StageGroup; defaultOpen: boo
           ))}
           {group.thoughts.map((t) => (
             <ThoughtRowItem key={t.id} thought={t} />
-          ))}
-          {group.chatMessages.map((msg, i) => (
-            <ChatMessageItem key={`chat-${i}`} msg={msg} />
           ))}
           {group.errorEvent && (
             <div className="px-4 py-1.5 text-xs text-[#ef4444]">
@@ -272,11 +268,12 @@ export default function ActivityPage() {
           </div>
         ) : (
           groups.map((group, idx) => (
-            <StageCard
-              key={`${group.stage}-${idx}`}
-              group={group}
-              defaultOpen={group.status === "active"}
-            />
+            <div key={`${group.stage}-${idx}`} className="flex flex-col gap-2">
+              <StageCard group={group} defaultOpen={group.status === "active"} />
+              {group.chatMessages.map((msg, i) => (
+                <ChatMessageItem key={`chat-${idx}-${i}`} msg={msg} />
+              ))}
+            </div>
           ))
         )}
       </div>
