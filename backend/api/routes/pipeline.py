@@ -341,6 +341,32 @@ async def proceed(
             status_code=409, detail="a task is already running — POST /cancel first"
         )
 
+    # Guard: reject if the latest DataArtifact has too much missing data
+    _MAX_MISSING_PCT = 30.0
+    latest_artifact = (
+        (
+            await db.execute(
+                select(DataArtifact)
+                .where(DataArtifact.session_id == uid)
+                .order_by(DataArtifact.created_at.desc())  # type: ignore[attr-defined]
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if latest_artifact is not None:
+        missing_vals = list(latest_artifact.data_manifest.get("missing_pct", {}).values())
+        avg_missing = sum(missing_vals) / len(missing_vals) if missing_vals else 0.0
+        if avg_missing > _MAX_MISSING_PCT:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Average missing data is {avg_missing:.1f}% (limit {_MAX_MISSING_PCT:.0f}%). "
+                    "Fix data quality before running analysis — upload a file with overlapping "
+                    "dates or use 'Replace existing data'."
+                ),
+            )
+
     from_stage = s.stage
     transition_stage(s, SessionStage.FEATURIZING)
     set_status(s, SessionStatus.RUNNING)
