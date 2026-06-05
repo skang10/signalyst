@@ -49,20 +49,69 @@ function Sparkline({ points }: { points: { date: string; value: number | null }[
   );
 }
 
+type FilePreview = { start: string; end: string; rows: number; columns: string[] } | null;
+
+function parseCsvPreview(text: string): FilePreview {
+  const lines = text.split("\n").filter((l) => l.trim());
+  if (lines.length < 2) return null;
+  const header = lines[0].split(",").map((h) => h.trim().replace(/"/g, ""));
+  const dataLines = lines.slice(1).filter((l) => l.trim());
+  if (dataLines.length === 0) return null;
+
+  const firstRow = dataLines[0].split(",");
+  const lastRow = dataLines[dataLines.length - 1].split(",");
+  const start = (firstRow[0] ?? "").trim().replace(/"/g, "");
+  const end = (lastRow[0] ?? "").trim().replace(/"/g, "");
+  return { start, end, rows: dataLines.length, columns: header.slice(1) };
+}
+
 function UploadPanel({
   sessionId,
   compact,
   onSuccess,
+  existingDateRange,
 }: {
   sessionId: string;
   compact?: boolean;
   onSuccess?: (artifactId: string) => void;
+  existingDateRange?: { start: string; end: string } | null;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<FilePreview>(null);
   const [sourceName, setSourceName] = useState("");
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleFileChange = (f: File | undefined) => {
+    if (!f) return;
+    setFile(f);
+    setPreview(null);
+    // Only preview CSV — parquet not readable as text
+    if (f.name.endsWith(".csv")) {
+      // Read just enough bytes for header + first/last rows
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = (e.target?.result as string) ?? "";
+        setPreview(parseCsvPreview(text));
+      };
+      reader.readAsText(f.slice(0, 64_000)); // first 64 KB is enough for preview
+    }
+  };
+
+  // Check if uploaded date range overlaps with existing
+  const overlapWarning: string | null = (() => {
+    if (!preview || !existingDateRange) return null;
+    const uploadStart = new Date(preview.start);
+    const uploadEnd = new Date(preview.end);
+    const existStart = new Date(existingDateRange.start);
+    const existEnd = new Date(existingDateRange.end);
+    if (isNaN(uploadStart.getTime()) || isNaN(existStart.getTime())) return null;
+    if (uploadEnd < existStart || uploadStart > existEnd) {
+      return `No date overlap: your file covers ${preview.start} – ${preview.end}, existing data covers ${existingDateRange.start} – ${existingDateRange.end}. Merging will produce ~50% missing values.`;
+    }
+    return null;
+  })();
 
   const handleUpload = async () => {
     if (!file) return;
@@ -82,7 +131,7 @@ function UploadPanel({
     <div className={`w-full ${compact ? "" : "max-w-md"} flex flex-col gap-4`}>
       {!compact && (
         <p className="text-sm text-[#9ca3af] text-center">
-          Upload a CSV or Parquet file to use as the data source for this session.
+          Upload a CSV or Parquet file to merge with existing data.
         </p>
       )}
 
@@ -101,8 +150,30 @@ function UploadPanel({
           type="file"
           accept=".csv,.parquet"
           className="hidden"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => handleFileChange(e.target.files?.[0])}
         />
+
+        {/* File preview */}
+        {preview && (
+          <div className="bg-[#0d1117] border border-[#21262d] rounded p-3 flex flex-col gap-1 text-xs">
+            <div className="flex gap-4 text-[#9ca3af]">
+              <span>{preview.rows} rows</span>
+              <span>{preview.columns.length} columns</span>
+              <span>{preview.start} – {preview.end}</span>
+            </div>
+            <div className="text-[#6b7280] font-mono truncate">
+              {preview.columns.slice(0, 6).join(", ")}{preview.columns.length > 6 ? ` +${preview.columns.length - 6} more` : ""}
+            </div>
+          </div>
+        )}
+
+        {/* Overlap warning */}
+        {overlapWarning && (
+          <div className="flex gap-2 bg-[#1c1208] border border-[#f59e0b] rounded p-3 text-xs text-[#f59e0b]">
+            <span>⚠</span>
+            <span>{overlapWarning}</span>
+          </div>
+        )}
 
         {/* Source name */}
         <input
@@ -221,6 +292,17 @@ export default function DataPage() {
         <MetricCard label="Missing %" value={`${avgMissing.toFixed(1)}%`} warn={avgMissing > 1} />
       </div>
 
+      {/* Backend warnings (date overlap, WTI hint, etc.) */}
+      {dm.warnings?.length ? (
+        <div className="flex flex-col gap-1">
+          {dm.warnings.map((w, i) => (
+            <div key={i} className="flex gap-2 bg-[#1c1208] border border-[#f59e0b] rounded p-2 text-xs text-[#f59e0b]">
+              <span>⚠</span><span>{w}</span>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap gap-2">
         {dm.tickers.map((ticker) => (
           <span
@@ -256,7 +338,11 @@ export default function DataPage() {
         })}
       </div>
 
-      <UploadSection sessionId={id} onSuccess={handleUploadSuccess} />
+      <UploadSection
+        sessionId={id}
+        onSuccess={handleUploadSuccess}
+        existingDateRange={dm.date_range}
+      />
     </div>
   );
 }
@@ -264,9 +350,11 @@ export default function DataPage() {
 function UploadSection({
   sessionId,
   onSuccess,
+  existingDateRange,
 }: {
   sessionId: string;
   onSuccess: (artifactId: string) => void;
+  existingDateRange?: { start: string; end: string };
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -280,7 +368,12 @@ function UploadSection({
       </button>
       {open && (
         <div className="border-t border-[#21262d] p-4">
-          <UploadPanel sessionId={sessionId} compact onSuccess={onSuccess} />
+          <UploadPanel
+            sessionId={sessionId}
+            compact
+            onSuccess={onSuccess}
+            existingDateRange={existingDateRange}
+          />
         </div>
       )}
     </div>
