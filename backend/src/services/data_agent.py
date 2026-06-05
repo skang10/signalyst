@@ -200,6 +200,29 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         s.status = next_status.value
         s.updated_at = now.replace(tzinfo=None)
 
+        if not is_auto:
+            tickers = data_manifest.get("tickers", [])
+            rows = data_manifest.get("rows", 0)
+            dr = data_manifest.get("date_range", {})
+            missing = data_manifest.get("missing_pct", {})
+            ticker_str = ", ".join(tickers[:4])
+            if len(tickers) > 4:
+                ticker_str += f" +{len(tickers) - 4} more"
+            date_str = (
+                f" from {dr['start']} to {dr['end']}" if dr.get("start") and dr.get("end") else ""
+            )
+            high_missing = [k for k, v in missing.items() if v > 10]
+            warning = f" ⚠ High missing data: {', '.join(high_missing)}." if high_missing else ""
+            greeting = (
+                f"I've collected {rows} rows across {len(tickers)} signal"
+                f"{'s' if len(tickers) != 1 else ''} ({ticker_str}){date_str}.{warning} "
+                f"Check the Data tab to review the snapshot. "
+                f'Say "run analysis" to proceed, or ask me to add or adjust data sources.'
+            )
+            s.conversation = [
+                {"role": "assistant", "content": greeting, "created_at": now.isoformat()}
+            ]
+
         await db.commit()
         await publisher(artifact_event)
         log.info(
