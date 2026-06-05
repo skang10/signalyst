@@ -139,7 +139,7 @@ All messages are JSON objects with a `type` field.
 
 ## Agent Loop
 
-`src/agent/loop.py` implements the ReAct loop using the OpenAI SDK (model: `gpt-5.5` / `gpt-5.5-mini` for quick mode).
+`src/agent/loop.py` implements the ReAct loop using the OpenAI SDK (model: `gpt-5` / `gpt-5-mini` for quick mode).
 
 ### Phases
 

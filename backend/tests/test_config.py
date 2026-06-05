@@ -15,6 +15,12 @@ def test_env_file_uses_project_root():
     assert Settings.model_config["env_file"] == PROJECT_ROOT / ".env"
 
 
+def test_default_agent_models_use_valid_openai_model_ids():
+    s = Settings()
+    assert s.agent_model == "gpt-5"
+    assert s.agent_model_fast == "gpt-5-mini"
+
+
 def test_settings_has_gpr_data_url():
     from src.config import settings
 

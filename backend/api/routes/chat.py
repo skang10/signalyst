@@ -98,7 +98,7 @@ async def chat(
         log.error("chat.interpret_failed", session_id=session_id, error=str(exc))
         raise HTTPException(status_code=502, detail=f"Interpreter error: {exc}") from exc
 
-    action = result.get("action", "advance")
+    action = result.get("action", "answer")
     reply = result.get("reply", "")
     updates = result.get("updates", {})
     now = datetime.now(UTC)
