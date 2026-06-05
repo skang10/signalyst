@@ -301,6 +301,28 @@ function AgentTurn({ group }: { group: StageGroup }) {
   );
 }
 
+// --- Agent thinking line (shown while waiting for response) ---
+
+function AgentThinkingLine() {
+  return (
+    <div className="flex gap-3">
+      <div
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+        style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)" }}
+      >
+        S
+      </div>
+      <div className="flex flex-col gap-1 flex-1 min-w-0">
+        <span className="text-xs text-[#4b5563] font-medium">Signalyst Agent</span>
+        <div className="flex items-center gap-2 text-sm text-[#6b7280]">
+          <span className="text-[#3b82f6] animate-spin leading-none">⟳</span>
+          <span>Thinking…</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // --- User bubble ---
 
 function UserBubble({ msg }: { msg: ChatMessage }) {
@@ -372,20 +394,23 @@ export default function ActivityPage() {
               : "No activity yet — create or upload data to start"}
           </div>
         ) : (
-          groups.map((group, idx) => (
-            <div key={`${group.stage}-${idx}`} className="flex flex-col gap-3">
-              <StagePill group={group} />
-              <AgentTurn group={group} />
-              {/* Render chat messages in timestamp order, role determines component */}
-              {group.chatMessages.map((msg, i) =>
-                msg.role === "assistant" ? (
-                  <AgentSpeechBubble key={`chat-${idx}-${i}`} content={msg.content} />
-                ) : (
-                  <UserBubble key={`chat-${idx}-${i}`} msg={msg} />
-                )
-              )}
-            </div>
-          ))
+          <>
+            {groups.map((group, idx) => (
+              <div key={`${group.stage}-${idx}`} className="flex flex-col gap-3">
+                <StagePill group={group} />
+                <AgentTurn group={group} />
+                {/* Render chat messages in timestamp order, role determines component */}
+                {group.chatMessages.map((msg, i) =>
+                  msg.role === "assistant" ? (
+                    <AgentSpeechBubble key={`chat-${idx}-${i}`} content={msg.content} />
+                  ) : (
+                    <UserBubble key={`chat-${idx}-${i}`} msg={msg} />
+                  )
+                )}
+              </div>
+            ))}
+            {sending && <AgentThinkingLine />}
+          </>
         )}
       </div>
 
