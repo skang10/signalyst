@@ -1,35 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { api } from "@/lib/api";
+import type { ChatMessage } from "@/lib/api";
+import { buildGroups } from "@/lib/activity-groups";
+import type { FetchRow, StageGroup, ThoughtEntry } from "@/lib/activity-groups";
 import { useSessionStore } from "@/lib/store";
-import type { ActivityEvent } from "@/lib/api";
-
-// --- Types ---
-
-type FetchRow = {
-  id: string;
-  tool: string;
-  input: Record<string, unknown>;
-  result: Record<string, unknown> | null;
-  callTime: string;
-  resultTime: string | null;
-};
-
-type ThoughtEntry = {
-  id: string;
-  content: string;
-  time: string;
-};
-
-type StageGroup = {
-  stage: string;
-  startTime: string;
-  status: "done" | "active" | "failed";
-  thoughts: ThoughtEntry[];
-  fetchRows: FetchRow[];
-  completionEvent: Record<string, unknown> | null;
-  errorEvent: Record<string, unknown> | null;
-};
 
 // --- Labels ---
 
@@ -60,114 +36,6 @@ function toolDisplay(tool: string, input: Record<string, unknown>): string {
   return TOOL_DISPLAY[tool]?.(input) ?? tool.replace(/_/g, " ");
 }
 
-// --- Group builder ---
-
-type MutableGroup = Omit<StageGroup, "status"> & {
-  pendingQueues: Map<string, FetchRow[]>;
-};
-
-function newGroup(stage: string, startTime: string): MutableGroup {
-  return {
-    stage,
-    startTime,
-    thoughts: [],
-    fetchRows: [],
-    pendingQueues: new Map(),
-    completionEvent: null,
-    errorEvent: null,
-  };
-}
-
-function flushPending(g: MutableGroup) {
-  g.pendingQueues.forEach((queue) => g.fetchRows.push(...queue));
-  g.pendingQueues.clear();
-}
-
-function buildGroups(
-  activityEvents: ActivityEvent[],
-  wsMessages: Record<string, unknown>[],
-  currentStage: string | null,
-  currentStatus: string | null,
-): StageGroup[] {
-  const ts = (iso: string | undefined) => (iso ? new Date(iso).getTime() || 0 : 0);
-
-  const merged = [
-    ...activityEvents.map((e) => ({ t: ts(e.created_at), ev: e as Record<string, unknown> })),
-    ...wsMessages
-      .filter((m) => ["thought", "tool_call", "tool_result"].includes(m.type as string))
-      .map((m) => ({ t: ts(m.created_at as string | undefined), ev: m })),
-  ].sort((a, b) => a.t - b.t);
-
-  let cur = newGroup("configuring", "");
-  const completed: MutableGroup[] = [];
-  let thoughtIdx = 0;
-  let fetchIdx = 0;
-
-  for (const { ev } of merged) {
-    const type = ev.type as string;
-
-    if (type === "stage_transition") {
-      flushPending(cur);
-      completed.push(cur);
-      cur = newGroup((ev.to as string) ?? "", (ev.created_at as string) ?? "");
-    } else if (type === "artifact_ready" || type === "cache_hit") {
-      cur.completionEvent = ev;
-    } else if (type === "error") {
-      cur.errorEvent = ev;
-    } else if (type === "thought") {
-      cur.thoughts.push({
-        id: `th-${thoughtIdx++}`,
-        content: (ev.content as string) ?? "",
-        time: (ev.created_at as string) ?? "",
-      });
-    } else if (type === "tool_call") {
-      const tool = ev.tool as string;
-      if (tool === "complete") continue;
-      const row: FetchRow = {
-        id: `fr-${fetchIdx++}`,
-        tool,
-        input: (ev.input as Record<string, unknown>) ?? {},
-        result: null,
-        callTime: (ev.created_at as string) ?? "",
-        resultTime: null,
-      };
-      const q = cur.pendingQueues.get(tool) ?? [];
-      q.push(row);
-      cur.pendingQueues.set(tool, q);
-    } else if (type === "tool_result") {
-      const tool = ev.tool as string;
-      const q = cur.pendingQueues.get(tool);
-      if (q?.length) {
-        const row = q.shift()!;
-        row.result = (ev.output as Record<string, unknown>) ?? {};
-        row.resultTime = (ev.created_at as string) ?? "";
-        cur.fetchRows.push(row);
-        if (q.length === 0) cur.pendingQueues.delete(tool);
-      }
-    }
-  }
-
-  flushPending(cur);
-  const all = [...completed, cur];
-
-  return all.map((g, idx): StageGroup => {
-    const isLast = idx === all.length - 1;
-    let status: "done" | "active" | "failed" = "done";
-    if (isLast) {
-      if (g.errorEvent || currentStatus === "failed" || currentStatus === "canceled") {
-        status = "failed";
-      } else if (currentStatus === "running") {
-        status = "active";
-      } else {
-        status = "done";
-      }
-    }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { pendingQueues: _, ...rest } = g;
-    return { ...rest, status };
-  });
-}
-
 // --- Fetch row ---
 
 function FetchRowItem({ row }: { row: FetchRow }) {
@@ -191,9 +59,7 @@ function FetchRowItem({ row }: { row: FetchRow }) {
         <div className="mx-4 mb-1 ml-9 border-l border-[#1f2937] pl-3 py-1 space-y-0.5">
           <div className="text-xs font-mono text-[#6b7280]">
             <span className="text-[#4b5563]">input </span>
-            <span className="text-[#9ca3af] break-all">
-              {JSON.stringify(row.input)}
-            </span>
+            <span className="text-[#9ca3af] break-all">{JSON.stringify(row.input)}</span>
           </div>
           {row.result && (
             <div className="text-xs font-mono text-[#6b7280]">
@@ -230,6 +96,25 @@ function ThoughtRowItem({ thought }: { thought: ThoughtEntry }) {
   );
 }
 
+// --- Chat message ---
+
+function ChatMessageItem({ msg }: { msg: ChatMessage }) {
+  const isUser = msg.role === "user";
+  return (
+    <div className={`flex px-4 py-1.5 ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className={`max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed ${
+          isUser
+            ? "bg-[#1d4ed8] text-white rounded-br-sm"
+            : "bg-[#1f2937] text-[#f9fafb] rounded-bl-sm border border-[#374151]"
+        }`}
+      >
+        {msg.content}
+      </div>
+    </div>
+  );
+}
+
 // --- Completion summary ---
 
 function CompletionSummary({ event }: { event: Record<string, unknown> }) {
@@ -242,7 +127,9 @@ function CompletionSummary({ event }: { event: Record<string, unknown> }) {
         <div className="px-4 py-1.5 text-xs text-[#22c55e]">
           ✓ {rows} rows · {tickers.length} signal{tickers.length !== 1 ? "s" : ""}
           {tickers.length > 0 && (
-            <span className="text-[#166534] ml-1">({tickers.slice(0, 4).join(", ")}{tickers.length > 4 ? ` +${tickers.length - 4}` : ""})</span>
+            <span className="text-[#166534] ml-1">
+              ({tickers.slice(0, 4).join(", ")}{tickers.length > 4 ? ` +${tickers.length - 4}` : ""})
+            </span>
           )}
         </div>
       );
@@ -279,6 +166,7 @@ function StageCard({ group, defaultOpen }: { group: StageGroup; defaultOpen: boo
   const hasContent =
     group.fetchRows.length > 0 ||
     group.thoughts.length > 0 ||
+    group.chatMessages.length > 0 ||
     group.completionEvent !== null ||
     group.errorEvent !== null;
 
@@ -319,6 +207,9 @@ function StageCard({ group, defaultOpen }: { group: StageGroup; defaultOpen: boo
           {group.thoughts.map((t) => (
             <ThoughtRowItem key={t.id} thought={t} />
           ))}
+          {group.chatMessages.map((msg, i) => (
+            <ChatMessageItem key={`chat-${i}`} msg={msg} />
+          ))}
           {group.errorEvent && (
             <div className="px-4 py-1.5 text-xs text-[#ef4444]">
               ✕ {(group.errorEvent.message as string) ?? "unknown error"}
@@ -336,32 +227,93 @@ function StageCard({ group, defaultOpen }: { group: StageGroup; defaultOpen: boo
 // --- Page ---
 
 export default function ActivityPage() {
-  const { activityEvents, wsMessages, stage, status } = useSessionStore();
+  const { activityEvents, wsMessages, conversation, stage, status, sessionId, setSession } =
+    useSessionStore();
+  const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const groups = buildGroups(activityEvents, wsMessages, stage, status);
+  const groups = buildGroups(activityEvents, wsMessages, conversation, stage, status);
   const hasAny =
     activityEvents.length > 0 ||
+    conversation.length > 0 ||
     wsMessages.some((m) => ["thought", "tool_call", "tool_result"].includes(m.type as string));
 
-  if (!hasAny) {
-    return (
-      <div className="flex items-center justify-center h-full text-[#4b5563] text-sm">
-        {status === "running"
-          ? "Processing… events will appear here"
-          : "No activity yet — create or upload data to start"}
-      </div>
-    );
-  }
+  const handleSend = async () => {
+    const text = message.trim();
+    if (!text || sending || !sessionId) return;
+    setMessage("");
+    setSending(true);
+    setSendError(null);
+    try {
+      await api.sendChat(sessionId, text);
+      const updated = await api.getSession(sessionId);
+      setSession(updated);
+    } catch (e) {
+      setSendError(e instanceof Error ? e.message : "Failed to send");
+    } finally {
+      setSending(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  const showInput = stage === "user_review";
+  const inputDisabled = sending || status !== "waiting";
 
   return (
-    <div className="flex flex-col h-full p-4 gap-2 overflow-auto">
-      {groups.map((group, idx) => (
-        <StageCard
-          key={`${group.stage}-${idx}`}
-          group={group}
-          defaultOpen={group.status === "active"}
-        />
-      ))}
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-auto min-h-0 p-4 flex flex-col gap-2">
+        {!hasAny ? (
+          <div className="flex items-center justify-center h-full text-[#4b5563] text-sm">
+            {status === "running"
+              ? "Processing… events will appear here"
+              : "No activity yet — create or upload data to start"}
+          </div>
+        ) : (
+          groups.map((group, idx) => (
+            <StageCard
+              key={`${group.stage}-${idx}`}
+              group={group}
+              defaultOpen={group.status === "active"}
+            />
+          ))
+        )}
+      </div>
+
+      {showInput && (
+        <div className="border-t border-[#21262d] bg-[#0d1117] px-4 py-3 flex flex-col gap-1.5 flex-shrink-0">
+          <div className="flex gap-2 items-center">
+            <input
+              ref={inputRef}
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder={
+                status === "running"
+                  ? "Agent is thinking…"
+                  : "Ask to adjust data, or say “run analysis”"
+              }
+              disabled={inputDisabled}
+              className="flex-1 bg-[#111827] border border-[#21262d] rounded-lg px-3 py-2 text-sm text-[#f9fafb] placeholder:text-[#4b5563] focus:outline-none focus:border-[#3b82f6] disabled:opacity-40"
+            />
+            <button
+              onClick={handleSend}
+              disabled={!message.trim() || inputDisabled}
+              className="px-4 py-2 rounded-lg bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              ↑
+            </button>
+          </div>
+          {sendError && <p className="text-xs text-[#ef4444]">{sendError}</p>}
+        </div>
+      )}
     </div>
   );
 }
