@@ -244,12 +244,16 @@ function UploadPanel({
   );
 }
 
+const MISSING_PCT_LIMIT = 30;
+
 export default function DataPage() {
   const { id } = useParams<{ id: string }>();
-  const { artifacts, setSession } = useSessionStore();
+  const { artifacts, stage, setSession } = useSessionStore();
   const [artifact, setArtifact] = useState<DataArtifactDetail | null>(null);
   const [fetchedId, setFetchedId] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [proceeding, setProceeding] = useState(false);
+  const [proceedError, setProceedError] = useState<string | null>(null);
 
   // Fetch artifact detail whenever the store's artifact list changes
   useEffect(() => {
@@ -267,6 +271,21 @@ export default function DataPage() {
         setFetchError(e instanceof Error ? e.message : "Failed to load artifact");
       });
   }, [id, artifacts.data, fetchedId]);
+
+  const handleProceed = async () => {
+    if (!id) return;
+    setProceeding(true);
+    setProceedError(null);
+    try {
+      await api.proceed(id);
+      const updated = await api.getSession(id);
+      setSession(updated);
+    } catch (e) {
+      setProceedError(e instanceof Error ? e.message : "Failed to start analysis");
+    } finally {
+      setProceeding(false);
+    }
+  };
 
   // Called by UploadPanel with the artifact_id returned by the API
   const handleUploadSuccess = async (artifactId: string) => {
@@ -331,6 +350,38 @@ export default function DataPage() {
         <MetricCard label="Series" value={String(dm.tickers.length)} />
         <MetricCard label="Missing %" value={`${avgMissing.toFixed(1)}%`} warn={avgMissing > 1} />
       </div>
+
+      {/* Run Analysis — only shown at USER_REVIEW */}
+      {stage === "user_review" && (
+        <div className="flex flex-col gap-2">
+          {avgMissing > MISSING_PCT_LIMIT ? (
+            <div className="flex items-start gap-3 bg-[#1c1208] border border-[#f59e0b] rounded p-3">
+              <span className="text-[#f59e0b] mt-0.5">⚠</span>
+              <div className="flex-1">
+                <p className="text-sm text-[#f59e0b] font-medium">
+                  {avgMissing.toFixed(1)}% average missing data — analysis blocked
+                </p>
+                <p className="text-xs text-[#9ca3af] mt-1">
+                  More than {MISSING_PCT_LIMIT}% missing values will produce unreliable results.
+                  Upload a file that overlaps the existing date range, or use
+                  &ldquo;Replace existing data&rdquo; to start fresh.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={handleProceed}
+              disabled={proceeding}
+              className="w-full py-2.5 rounded bg-[#15803d] hover:bg-[#16a34a] text-white text-sm font-semibold transition-colors disabled:opacity-40"
+            >
+              {proceeding ? "Starting analysis…" : "Run Analysis →"}
+            </button>
+          )}
+          {proceedError && (
+            <p className="text-xs text-[#ef4444]">{proceedError}</p>
+          )}
+        </div>
+      )}
 
       {/* Backend warnings (date overlap, WTI hint, etc.) */}
       {dm.warnings?.length ? (
