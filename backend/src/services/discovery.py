@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from src.agents.discovery import DiscoveryContext, make_discovery_agent
 from src.config import settings
+from src.db.models import MarketProfile, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
-from src.db.models import SessionStage, SessionStatus
 
 log = structlog.get_logger()
 
@@ -62,7 +62,14 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         await agent.run(context=ctx, publisher=publisher)
 
         # All writes below use snapshots — no reads from expired s
-        n_sources = len(ctx.pending_sources)
+        profile = await db.get(MarketProfile, market_profile)
+        default_connectors = list(profile.default_connectors) if profile else []
+        pending_sources = (
+            [{"connector_id": connector_id, "params": {}} for connector_id in default_connectors]
+            if default_connectors
+            else list(ctx.pending_sources)
+        )
+        n_sources = len(pending_sources)
         now = datetime.now(UTC)
         new_event: dict[str, Any] = {
             "event_id": str(uuid.uuid4()),
@@ -77,7 +84,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
             "entered_at": now.isoformat(),
         }
 
-        s.pending_sources = list(ctx.pending_sources)
+        s.pending_sources = pending_sources
         s.conversation = [
             *current_conversation,
             {"role": "assistant", "content": f"Recommended {n_sources} data sources."},

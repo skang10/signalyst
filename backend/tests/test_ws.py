@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -16,6 +17,10 @@ class _FakeWebSocket:
 
     async def send_text(self, data: str) -> None:
         pass
+
+    async def receive_text(self) -> str:
+        await asyncio.Future()
+        return ""
 
 
 def _make_empty_pubsub() -> MagicMock:

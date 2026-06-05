@@ -1,11 +1,17 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlmodel import SQLModel
 
 from src.agents.discovery import DiscoveryContext, make_discovery_agent
+from src.db.models import Session, SessionStage, SessionStatus
+from src.db.seed import seed_profiles
+from src.services.discovery import _run
 
 
 def _tool_resp(name: str, args: dict, call_id: str = "c1") -> MagicMock:
@@ -87,3 +93,60 @@ async def test_discovery_agent_list_connectors_tool_returns_registry() -> None:
 
     assert len(captured) == 1
     assert "available" in captured[0]
+
+
+@pytest.mark.asyncio
+async def test_discovery_service_uses_profile_defaults_when_agent_approves_fewer() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+
+    class DummyRedis:
+        async def publish(self, channel: str, message: str) -> None:
+            pass
+
+        async def aclose(self) -> None:
+            pass
+
+    class AgentApprovingTooFewSources:
+        async def run(self, context: DiscoveryContext, publisher) -> None:  # type: ignore[no-untyped-def]
+            context.pending_sources = [
+                {"connector_id": "yfinance", "params": {}},
+                {"connector_id": "gpr", "params": {}},
+            ]
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+        async with AsyncSession(engine) as db:
+            await seed_profiles(db)
+            s = Session(
+                market_profile="oil",
+                timeframe_start=date(2023, 1, 1),
+                timeframe_end=date(2023, 6, 30),
+                stage=SessionStage.CONFIGURING.value,
+                status=SessionStatus.RUNNING.value,
+            )
+            db.add(s)
+            await db.commit()
+            await db.refresh(s)
+
+            with (
+                patch(
+                    "src.services.discovery.make_discovery_agent",
+                    return_value=AgentApprovingTooFewSources(),
+                ),
+                patch("src.services.discovery.aioredis.Redis.from_url", return_value=DummyRedis()),
+            ):
+                await _run(s, db)
+
+            await db.refresh(s)
+            assert [p["connector_id"] for p in s.pending_sources] == [
+                "yfinance",
+                "fred",
+                "eia",
+                "gpr",
+            ]
+            assert s.conversation[-1]["content"] == "Recommended 4 data sources."
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
+        await engine.dispose()

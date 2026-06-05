@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,9 +11,10 @@ from api.ws import session_stream_handler
 
 
 class _FakeWebSocket:
-    def __init__(self) -> None:
+    def __init__(self, disconnect_on_receive: bool = False) -> None:
         self.accepted = False
         self.sent: list[str] = []
+        self.disconnect_on_receive = disconnect_on_receive
 
     async def accept(self) -> None:
         self.accepted = True
@@ -21,7 +23,10 @@ class _FakeWebSocket:
         self.sent.append(data)
 
     async def receive_text(self) -> str:
-        raise WebSocketDisconnect()
+        if self.disconnect_on_receive:
+            raise WebSocketDisconnect()
+        await asyncio.Future()
+        return ""
 
 
 def _make_pubsub(messages: list[dict]) -> MagicMock:
@@ -30,6 +35,18 @@ def _make_pubsub(messages: list[dict]) -> MagicMock:
     async def listen():  # type: ignore[return]
         for m in msgs:
             yield m
+
+    ps = MagicMock()
+    ps.subscribe = AsyncMock()
+    ps.unsubscribe = AsyncMock()
+    ps.listen = listen
+    return ps
+
+
+def _make_idle_pubsub() -> MagicMock:
+    async def listen():  # type: ignore[return]
+        await asyncio.Future()
+        yield {}
 
     ps = MagicMock()
     ps.subscribe = AsyncMock()
@@ -86,3 +103,20 @@ async def test_ws_ignores_non_message_events() -> None:
         await session_stream_handler(ws, "test-session-id")  # type: ignore[arg-type]
 
     assert len(ws.sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_ws_disconnect_exits_even_without_redis_messages() -> None:
+    ws = _FakeWebSocket(disconnect_on_receive=True)
+    pubsub = _make_idle_pubsub()
+
+    with patch("api.ws.aioredis.Redis.from_url") as mock_redis:
+        mock_redis.return_value.pubsub.return_value = pubsub
+        mock_redis.return_value.aclose = AsyncMock()
+        await asyncio.wait_for(
+            session_stream_handler(ws, "test-session-id"),
+            0.1,  # type: ignore[arg-type]
+        )
+
+    assert ws.accepted
+    pubsub.unsubscribe.assert_awaited_once()
