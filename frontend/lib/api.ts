@@ -189,10 +189,16 @@ export const api = {
       { method: "POST" },
     ),
 
-  uploadData: (sessionId: string, file: File, sourceName: string): Promise<{ artifact_id: string }> => {
+  uploadData: (
+    sessionId: string,
+    file: File,
+    sourceName: string,
+    mode: "merge" | "replace" = "merge",
+  ): Promise<{ artifact_id: string }> => {
     const form = new FormData();
     form.append("file", file);
     form.append("source_name", sourceName);
+    form.append("mode", mode);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60_000);
     return fetch(`${API_URL}/api/sessions/${sessionId}/upload`, {

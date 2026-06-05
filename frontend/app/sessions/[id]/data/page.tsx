@@ -113,12 +113,12 @@ function UploadPanel({
     return null;
   })();
 
-  const handleUpload = async () => {
+  const handleUpload = async (mode: "merge" | "replace" = "merge") => {
     if (!file) return;
     setUploading(true);
     setError(null);
     try {
-      const { artifact_id } = await api.uploadData(sessionId, file, sourceName || file.name);
+      const { artifact_id } = await api.uploadData(sessionId, file, sourceName || file.name, mode);
       onSuccess?.(artifact_id);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
@@ -186,13 +186,53 @@ function UploadPanel({
 
         {error && <p className="text-xs text-[#ef4444]">{error}</p>}
 
-        <button
-          onClick={handleUpload}
-          disabled={!file || uploading}
-          className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          {uploading ? "Uploading…" : "Upload"}
-        </button>
+        {/* Action buttons — context-aware based on overlap */}
+        {overlapWarning ? (
+          // No overlap: recommend Replace; Merge is secondary
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => handleUpload("replace")}
+              disabled={!file || uploading}
+              className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {uploading ? "Uploading…" : "Replace existing data with this file"}
+            </button>
+            <button
+              onClick={() => handleUpload("merge")}
+              disabled={!file || uploading}
+              className="w-full py-1.5 rounded border border-[#374151] text-[#9ca3af] hover:text-[#f9fafb] text-xs transition-colors disabled:opacity-40"
+            >
+              Merge anyway (will create gaps)
+            </button>
+          </div>
+        ) : existingDateRange ? (
+          // Overlap exists: Merge is primary; Replace is secondary
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => handleUpload("merge")}
+              disabled={!file || uploading}
+              className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {uploading ? "Uploading…" : "Merge with existing data"}
+            </button>
+            <button
+              onClick={() => handleUpload("replace")}
+              disabled={!file || uploading}
+              className="w-full py-1.5 rounded border border-[#374151] text-[#9ca3af] hover:text-[#f9fafb] text-xs transition-colors disabled:opacity-40"
+            >
+              Replace existing data
+            </button>
+          </div>
+        ) : (
+          // No existing data: single upload button
+          <button
+            onClick={() => handleUpload("replace")}
+            disabled={!file || uploading}
+            className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {uploading ? "Uploading…" : "Upload"}
+          </button>
+        )}
       </div>
   );
 
