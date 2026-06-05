@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -15,7 +15,6 @@ from src.agents.review_interpreter import ReviewInterpreter
 from src.db.models import DataArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
-from src.services.stage import set_status, transition_stage
 
 router = APIRouter(tags=["chat"])
 log = structlog.get_logger()
@@ -102,47 +101,60 @@ async def chat(
     action = result.get("action", "advance")
     reply = result.get("reply", "")
     updates = result.get("updates", {})
+    now = datetime.now(UTC)
 
-    # Write back to s using snapshots (avoids lazy-loads on expired state after awaits)
-    chat_event = {
+    # All writes use only snapshots — transition_stage/set_status read s.*
+    # which would trigger MissingGreenlet after the LLM await. Inline instead.
+    chat_event: dict[str, Any] = {
         "event_id": str(uuid.uuid4()),
-        "created_at": datetime.now(UTC).isoformat(),
+        "created_at": now.isoformat(),
         "type": "chat_reply",
         "action": action,
         "reply": reply,
     }
     s.conversation = [*user_conversation, {"role": "assistant", "content": reply}]
     s.activity_events = [*current_activity_events, chat_event]
-    s.stage_history = current_stage_history
+    s.updated_at = now.replace(tzinfo=None)
 
     if action == "advance":
-        transition_stage(s, SessionStage.FEATURIZING)
-        set_status(s, SessionStatus.RUNNING)
+        s.stage = SessionStage.FEATURIZING.value
+        s.stage_history = [
+            *current_stage_history,
+            {"stage": SessionStage.FEATURIZING.value, "entered_at": now.isoformat()},
+        ]
+        s.status = SessionStatus.RUNNING.value
         await db.commit()
         background_tasks.add_task(_run_featurizer_background, uid)
 
     elif action == "refetch":
         sources_to_add = updates.get("sources_to_add", [])
-        if sources_to_add:
-            s.pending_sources = [
-                *current_pending,
-                *[{"connector_id": sid, "params": {}} for sid in sources_to_add],
-            ]
-        transition_stage(s, SessionStage.DATA_GATHERING)
-        set_status(s, SessionStatus.RUNNING)
+        s.pending_sources = [
+            *current_pending,
+            *[{"connector_id": sid, "params": {}} for sid in sources_to_add],
+        ]
+        s.stage = SessionStage.DATA_GATHERING.value
+        s.stage_history = [
+            *current_stage_history,
+            {"stage": SessionStage.DATA_GATHERING.value, "entered_at": now.isoformat()},
+        ]
+        s.status = SessionStatus.RUNNING.value
         await db.commit()
         background_tasks.add_task(_run_data_agent_background, uid)
 
     elif action == "update_config":
         config_patch = updates.get("featurizer_config_patch", {})
-        if config_patch:
-            s.featurizer_config = {**current_featurizer_config, **config_patch}
-        transition_stage(s, SessionStage.FEATURIZING)
-        set_status(s, SessionStatus.RUNNING)
+        s.featurizer_config = {**current_featurizer_config, **config_patch}
+        s.stage = SessionStage.FEATURIZING.value
+        s.stage_history = [
+            *current_stage_history,
+            {"stage": SessionStage.FEATURIZING.value, "entered_at": now.isoformat()},
+        ]
+        s.status = SessionStatus.RUNNING.value
         await db.commit()
         background_tasks.add_task(_run_featurizer_background, uid)
 
     else:
+        s.stage_history = current_stage_history
         await db.commit()
 
     log.info("chat.handled", session_id=session_id, action=action)
