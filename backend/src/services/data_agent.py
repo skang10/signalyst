@@ -86,6 +86,63 @@ def _build_manifest(signals: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _finish_stage(
+    s: SessionModel,
+    db: AsyncSession,
+    session_id_str: str,
+    is_auto: bool,
+    current_activity_events: list[Any],
+    current_stage_history: list[Any],
+    data_manifest: dict[str, Any],
+    artifact_event: dict[str, Any],
+    extra_events: list[dict[str, Any]] | None = None,
+) -> None:
+    """Commit session state update and greeting after data is ready (fresh or cached)."""
+    now_str = artifact_event["created_at"]
+    now = datetime.fromisoformat(now_str).replace(tzinfo=None)
+
+    if is_auto:
+        next_stage = SessionStage.FEATURIZING
+        next_status = SessionStatus.RUNNING
+    else:
+        next_stage = SessionStage.USER_REVIEW
+        next_status = SessionStatus.WAITING
+
+    new_stage_entry = {"stage": next_stage.value, "entered_at": now_str}
+    events = [*(extra_events or []), artifact_event]
+
+    s.pending_sources = []
+    s.activity_events = [*current_activity_events, *events]
+    s.stage = next_stage.value
+    s.stage_history = [*current_stage_history, new_stage_entry]
+    s.status = next_status.value
+    s.updated_at = now
+
+    if not is_auto:
+        tickers = data_manifest.get("tickers", [])
+        rows = data_manifest.get("rows", 0)
+        dr = data_manifest.get("date_range", {})
+        missing = data_manifest.get("missing_pct", {})
+        ticker_str = ", ".join(tickers[:4])
+        if len(tickers) > 4:
+            ticker_str += f" +{len(tickers) - 4} more"
+        date_str = (
+            f" from {dr['start']} to {dr['end']}" if dr.get("start") and dr.get("end") else ""
+        )
+        high_missing = [k for k, v in missing.items() if v > 10]
+        warning = f" ⚠ High missing data: {', '.join(high_missing)}." if high_missing else ""
+        greeting = (
+            f"I've collected {rows} rows across {len(tickers)} signal"
+            f"{'s' if len(tickers) != 1 else ''} ({ticker_str}){date_str}.{warning} "
+            f"Check the Data tab to review the snapshot. "
+            f'Say "run analysis" to proceed, or ask me to add or adjust data sources.'
+        )
+        s.conversation = [{"role": "assistant", "content": greeting, "created_at": now_str}]
+
+    await db.commit()
+    log.info("data_agent.stage_advanced", session_id=session_id_str, stage=next_stage.value)
+
+
 async def _run(s: SessionModel, db: AsyncSession) -> None:
     # Snapshot everything before the first await — asyncpg expires the object
     # when the connection returns to the pool between async calls.
@@ -111,6 +168,82 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         await r.publish(channel, json.dumps(enriched))
 
     try:
+        source_str = json.dumps(
+            sorted(pending, key=lambda x: x.get("connector_id", "")), sort_keys=True
+        )
+        source_hash = stable_hash(hashlib.sha256(source_str.encode()).hexdigest())
+
+        # --- Cache lookup ---
+        cached_result = await db.execute(
+            select(DataArtifact)
+            .where(DataArtifact.source_hash == source_hash)
+            .order_by(DataArtifact.created_at.desc())  # type: ignore[attr-defined]
+            .limit(1)
+        )
+        cached = cached_result.scalar_one_or_none()
+
+        if cached is not None:
+            log.info(
+                "data_agent.cache_hit",
+                session_id=session_id_str,
+                cached_artifact=str(cached.id),
+            )
+            artifact_id = uuid.uuid4()
+            count_result = await db.execute(
+                select(func.count()).where(DataArtifact.session_id == session_id)
+            )
+            round_num = (count_result.scalar() or 0) + 1
+            data_manifest = cached.data_manifest
+
+            a = DataArtifact(
+                id=artifact_id,
+                session_id=session_id,
+                round=round_num,
+                sources=cached.sources,
+                data_manifest=data_manifest,
+                raw_data=cached.raw_data,
+                raw_data_ref=cached.raw_data_ref,
+                source_hash=source_hash,
+                cached_from_session_id=cached.session_id,
+                cached_from_artifact_id=cached.id,
+                cache_hit=True,
+            )
+            db.add(a)
+
+            now = datetime.now(UTC)
+            cache_event: dict[str, Any] = {
+                "event_id": str(uuid.uuid4()),
+                "created_at": now.isoformat(),
+                "type": "cache_hit",
+                "artifact_id": str(artifact_id),
+                "cached_from_artifact_id": str(cached.id),
+            }
+            artifact_event: dict[str, Any] = {
+                "event_id": str(uuid.uuid4()),
+                "created_at": now.isoformat(),
+                "type": "artifact_ready",
+                "kind": "data",
+                "artifact_id": str(artifact_id),
+                "rows": data_manifest["rows"],
+                "tickers": data_manifest["tickers"],
+            }
+            await _finish_stage(
+                s,
+                db,
+                session_id_str,
+                is_auto,
+                current_activity_events,
+                current_stage_history,
+                data_manifest,
+                artifact_event,
+                extra_events=[cache_event],
+            )
+            await publisher(cache_event)
+            await publisher(artifact_event)
+            log.info("data_agent.cache_hit_complete", session_id=session_id_str, round=round_num)
+            return
+
+        # --- No cache hit: run the agent ---
         ctx = AgentContext(
             date_range_start=str(s.timeframe_start),
             date_range_end=str(s.timeframe_end),
@@ -129,11 +262,6 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         # All reads below use snapshots — s is expired after the await above
         raw_data = _series_to_raw_data(ctx.signals)
         data_manifest = _build_manifest(ctx.signals)
-
-        source_str = json.dumps(
-            sorted(pending, key=lambda x: x.get("connector_id", "")), sort_keys=True
-        )
-        source_hash = stable_hash(hashlib.sha256(source_str.encode()).hexdigest())
 
         artifact_id = uuid.uuid4()
         count_result = await db.execute(
@@ -174,7 +302,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         db.add(a)
 
         now = datetime.now(UTC)
-        artifact_event: dict[str, Any] = {
+        artifact_event = {
             "event_id": str(uuid.uuid4()),
             "created_at": now.isoformat(),
             "type": "artifact_ready",
@@ -183,47 +311,16 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
             "rows": data_manifest["rows"],
             "tickers": data_manifest["tickers"],
         }
-
-        if is_auto:
-            next_stage = SessionStage.FEATURIZING
-            next_status = SessionStatus.RUNNING
-        else:
-            next_stage = SessionStage.USER_REVIEW
-            next_status = SessionStatus.WAITING
-
-        new_stage_entry = {"stage": next_stage.value, "entered_at": now.isoformat()}
-
-        s.pending_sources = []
-        s.activity_events = [*current_activity_events, artifact_event]
-        s.stage = next_stage.value
-        s.stage_history = [*current_stage_history, new_stage_entry]
-        s.status = next_status.value
-        s.updated_at = now.replace(tzinfo=None)
-
-        if not is_auto:
-            tickers = data_manifest.get("tickers", [])
-            rows = data_manifest.get("rows", 0)
-            dr = data_manifest.get("date_range", {})
-            missing = data_manifest.get("missing_pct", {})
-            ticker_str = ", ".join(tickers[:4])
-            if len(tickers) > 4:
-                ticker_str += f" +{len(tickers) - 4} more"
-            date_str = (
-                f" from {dr['start']} to {dr['end']}" if dr.get("start") and dr.get("end") else ""
-            )
-            high_missing = [k for k, v in missing.items() if v > 10]
-            warning = f" ⚠ High missing data: {', '.join(high_missing)}." if high_missing else ""
-            greeting = (
-                f"I've collected {rows} rows across {len(tickers)} signal"
-                f"{'s' if len(tickers) != 1 else ''} ({ticker_str}){date_str}.{warning} "
-                f"Check the Data tab to review the snapshot. "
-                f'Say "run analysis" to proceed, or ask me to add or adjust data sources.'
-            )
-            s.conversation = [
-                {"role": "assistant", "content": greeting, "created_at": now.isoformat()}
-            ]
-
-        await db.commit()
+        await _finish_stage(
+            s,
+            db,
+            session_id_str,
+            is_auto,
+            current_activity_events,
+            current_stage_history,
+            data_manifest,
+            artifact_event,
+        )
         await publisher(artifact_event)
         log.info(
             "data_agent.complete",
