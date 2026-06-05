@@ -106,13 +106,6 @@ async def test_discovery_service_uses_profile_defaults_when_agent_approves_fewer
         async def aclose(self) -> None:
             pass
 
-    class AgentApprovingTooFewSources:
-        async def run(self, context: DiscoveryContext, publisher) -> None:  # type: ignore[no-untyped-def]
-            context.pending_sources = [
-                {"connector_id": "yfinance", "params": {}},
-                {"connector_id": "gpr", "params": {}},
-            ]
-
     try:
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.create_all)
@@ -129,23 +122,70 @@ async def test_discovery_service_uses_profile_defaults_when_agent_approves_fewer
             await db.commit()
             await db.refresh(s)
 
+            with patch("src.services.discovery.make_discovery_agent") as mock_agent:
+                with patch(
+                    "src.services.discovery.aioredis.Redis.from_url", return_value=DummyRedis()
+                ):
+                    await _run(s, db)
+
+            mock_agent.assert_not_called()
+
+            await db.refresh(s)
+            assert s.pending_sources == [
+                {"connector_id": "yfinance", "params": {"tickers": ["CL=F", "BZ=F", "DX-Y.NYB"]}},
+                {"connector_id": "fred", "params": {"series_ids": ["INDPRO"]}},
+                {"connector_id": "eia", "params": {}},
+                {"connector_id": "gpr", "params": {}},
+            ]
+            assert s.conversation[-1]["content"] == "Recommended 4 data sources."
+    finally:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.drop_all)
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_discovery_service_falls_back_to_agent_when_profile_has_no_defaults() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+
+    class DummyRedis:
+        async def publish(self, channel: str, message: str) -> None:
+            pass
+
+        async def aclose(self) -> None:
+            pass
+
+    class AgentApprovingSources:
+        async def run(self, context: DiscoveryContext, publisher) -> None:  # type: ignore[no-untyped-def]
+            context.pending_sources = [{"connector_id": "custom", "params": {"symbol": "ABC"}}]
+
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(SQLModel.metadata.create_all)
+        async with AsyncSession(engine) as db:
+            s = Session(
+                market_profile="custom",
+                timeframe_start=date(2023, 1, 1),
+                timeframe_end=date(2023, 6, 30),
+                stage=SessionStage.CONFIGURING.value,
+                status=SessionStatus.RUNNING.value,
+            )
+            db.add(s)
+            await db.commit()
+            await db.refresh(s)
+
             with (
                 patch(
                     "src.services.discovery.make_discovery_agent",
-                    return_value=AgentApprovingTooFewSources(),
-                ),
+                    return_value=AgentApprovingSources(),
+                ) as mock_agent,
                 patch("src.services.discovery.aioredis.Redis.from_url", return_value=DummyRedis()),
             ):
                 await _run(s, db)
 
+            mock_agent.assert_called_once()
             await db.refresh(s)
-            assert [p["connector_id"] for p in s.pending_sources] == [
-                "yfinance",
-                "fred",
-                "eia",
-                "gpr",
-            ]
-            assert s.conversation[-1]["content"] == "Recommended 4 data sources."
+            assert s.pending_sources == [{"connector_id": "custom", "params": {"symbol": "ABC"}}]
     finally:
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.drop_all)
