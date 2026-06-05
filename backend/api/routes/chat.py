@@ -88,12 +88,16 @@ async def chat(
     data_manifest = latest_artifact.data_manifest if latest_artifact else {}
 
     interpreter = ReviewInterpreter()
-    result = await interpreter.interpret(
-        message=req.message,
-        session_stage=current_stage,
-        conversation=user_conversation,
-        data_manifest=data_manifest,
-    )
+    try:
+        result = await interpreter.interpret(
+            message=req.message,
+            session_stage=current_stage,
+            conversation=user_conversation,
+            data_manifest=data_manifest,
+        )
+    except Exception as exc:
+        log.error("chat.interpret_failed", session_id=session_id, error=str(exc))
+        raise HTTPException(status_code=502, detail=f"Interpreter error: {exc}") from exc
 
     action = result.get("action", "advance")
     reply = result.get("reply", "")
