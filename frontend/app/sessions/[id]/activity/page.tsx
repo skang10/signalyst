@@ -174,16 +174,38 @@ function CompletionChip({ event }: { event: Record<string, unknown> }) {
   return null;
 }
 
-// --- Agent turn ---
+// --- Agent speech bubble (standalone, with avatar) ---
+
+function AgentSpeechBubble({ content }: { content: string }) {
+  return (
+    <div className="flex gap-3">
+      <div
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+        style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)" }}
+      >
+        S
+      </div>
+      <div className="flex flex-col gap-1 flex-1 min-w-0">
+        <span className="text-xs text-[#4b5563] font-medium">Signalyst Agent</span>
+        <div
+          className="bg-[#1f2937] border border-[#374151] px-3 py-2 text-sm text-[#f9fafb] leading-relaxed"
+          style={{ borderRadius: "2px 12px 12px 12px" }}
+        >
+          {content}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// --- Agent turn (tools + thinking + completion only, no chat messages) ---
 
 function AgentTurn({ group }: { group: StageGroup }) {
-  const assistantMsgs = group.chatMessages.filter((m) => m.role === "assistant");
   const hasContent =
     group.thoughts.length > 0 ||
     group.fetchRows.length > 0 ||
     group.completionEvent !== null ||
-    group.errorEvent !== null ||
-    assistantMsgs.length > 0;
+    group.errorEvent !== null;
 
   if (!hasContent) return null;
 
@@ -222,16 +244,6 @@ function AgentTurn({ group }: { group: StageGroup }) {
             ✕ {(group.errorEvent.message as string) ?? "unknown error"}
           </div>
         )}
-
-        {assistantMsgs.map((msg, i) => (
-          <div
-            key={i}
-            className="bg-[#1f2937] border border-[#374151] rounded-t-none rounded-bl-sm rounded-br-xl rounded-tl-none px-3 py-2 text-sm text-[#f9fafb] leading-relaxed"
-            style={{ borderRadius: "2px 12px 12px 12px" }}
-          >
-            {msg.content}
-          </div>
-        ))}
       </div>
     </div>
   );
@@ -260,12 +272,18 @@ export default function ActivityPage() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
+  const [optimisticMsg, setOptimisticMsg] = useState<ChatMessage | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const groups = buildGroups(activityEvents, wsMessages, conversation, stage, status);
+  // Append optimistic user message so it appears instantly on send
+  const effectiveConversation: ChatMessage[] = optimisticMsg
+    ? [...conversation, optimisticMsg]
+    : conversation;
+
+  const groups = buildGroups(activityEvents, wsMessages, effectiveConversation, stage, status);
   const hasAny =
     activityEvents.length > 0 ||
-    conversation.length > 0 ||
+    effectiveConversation.length > 0 ||
     wsMessages.some((m) => ["thought", "tool_call", "tool_result"].includes(m.type as string));
 
   const handleSend = async () => {
@@ -274,6 +292,7 @@ export default function ActivityPage() {
     setMessage("");
     setSending(true);
     setSendError(null);
+    setOptimisticMsg({ role: "user", content: text, created_at: new Date().toISOString() });
     try {
       await api.sendChat(sessionId, text);
       const updated = await api.getSession(sessionId);
@@ -281,6 +300,7 @@ export default function ActivityPage() {
     } catch (e) {
       setSendError(e instanceof Error ? e.message : "Failed to send");
     } finally {
+      setOptimisticMsg(null);
       setSending(false);
       inputRef.current?.focus();
     }
@@ -304,11 +324,14 @@ export default function ActivityPage() {
             <div key={`${group.stage}-${idx}`} className="flex flex-col gap-3">
               <StagePill group={group} />
               <AgentTurn group={group} />
-              {group.chatMessages
-                .filter((m) => m.role === "user")
-                .map((msg, i) => (
-                  <UserBubble key={`user-${idx}-${i}`} msg={msg} />
-                ))}
+              {/* Render chat messages in timestamp order, role determines component */}
+              {group.chatMessages.map((msg, i) =>
+                msg.role === "assistant" ? (
+                  <AgentSpeechBubble key={`chat-${idx}-${i}`} content={msg.content} />
+                ) : (
+                  <UserBubble key={`chat-${idx}-${i}`} msg={msg} />
+                )
+              )}
             </div>
           ))
         )}
