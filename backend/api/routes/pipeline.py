@@ -19,6 +19,7 @@ from fastapi import (
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from api.models import (
     CancelResponse,
@@ -205,11 +206,77 @@ async def upload_data(
     if warnings:
         data_manifest["warnings"] = warnings
 
+    # Merge with the latest existing DataArtifact (if any) so uploaded columns
+    # are additive — the user is adding a signal, not replacing the whole dataset.
+    existing = (
+        (
+            await db.execute(
+                select(DataArtifact)
+                .where(DataArtifact.session_id == uid)
+                .order_by(DataArtifact.created_at.desc())  # type: ignore[attr-defined]
+            )
+        )
+        .scalars()
+        .first()
+    )
+    round_num = (existing.round + 1) if existing else 1
+    prior_sources: list[Any] = list(existing.sources) if existing else []
+
+    if existing is not None:
+        # Load existing raw data into a DataFrame
+        if existing.raw_data:
+            existing_df = pd.DataFrame(
+                {
+                    col: pd.Series(v["data"], index=pd.DatetimeIndex(v["index"]), dtype=float)
+                    for col, v in existing.raw_data.items()
+                }
+            )
+        elif existing.raw_data_ref:
+            existing_df = pd.read_parquet(existing.raw_data_ref)
+        else:
+            existing_df = pd.DataFrame()
+
+        if not existing_df.empty:
+            # Outer join — uploaded columns take precedence on overlap
+            merged = existing_df.join(df, how="outer", rsuffix="_upload")
+            for col in df.columns:
+                dup = f"{col}_upload"
+                if dup in merged.columns:
+                    merged[col] = merged[dup]
+                    merged = merged.drop(columns=[dup])
+                else:
+                    merged[col] = df[col]
+            df = merged.sort_index()
+
+        # Re-build manifest and warnings from merged data
+        data_manifest = _build_manifest(df)
+        warnings = []
+        upload_start = df.index.min().date()
+        upload_end = df.index.max().date()
+        if upload_end < s.timeframe_start or upload_start > s.timeframe_end:
+            warnings.append(
+                f"Uploaded date range {upload_start}–{upload_end} does not overlap with "
+                f"session timeframe {s.timeframe_start}–{s.timeframe_end}."
+            )
+        wti_cols = [c for c in df.columns if "CL=F" in c or "wti" in c.lower()]
+        if not wti_cols and s.market_profile == "oil":
+            warnings.append(
+                "No column matching 'CL=F' or 'wti' found. "
+                "TabPFNService will use the first column as a WTI proxy for regime labelling."
+            )
+        if warnings:
+            data_manifest["warnings"] = warnings
+
+        # Recompute source_hash from merged content
+        merged_bytes = df.to_json().encode()
+        source_hash = stable_hash(hashlib.sha256(merged_bytes).hexdigest()[:16])
+
     artifact_id = uuid.uuid4()
     raw_data: dict[str, Any] | None = None
     raw_data_ref: str | None = None
 
-    if len(content) <= _RAW_INLINE_THRESHOLD:
+    merged_bytes_for_size = df.to_json().encode()
+    if len(merged_bytes_for_size) <= _RAW_INLINE_THRESHOLD:
         raw_data = _df_to_raw_data(df)
     else:
         _ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -217,11 +284,13 @@ async def upload_data(
         df.to_parquet(ref)
         raw_data_ref = ref
 
+    all_sources = [*prior_sources, {"connector_id": "upload", "source_name": source_name}]
+
     a = DataArtifact(
         id=artifact_id,
         session_id=uid,
-        round=1,
-        sources=[{"connector_id": "upload", "source_name": source_name}],
+        round=round_num,
+        sources=all_sources,
         data_manifest=data_manifest,
         raw_data=raw_data,
         raw_data_ref=raw_data_ref,
