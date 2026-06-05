@@ -380,7 +380,7 @@ export default function ActivityPage() {
     }
   };
 
-  const showInput = stage === "user_review";
+  const showInput = stage === "user_review" || stage === "data_gathering";
   const inputDisabled = sending || status !== "waiting";
 
   return (
@@ -430,8 +430,10 @@ export default function ActivityPage() {
                 }
               }}
               placeholder={
-                status === "running"
-                  ? "Agent is thinking…"
+                stage === "data_gathering" && status === "running"
+                  ? "Fetching data..."
+                  : status === "running"
+                  ? "Agent is thinking..."
                   : "Ask to adjust data, or say “run analysis”"
               }
               disabled={inputDisabled}

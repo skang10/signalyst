@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
 
 import structlog
@@ -140,11 +140,22 @@ async def chat(
             *[{"connector_id": sid, "params": {}} for sid in sources_to_add],
         ]
         s.stage = SessionStage.DATA_GATHERING.value
+        refetch_ts = (now + timedelta(milliseconds=1)).isoformat()
         s.stage_history = [
             *current_stage_history,
-            {"stage": SessionStage.DATA_GATHERING.value, "entered_at": now.isoformat()},
+            {"stage": SessionStage.DATA_GATHERING.value, "entered_at": refetch_ts},
         ]
         s.status = SessionStatus.RUNNING.value
+        # Emit a stage_transition so buildGroups opens a fresh Data Gathering group.
+        # +1ms ensures the agent's reply (at `now`) sorts before this transition.
+        refetch_transition: dict[str, Any] = {
+            "event_id": str(uuid.uuid4()),
+            "created_at": refetch_ts,
+            "type": "stage_transition",
+            "from": SessionStage.USER_REVIEW.value,
+            "to": SessionStage.DATA_GATHERING.value,
+        }
+        s.activity_events = [*current_activity_events, chat_event, refetch_transition]
         await db.commit()
         background_tasks.add_task(_run_data_agent_background, uid)
 
