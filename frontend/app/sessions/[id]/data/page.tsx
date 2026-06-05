@@ -147,23 +147,81 @@ function DataSnapshotTable({
   );
 }
 
+const TICKER_DESCRIPTIONS: Record<string, string> = {
+  "CL=F": "WTI Crude Oil Futures (NYMEX)",
+  "BZ=F": "Brent Crude Oil Futures (ICE)",
+  "DX-Y.NYB": "US Dollar Index (DXY)",
+  "INDPRO": "Industrial Production Index (Federal Reserve)",
+  "eia_inventory_change": "EIA Weekly Crude Oil Inventory Change (barrels)",
+  "GPR": "Geopolitical Risk Index (Caldara & Iacoviello)",
+  "^VIX": "CBOE Volatility Index",
+  "CPIAUCSL": "Consumer Price Index — All Urban Consumers (BLS)",
+  "UNRATE": "US Unemployment Rate (%)",
+  "DFF": "Federal Funds Effective Rate (%)",
+  "M2SL": "M2 Money Supply (billions USD)",
+  "^GSPC": "S&P 500 Index",
+  "^TNX": "10-Year Treasury Yield (%)",
+  "GC=F": "Gold Futures (COMEX)",
+  "NG=F": "Natural Gas Futures (NYMEX)",
+};
+
 function Sparkline({ points }: { points: { date: string; value: number | null }[] }) {
   const values = points.map((p) => p.value ?? 0);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-  const width = 300;
-  const height = 48;
+  if (values.length === 0) return null;
+
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal || 1;
+  const midVal = (minVal + maxVal) / 2;
+
+  // Layout: leave room for Y-axis labels left, X-axis labels bottom
+  const mL = 42; const mR = 4; const mT = 6; const mB = 18;
+  const W = 300; const H = 90;
+  const cW = W - mL - mR;
+  const cH = H - mT - mB;
+
   const pts = values
     .map((v, i) => {
-      const x = (i / Math.max(values.length - 1, 1)) * width;
-      const y = height - ((v - min) / range) * height;
+      const x = mL + (i / Math.max(values.length - 1, 1)) * cW;
+      const y = mT + cH - ((v - minVal) / range) * cH;
       return `${x},${y}`;
     })
     .join(" ");
 
+  const firstDate = points[0]?.date ?? "";
+  const lastDate = points[points.length - 1]?.date ?? "";
+
+  const yTicks = [
+    { val: maxVal, y: mT },
+    { val: midVal, y: mT + cH / 2 },
+    { val: minVal, y: mT + cH },
+  ];
+
   return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-12">
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24">
+      {/* Axis lines */}
+      <line x1={mL} y1={mT} x2={mL} y2={mT + cH} stroke="#1f2937" strokeWidth="1" />
+      <line x1={mL} y1={mT + cH} x2={mL + cW} y2={mT + cH} stroke="#1f2937" strokeWidth="1" />
+
+      {/* Y-axis ticks */}
+      {yTicks.map(({ val, y }) => (
+        <g key={y}>
+          <line x1={mL - 3} y1={y} x2={mL} y2={y} stroke="#374151" strokeWidth="1" />
+          <text x={mL - 5} y={y + 3} textAnchor="end" fontSize="8" fill="#4b5563" fontFamily="monospace">
+            {fmt(val)}
+          </text>
+        </g>
+      ))}
+
+      {/* X-axis labels */}
+      <text x={mL} y={H - 3} textAnchor="start" fontSize="8" fill="#4b5563" fontFamily="monospace">
+        {firstDate}
+      </text>
+      <text x={mL + cW} y={H - 3} textAnchor="end" fontSize="8" fill="#4b5563" fontFamily="monospace">
+        {lastDate}
+      </text>
+
+      {/* Data line */}
       <polyline points={pts} fill="none" stroke="#3b82f6" strokeWidth="1.5" />
     </svg>
   );
@@ -489,11 +547,18 @@ export default function DataPage() {
         {Object.entries(artifact.series_preview).map(([ticker, points]) => {
           const stats = dm.summary_stats[ticker];
           return (
-            <div key={ticker} className="bg-[#111827] rounded border border-[#21262d] p-3">
-              <div className="text-xs font-mono text-[#9ca3af] mb-2">{ticker}</div>
+            <div key={ticker} className="bg-[#111827] rounded border border-[#21262d] p-3 group">
+              <div className="flex items-baseline gap-2 mb-1">
+                <div className="text-xs font-mono text-[#9ca3af]">{ticker}</div>
+                {TICKER_DESCRIPTIONS[ticker] && (
+                  <div className="text-[10px] text-[#374151] group-hover:text-[#6b7280] transition-colors truncate">
+                    {TICKER_DESCRIPTIONS[ticker]}
+                  </div>
+                )}
+              </div>
               <Sparkline points={points} />
               {stats && (
-                <div className="flex gap-3 mt-2 text-[10px] text-[#6b7280] font-mono">
+                <div className="flex gap-3 mt-1 text-[10px] text-[#6b7280] font-mono">
                   <span>min {stats.min.toFixed(2)}</span>
                   <span>mean {stats.mean.toFixed(2)}</span>
                   <span>max {stats.max.toFixed(2)}</span>
