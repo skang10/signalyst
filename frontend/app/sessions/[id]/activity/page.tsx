@@ -323,6 +323,28 @@ function AgentThinkingLine() {
   );
 }
 
+// --- Run Analysis quick-action chip ---
+
+function RunAnalysisChip({
+  onProceed,
+  proceeding,
+}: {
+  onProceed: () => void;
+  proceeding: boolean;
+}) {
+  return (
+    <div className="flex justify-end">
+      <button
+        onClick={onProceed}
+        disabled={proceeding}
+        className="px-4 py-2 bg-[#052e16] border border-[#15803d] rounded-full text-[#22c55e] text-sm font-semibold hover:bg-[#14532d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+      >
+        {proceeding ? "Starting…" : "→ Run Analysis"}
+      </button>
+    </div>
+  );
+}
+
 // --- User bubble ---
 
 function UserBubble({ msg }: { msg: ChatMessage }) {
@@ -347,6 +369,8 @@ export default function ActivityPage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [optimisticMsg, setOptimisticMsg] = useState<ChatMessage | null>(null);
+  const [proceeding, setProceeding] = useState(false);
+  const [proceedError, setProceedError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Append optimistic user message so it appears instantly on send
@@ -380,7 +404,23 @@ export default function ActivityPage() {
     }
   };
 
+  const handleProceed = async () => {
+    if (!sessionId || proceeding) return;
+    setProceeding(true);
+    setProceedError(null);
+    try {
+      await api.proceed(sessionId);
+      const updated = await api.getSession(sessionId);
+      setSession(updated);
+    } catch (e) {
+      setProceedError(e instanceof Error ? e.message : "Failed to start analysis");
+    } finally {
+      setProceeding(false);
+    }
+  };
+
   const showInput = stage === "user_review" || stage === "data_gathering";
+  const showRunAnalysis = stage === "user_review" && status === "waiting" && !sending;
   const inputDisabled = sending || status !== "waiting";
 
   return (
@@ -409,6 +449,12 @@ export default function ActivityPage() {
                 )}
               </div>
             ))}
+            {showRunAnalysis && (
+              <RunAnalysisChip onProceed={handleProceed} proceeding={proceeding} />
+            )}
+            {proceedError && (
+              <p className="text-xs text-[#ef4444] text-right">{proceedError}</p>
+            )}
             {sending && <AgentThinkingLine />}
           </>
         )}
