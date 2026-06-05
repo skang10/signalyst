@@ -93,6 +93,7 @@ async def _finish_stage(
     is_auto: bool,
     current_activity_events: list[Any],
     current_stage_history: list[Any],
+    current_conversation: list[Any],
     data_manifest: dict[str, Any],
     artifact_event: dict[str, Any],
     extra_events: list[dict[str, Any]] | None = None,
@@ -137,7 +138,10 @@ async def _finish_stage(
             f"Check the Data tab to review the snapshot. "
             f'Say "run analysis" to proceed, or ask me to add or adjust data sources.'
         )
-        s.conversation = [{"role": "assistant", "content": greeting, "created_at": now_str}]
+        s.conversation = [
+            *current_conversation,
+            {"role": "assistant", "content": greeting, "created_at": now_str},
+        ]
 
     await db.commit()
     log.info("data_agent.stage_advanced", session_id=session_id_str, stage=next_stage.value)
@@ -150,6 +154,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
     session_id_str = str(session_id)
     current_activity_events = list(s.activity_events or [])
     current_stage_history = list(s.stage_history or [])
+    current_conversation = list(s.conversation or [])
     is_auto = s.auto
 
     pending = list(s.pending_sources or [])
@@ -235,6 +240,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
                 is_auto,
                 current_activity_events,
                 current_stage_history,
+                current_conversation,
                 data_manifest,
                 artifact_event,
                 extra_events=[cache_event],
@@ -319,6 +325,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
             is_auto,
             current_activity_events,
             current_stage_history,
+            current_conversation,
             data_manifest,
             artifact_event,
         )
