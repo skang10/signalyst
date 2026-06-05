@@ -55,7 +55,7 @@ export function buildGroups(
   currentStage: string | null,
   currentStatus: string | null,
 ): StageGroup[] {
-  const ts = (iso: string | undefined) => (iso ? new Date(iso).getTime() || 0 : 0);
+  const ts = (iso: string | undefined) => (iso ? new Date(iso).getTime() || Date.now() : Date.now());
 
   const merged = [
     ...activityEvents.map((e) => ({ t: ts(e.created_at), ev: e as Record<string, unknown> })),

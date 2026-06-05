@@ -66,7 +66,11 @@ async def chat(
         raise HTTPException(status_code=409, detail=f"chat not available at stage {s.stage}")
 
     # Snapshot all fields before any async calls that could expire s
-    user_conversation = [*s.conversation, {"role": "user", "content": req.message}]
+    _req_time = datetime.now(UTC).isoformat()
+    user_conversation = [
+        *s.conversation,
+        {"role": "user", "content": req.message, "created_at": _req_time},
+    ]
     current_stage = s.stage
     current_pending = list(s.pending_sources or [])
     current_featurizer_config = dict(s.featurizer_config or {})
@@ -112,7 +116,10 @@ async def chat(
         "action": action,
         "reply": reply,
     }
-    s.conversation = [*user_conversation, {"role": "assistant", "content": reply}]
+    s.conversation = [
+        *user_conversation,
+        {"role": "assistant", "content": reply, "created_at": now.isoformat()},
+    ]
     s.activity_events = [*current_activity_events, chat_event]
     s.updated_at = now.replace(tzinfo=None)
 
