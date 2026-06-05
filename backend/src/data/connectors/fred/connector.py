@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, Any
 
+from src.config import settings
 from src.data.connectors import fetch_fred_series
 
 if TYPE_CHECKING:
@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 def fetch(params: dict[str, Any], context: AgentContext) -> dict[str, Any]:
     """Fetch FRED macro series into context.signals."""
     series_ids: list[str] = params["series_ids"]
-    api_key = os.environ.get("FRED_API_KEY", "")
+    api_key = settings.fred_api_key
     fetched: dict[str, int] = {}
     skipped: list[str] = []
 
