@@ -24,7 +24,7 @@ export type StageGroup = {
   chatMessages: ChatMessage[];
   completionEvent: Record<string, unknown> | null;
   errorEvent: Record<string, unknown> | null;
-  cacheHit: boolean;
+  cacheHitEvent: Record<string, unknown> | null;
 };
 
 type MutableGroup = Omit<StageGroup, "status"> & {
@@ -41,7 +41,7 @@ function newGroup(stage: string, startTime: string): MutableGroup {
     pendingQueues: new Map(),
     completionEvent: null,
     errorEvent: null,
-    cacheHit: false,
+    cacheHitEvent: null,
   };
 }
 
@@ -88,7 +88,7 @@ export function buildGroups(
       completed.push(cur);
       cur = newGroup((ev.to as string) ?? "", (ev.created_at as string) ?? "");
     } else if (type === "cache_hit") {
-      cur.cacheHit = true;
+      cur.cacheHitEvent = ev;
     } else if (type === "artifact_ready") {
       if (!cur.startTime) cur.startTime = (ev.created_at as string) ?? "";
       cur.completionEvent = ev;

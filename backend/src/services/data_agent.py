@@ -217,6 +217,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
                 "type": "cache_hit",
                 "artifact_id": str(artifact_id),
                 "cached_from_artifact_id": str(cached.id),
+                "cached_from_created_at": cached.created_at.replace(tzinfo=UTC).isoformat(),
             }
             artifact_event: dict[str, Any] = {
                 "event_id": str(uuid.uuid4()),

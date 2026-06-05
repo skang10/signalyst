@@ -147,20 +147,7 @@ function CompletionChip({ event }: { event: Record<string, unknown> }) {
         </div>
       );
     }
-    if (kind === "data") {
-      const rows = event.rows as number | undefined;
-      const tickers = (event.tickers as string[] | undefined) ?? [];
-      return (
-        <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 bg-[#052e16] border border-[#14532d] rounded-full text-xs text-[#22c55e]">
-          ✓ {rows} rows · {tickers.length} signal{tickers.length !== 1 ? "s" : ""}
-          {tickers.length > 0 && (
-            <span className="text-[#166534]">
-              ({tickers.slice(0, 4).join(", ")}{tickers.length > 4 ? ` +${tickers.length - 4}` : ""})
-            </span>
-          )}
-        </div>
-      );
-    }
+    if (kind === "data") return null; // rendered by DataCompletionChip in AgentTurn
     if (kind === "features") {
       return (
         <div className="inline-flex self-start px-3 py-1 bg-[#052e16] border border-[#14532d] rounded-full text-xs text-[#22c55e]">
@@ -211,6 +198,54 @@ function AgentSpeechBubble({ content }: { content: string }) {
   );
 }
 
+// --- Data completion chip (expandable, shows full ticker list + cache date) ---
+
+function DataCompletionChip({
+  event,
+  cacheHitEvent,
+}: {
+  event: Record<string, unknown>;
+  cacheHitEvent: Record<string, unknown> | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const rows = event.rows as number | undefined;
+  const tickers = (event.tickers as string[] | undefined) ?? [];
+  const cachedAt = cacheHitEvent?.cached_from_created_at as string | undefined;
+
+  return (
+    <div className="self-start rounded-md overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#052e16] border border-[#14532d] rounded-md text-xs text-[#22c55e] hover:border-[#166534] transition-colors"
+      >
+        <span>✓ {rows} rows · {tickers.length} signal{tickers.length !== 1 ? "s" : ""}</span>
+        {cacheHitEvent && (
+          <span className="px-1.5 py-0.5 bg-[#1e1040] border border-[#4c1d95] rounded-full text-[#a78bfa]">
+            ⚡ cached
+          </span>
+        )}
+        <span className="text-[#166534]">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="border border-t-0 border-[#14532d] rounded-b-md px-3 py-2 bg-[#020c05] flex flex-col gap-2">
+          <div className="flex flex-wrap gap-1">
+            {tickers.map((t) => (
+              <span key={t} className="px-1.5 py-0.5 bg-[#052e16] border border-[#14532d] rounded text-xs text-[#22c55e] font-mono">
+                {t}
+              </span>
+            ))}
+          </div>
+          {cachedAt && (
+            <p className="text-xs text-[#a78bfa]">
+              ⚡ Originally fetched {new Date(cachedAt).toLocaleString()}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Agent turn (tools + thinking + completion only, no chat messages) ---
 
 function AgentTurn({ group }: { group: StageGroup }) {
@@ -251,14 +286,9 @@ function AgentTurn({ group }: { group: StageGroup }) {
         )}
 
         {group.completionEvent && (
-          <div className="flex items-center gap-2 flex-wrap">
-            <CompletionChip event={group.completionEvent} />
-            {group.cacheHit && (
-              <div className="inline-flex self-start px-2 py-1 bg-[#1e1040] border border-[#4c1d95] rounded-full text-xs text-[#a78bfa]">
-                ⚡ cached
-              </div>
-            )}
-          </div>
+          group.completionEvent.kind === "data"
+            ? <DataCompletionChip event={group.completionEvent} cacheHitEvent={group.cacheHitEvent} />
+            : <CompletionChip event={group.completionEvent} />
         )}
 
         {group.errorEvent && (
