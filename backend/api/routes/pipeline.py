@@ -167,6 +167,7 @@ async def upload_data(
     db: SessionDep,
     file: UploadFile = File(...),
     source_name: str = Form(...),
+    mode: str = Form(default="merge"),
 ) -> UploadResponse:
     uid, s = await _get_session_or_404(session_id, db)
 
@@ -206,8 +207,7 @@ async def upload_data(
     if warnings:
         data_manifest["warnings"] = warnings
 
-    # Merge with the latest existing DataArtifact (if any) so uploaded columns
-    # are additive — the user is adding a signal, not replacing the whole dataset.
+    # Load existing artifact for merge or round-number tracking
     existing = (
         (
             await db.execute(
@@ -220,9 +220,9 @@ async def upload_data(
         .first()
     )
     round_num = (existing.round + 1) if existing else 1
-    prior_sources: list[Any] = list(existing.sources) if existing else []
+    prior_sources: list[Any] = list(existing.sources) if (existing and mode == "merge") else []
 
-    if existing is not None:
+    if existing is not None and mode == "merge":
         # Load existing raw data into a DataFrame
         if existing.raw_data:
             existing_df = pd.DataFrame(
