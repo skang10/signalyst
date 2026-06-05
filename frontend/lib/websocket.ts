@@ -30,7 +30,7 @@ export function useSessionStream(sessionId: string | null) {
           const msg = JSON.parse(event.data as string) as Record<string, unknown> & {
             type: string;
           };
-          if (msg.type === "stage_transition" || msg.type === "artifact_ready") {
+          if (msg.type === "stage_transition" || msg.type === "artifact_ready" || msg.type === "error") {
             fetch(`${API_URL}/api/sessions/${sessionId}`)
               .then((r) => r.json())
               .then(setSession)

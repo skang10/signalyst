@@ -89,6 +89,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         s.updated_at = now.replace(tzinfo=None)
 
         await db.commit()
+        await publisher(new_event)
         log.info("discovery.complete", session_id=session_id_str, n_sources=n_sources)
     except Exception as exc:
         log.error("discovery.failed", session_id=session_id_str, error=str(exc))
@@ -105,5 +106,6 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         s.updated_at = now.replace(tzinfo=None)
         s.activity_events = [*current_activity_events, error_event]
         await db.commit()
+        await publisher(error_event)
     finally:
         await r.aclose()  # type: ignore[attr-defined]

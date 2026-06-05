@@ -15,6 +15,9 @@ const TABS = [
   { label: "Results", path: "results" },
 ];
 
+const DATA_LOCKED_STAGES = new Set(["configuring", "data_gathering"]);
+const RESULTS_UNLOCKED_STAGE = "follow_up";
+
 function ChatBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === "user";
   return (
@@ -237,6 +240,30 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
         {TABS.map((tab) => {
           const href = `/sessions/${id}/${tab.path}`;
           const isActive = pathname === href;
+
+          const isLocked =
+            (tab.path === "data" && stage !== null && DATA_LOCKED_STAGES.has(stage)) ||
+            (tab.path === "results" && stage !== RESULTS_UNLOCKED_STAGE);
+
+          const badge =
+            tab.path === "data" && stage !== null && !DATA_LOCKED_STAGES.has(stage)
+              ? " ✓"
+              : tab.path === "results" && stage === RESULTS_UNLOCKED_STAGE
+              ? " ✦"
+              : "";
+
+          if (isLocked) {
+            return (
+              <span
+                key={tab.label}
+                title={`Locked — not available at this stage`}
+                className="text-sm py-2 border-b-2 border-transparent text-[#374151] cursor-not-allowed select-none"
+              >
+                {tab.label}
+              </span>
+            );
+          }
+
           return (
             <Link
               key={tab.label}
@@ -248,7 +275,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
                   : "border-transparent text-[#9ca3af] hover:text-[#f9fafb]",
               ].join(" ")}
             >
-              {tab.label}
+              {tab.label}{badge}
             </Link>
           );
         })}

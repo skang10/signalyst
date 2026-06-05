@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import json
 import uuid
+from collections.abc import Awaitable, Callable
+from datetime import UTC, datetime
 from typing import Any
 
 import numpy as np
 import pandas as pd
+import redis.asyncio as aioredis
 import structlog
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlmodel import select
@@ -16,6 +20,8 @@ from src.services.hashing import canonical_json, stable_hash
 from src.services.stage import append_activity_event, set_status, transition_stage
 
 log = structlog.get_logger()
+
+Publisher = Callable[[dict[str, Any]], Awaitable[None]]
 
 # Heuristic regime labels (same as demo.py — source of truth)
 _KNOWN_REGIMES: list[tuple[str, str, str]] = [
@@ -81,28 +87,47 @@ def _detect_drift(features: pd.DataFrame, split: int) -> dict[str, Any]:
 
 
 async def run_tabpfn_service(session_id: uuid.UUID, engine: AsyncEngine) -> None:
-    async with AsyncSession(engine) as db:
-        s = await db.get(SessionModel, session_id)
-        if s is None:
-            log.error("tabpfn.session_not_found", session_id=str(session_id))
-            return
-        if s.status == SessionStatus.CANCELED:
-            log.info("tabpfn.canceled", session_id=str(session_id))
-            return
-        if s.stage != SessionStage.ANALYZING:
-            log.info("tabpfn.wrong_stage", session_id=str(session_id), stage=s.stage)
-            return
+    session_id_str = str(session_id)
+    r = aioredis.Redis.from_url(settings.redis_url, decode_responses=True)
+    channel = f"session:{session_id_str}:stream"
 
-        try:
-            await _run(s, db, engine)
-        except Exception as exc:
-            log.error("tabpfn.failed", session_id=str(session_id), error=str(exc))
-            set_status(s, SessionStatus.FAILED, error=str(exc))
-            append_activity_event(s, {"type": "error", "stage": "analyzing", "message": str(exc)})
-            await db.commit()
+    async def publisher(event: dict[str, Any]) -> None:
+        enriched = {**event, "created_at": datetime.now(UTC).isoformat()}
+        await r.publish(channel, json.dumps(enriched))
+
+    try:
+        async with AsyncSession(engine) as db:
+            s = await db.get(SessionModel, session_id)
+            if s is None:
+                log.error("tabpfn.session_not_found", session_id=session_id_str)
+                return
+            if s.status == SessionStatus.CANCELED:
+                log.info("tabpfn.canceled", session_id=session_id_str)
+                return
+            if s.stage != SessionStage.ANALYZING:
+                log.info("tabpfn.wrong_stage", session_id=session_id_str, stage=s.stage)
+                return
+
+            try:
+                await _run(s, db, engine, publisher)
+            except Exception as exc:
+                log.error("tabpfn.failed", session_id=session_id_str, error=str(exc))
+                set_status(s, SessionStatus.FAILED, error=str(exc))
+                err_event: dict[str, Any] = {
+                    "type": "error",
+                    "stage": "analyzing",
+                    "message": str(exc),
+                }
+                append_activity_event(s, err_event)
+                await db.commit()
+                await publisher(err_event)
+    finally:
+        await r.aclose()  # type: ignore[attr-defined]
 
 
-async def _run(s: SessionModel, db: AsyncSession, engine: AsyncEngine) -> None:
+async def _run(
+    s: SessionModel, db: AsyncSession, engine: AsyncEngine, publisher: Publisher
+) -> None:
     session_id = s.id
 
     stmt = (
@@ -141,6 +166,7 @@ async def _run(s: SessionModel, db: AsyncSession, engine: AsyncEngine) -> None:
         transition_stage(s, SessionStage.FOLLOW_UP)
         set_status(s, SessionStatus.WAITING)
         await db.commit()
+        await publisher({"type": "stage_transition", "from": "analyzing", "to": "follow_up"})
         return
 
     features = pd.read_parquet(fa.feature_matrix_ref)
@@ -224,16 +250,15 @@ async def _run(s: SessionModel, db: AsyncSession, engine: AsyncEngine) -> None:
             return
 
     db.add(ar)
-    append_activity_event(
-        s,
-        {
-            "type": "artifact_ready",
-            "kind": "analysis",
-            "artifact_id": str(artifact_id),
-            "regime": regime_result.get("regime") if regime_result else None,
-        },
-    )
+    analysis_event: dict[str, Any] = {
+        "type": "artifact_ready",
+        "kind": "analysis",
+        "artifact_id": str(artifact_id),
+        "regime": regime_result.get("regime") if regime_result else None,
+    }
+    append_activity_event(s, analysis_event)
     # PR 2: skip EXPLAINING (ExplanationAgent is PR 4), go straight to FOLLOW_UP
     transition_stage(s, SessionStage.FOLLOW_UP)
     set_status(s, SessionStatus.WAITING)
     await db.commit()
+    await publisher(analysis_event)

@@ -225,7 +225,7 @@ export const api = {
     })
       .then((res) => {
         clearTimeout(timeout);
-        if (!res.ok) throw new Error(`API error ${res.status}`);
+        if (!res.ok) return res.text().then((t) => { throw new Error(t); });
         return res.json() as Promise<{ artifact_id: string }>;
       })
       .catch((err) => {
