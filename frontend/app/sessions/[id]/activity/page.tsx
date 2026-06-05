@@ -134,6 +134,19 @@ function ToolChip({ row }: { row: FetchRow }) {
 function CompletionChip({ event }: { event: Record<string, unknown> }) {
   if (event.type === "artifact_ready") {
     const kind = event.kind as string;
+    if (kind === "sources") {
+      const connectors = (event.connectors as string[] | undefined) ?? [];
+      return (
+        <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 bg-[#052e16] border border-[#14532d] rounded-full text-xs text-[#22c55e]">
+          ✓ {connectors.length} source{connectors.length !== 1 ? "s" : ""} configured
+          {connectors.length > 0 && (
+            <span className="text-[#166534]">
+              ({connectors.slice(0, 4).join(", ")}{connectors.length > 4 ? ` +${connectors.length - 4}` : ""})
+            </span>
+          )}
+        </div>
+      );
+    }
     if (kind === "data") {
       const rows = event.rows as number | undefined;
       const tickers = (event.tickers as string[] | undefined) ?? [];

@@ -42,7 +42,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
   error: null,
 
   setSession: (session) =>
-    set({
+    set((state) => ({
       sessionId: session.session_id,
       stage: session.stage,
       status: session.status,
@@ -51,7 +51,8 @@ export const useSessionStore = create<SessionStore>((set) => ({
       activityEvents: session.activity_events,
       artifacts: session.artifacts,
       error: session.error,
-    }),
+      wsMessages: state.sessionId !== session.session_id ? [] : state.wsMessages,
+    })),
 
   appendWsMessage: (msg) =>
     set((state) => ({

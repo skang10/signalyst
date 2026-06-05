@@ -86,6 +86,7 @@ export function buildGroups(
       completed.push(cur);
       cur = newGroup((ev.to as string) ?? "", (ev.created_at as string) ?? "");
     } else if (type === "artifact_ready" || type === "cache_hit") {
+      if (!cur.startTime) cur.startTime = (ev.created_at as string) ?? "";
       cur.completionEvent = ev;
     } else if (type === "error") {
       cur.errorEvent = ev;

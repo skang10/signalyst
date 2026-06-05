@@ -39,7 +39,6 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
     # Snapshot everything before the first await — asyncpg expires the object
     # when the connection returns to the pool between async calls.
     session_id_str = str(s.id)
-    current_conversation = list(s.conversation or [])
     current_activity_events = list(s.activity_events or [])
     current_stage_history = list(s.stage_history or [])
     market_profile = s.market_profile
@@ -79,6 +78,18 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
 
         # All writes below use snapshots — no reads from expired s
         n_sources = len(pending_sources)
+        connectors = [p["connector_id"] for p in pending_sources]
+
+        now_sources = datetime.now(UTC)
+        sources_event: dict[str, Any] = {
+            "event_id": str(uuid.uuid4()),
+            "created_at": now_sources.isoformat(),
+            "type": "artifact_ready",
+            "kind": "sources",
+            "connectors": connectors,
+            "n_sources": n_sources,
+        }
+
         now = datetime.now(UTC)
         new_event: dict[str, Any] = {
             "event_id": str(uuid.uuid4()),
@@ -94,17 +105,14 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         }
 
         s.pending_sources = pending_sources
-        s.conversation = [
-            *current_conversation,
-            {"role": "assistant", "content": f"Recommended {n_sources} data sources."},
-        ]
-        s.activity_events = [*current_activity_events, new_event]
+        s.activity_events = [*current_activity_events, sources_event, new_event]
         s.stage = SessionStage.DATA_GATHERING.value
         s.stage_history = [*current_stage_history, new_stage_entry]
         s.status = SessionStatus.RUNNING.value
         s.updated_at = now.replace(tzinfo=None)
 
         await db.commit()
+        await publisher(sources_event)
         await publisher(new_event)
         log.info("discovery.complete", session_id=session_id_str, n_sources=n_sources)
     except Exception as exc:
