@@ -12,7 +12,7 @@ import { useSessionStore } from "@/lib/store";
 const STAGE_LABELS: Record<string, string> = {
   configuring: "Source Discovery",
   data_gathering: "Data Gathering",
-  user_review: "Review",
+  user_review: "User Review",
   featurizing: "Featurizing",
   analyzing: "Analyzing",
   explaining: "Explaining",
@@ -25,46 +25,99 @@ const TOOL_DISPLAY: Record<string, (i: Record<string, unknown>) => string> = {
   fetch_eia: () => "EIA · crude inventory",
   fetch_gpr: () => "GPR · geopolitical risk index",
   fetch_custom_connector: (i) => `connector · ${i.connector_id ?? ""}`,
-  list_available_connectors: () => "Listed connectors",
-  approve_sources: () => "Approved sources",
-  save_connector_spec: (i) => `Saved connector · ${i.id ?? ""}`,
-  http_get: (i) => `GET · ${(i.url as string | undefined)?.replace(/^https?:\/\//, "") ?? ""}`,
-  http_post: (i) => `POST · ${(i.url as string | undefined)?.replace(/^https?:\/\//, "") ?? ""}`,
+  list_available_connectors: () => "listed connectors",
+  approve_sources: () => "approved sources",
+  save_connector_spec: (i) => `saved connector · ${i.id ?? ""}`,
+  http_get: (i) => `GET ${(i.url as string | undefined)?.replace(/^https?:\/\//, "") ?? ""}`,
+  http_post: (i) => `POST ${(i.url as string | undefined)?.replace(/^https?:\/\//, "") ?? ""}`,
 };
 
-function toolDisplay(tool: string, input: Record<string, unknown>): string {
+function toolLabel(tool: string, input: Record<string, unknown>): string {
   return TOOL_DISPLAY[tool]?.(input) ?? tool.replace(/_/g, " ");
 }
 
-// --- Fetch row ---
+// --- Stage pill ---
 
-function FetchRowItem({ row }: { row: FetchRow }) {
-  const [open, setOpen] = useState(false);
-  const label = toolDisplay(row.tool, row.input);
-  const ready = row.result !== null;
+function StagePill({ group }: { group: StageGroup }) {
+  const label = STAGE_LABELS[group.stage] ?? group.stage;
+  const ts = group.startTime ? new Date(group.startTime).toLocaleTimeString() : "";
+
+  const styles =
+    group.status === "active"
+      ? { wrap: "border-[#1e3a5f] bg-[#0a1628] text-[#60a5fa]", dot: "bg-[#3b82f6] animate-pulse" }
+      : group.status === "failed"
+      ? { wrap: "border-[#7c2d12] bg-[#1a0505] text-[#f97316]", dot: "bg-[#ef4444]" }
+      : { wrap: "border-[#14532d] bg-[#052e16] text-[#22c55e]", dot: "bg-[#22c55e]" };
 
   return (
-    <div>
+    <div className="flex justify-center my-1">
+      <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-xs ${styles.wrap}`}>
+        <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${styles.dot}`} />
+        <span>{label}</span>
+        {ts && <span className="opacity-50">· {ts}</span>}
+      </div>
+    </div>
+  );
+}
+
+// --- Thinking block ---
+
+function ThinkingBlock({ thoughts, active }: { thoughts: ThoughtEntry[]; active: boolean }) {
+  const [open, setOpen] = useState(active);
+
+  return (
+    <div className="border border-[#1f2937] rounded-r-lg overflow-hidden" style={{ borderLeftWidth: 2, borderLeftColor: active ? "#3b82f6" : "#374151" }}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 w-full text-left px-4 py-1.5 hover:bg-[#111827] transition-colors group"
+        className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-[#111827] transition-colors"
       >
-        <span className="text-[#374151] text-xs w-3 flex-shrink-0">{open ? "▾" : "▸"}</span>
-        <span className="text-sm text-[#d1d5db] flex-1 truncate">{label}</span>
+        <span className="text-xs text-[#4b5563]">💭</span>
+        <span className="text-xs text-[#4b5563] uppercase tracking-wider flex-1">thinking</span>
+        {active && <span className="text-[#3b82f6] text-xs animate-spin leading-none">⟳</span>}
+        <span className="text-[#374151] text-xs">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && (
+        <div className="px-3 pb-2 flex flex-col gap-1 border-t border-[#1f2937]">
+          {thoughts.map((t) => (
+            <p key={t.id} className="text-xs text-[#374151] italic leading-relaxed">
+              {t.content}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Tool chip ---
+
+function ToolChip({ row }: { row: FetchRow }) {
+  const [open, setOpen] = useState(false);
+  const ready = row.result !== null;
+  const label = toolLabel(row.tool, row.input);
+
+  return (
+    <div className="rounded-md overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="flex items-center gap-2 w-full px-3 py-1.5 bg-[#0d1117] border border-[#1f2937] rounded-md text-left hover:border-[#374151] transition-colors"
+      >
+        <span className="text-[#4b5563] text-xs">⚙</span>
+        <span className="text-xs text-[#9ca3af] flex-1 truncate">{label}</span>
         <span className={`text-xs flex-shrink-0 ${ready ? "text-[#22c55e]" : "text-[#3b82f6] animate-pulse"}`}>
           {ready ? "→ ready" : "fetching…"}
         </span>
       </button>
       {open && (
-        <div className="mx-4 mb-1 ml-9 border-l border-[#1f2937] pl-3 py-1 space-y-0.5">
-          <div className="text-xs font-mono text-[#6b7280]">
-            <span className="text-[#4b5563]">input </span>
-            <span className="text-[#9ca3af] break-all">{JSON.stringify(row.input)}</span>
+        <div className="border border-t-0 border-[#1f2937] rounded-b-md px-3 py-1.5 space-y-1 bg-[#070b11]">
+          <div className="text-xs font-mono">
+            <span className="text-[#374151]">in </span>
+            <span className="text-[#6b7280] break-all">{JSON.stringify(row.input)}</span>
           </div>
           {row.result && (
-            <div className="text-xs font-mono text-[#6b7280]">
-              <span className="text-[#4b5563]">output </span>
-              <span className="text-[#9ca3af] break-all">
+            <div className="text-xs font-mono">
+              <span className="text-[#374151]">out </span>
+              <span className="text-[#6b7280] break-all">
                 {JSON.stringify(row.result).slice(0, 300)}
                 {JSON.stringify(row.result).length > 300 ? "…" : ""}
               </span>
@@ -76,58 +129,19 @@ function FetchRowItem({ row }: { row: FetchRow }) {
   );
 }
 
-// --- Thought row ---
+// --- Completion / error chip ---
 
-function ThoughtRowItem({ thought }: { thought: ThoughtEntry }) {
-  const [open, setOpen] = useState(false);
-  const preview =
-    thought.content.length > 120 ? thought.content.slice(0, 120) + "…" : thought.content;
-
-  return (
-    <button
-      onClick={() => setOpen((o) => !o)}
-      className="flex items-start gap-2 w-full text-left px-4 py-1 hover:bg-[#111827] transition-colors"
-    >
-      <span className="text-[#374151] text-xs mt-0.5 w-3 flex-shrink-0">💭</span>
-      <span className="text-xs text-[#4b5563] italic leading-snug text-left">
-        {open ? thought.content : preview}
-      </span>
-    </button>
-  );
-}
-
-// --- Chat message ---
-
-function ChatMessageItem({ msg }: { msg: ChatMessage }) {
-  const isUser = msg.role === "user";
-  return (
-    <div className={`flex px-4 py-1.5 ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[80%] px-3 py-2 rounded-lg text-xs leading-relaxed ${
-          isUser
-            ? "bg-[#1d4ed8] text-white rounded-br-sm"
-            : "bg-[#1f2937] text-[#f9fafb] rounded-bl-sm border border-[#374151]"
-        }`}
-      >
-        {msg.content}
-      </div>
-    </div>
-  );
-}
-
-// --- Completion summary ---
-
-function CompletionSummary({ event }: { event: Record<string, unknown> }) {
+function CompletionChip({ event }: { event: Record<string, unknown> }) {
   if (event.type === "artifact_ready") {
     const kind = event.kind as string;
     if (kind === "data") {
       const rows = event.rows as number | undefined;
       const tickers = (event.tickers as string[] | undefined) ?? [];
       return (
-        <div className="px-4 py-1.5 text-xs text-[#22c55e]">
+        <div className="inline-flex items-center gap-1.5 self-start px-3 py-1 bg-[#052e16] border border-[#14532d] rounded-full text-xs text-[#22c55e]">
           ✓ {rows} rows · {tickers.length} signal{tickers.length !== 1 ? "s" : ""}
           {tickers.length > 0 && (
-            <span className="text-[#166534] ml-1">
+            <span className="text-[#166534]">
               ({tickers.slice(0, 4).join(", ")}{tickers.length > 4 ? ` +${tickers.length - 4}` : ""})
             </span>
           )}
@@ -136,7 +150,7 @@ function CompletionSummary({ event }: { event: Record<string, unknown> }) {
     }
     if (kind === "features") {
       return (
-        <div className="px-4 py-1.5 text-xs text-[#22c55e]">
+        <div className="inline-flex self-start px-3 py-1 bg-[#052e16] border border-[#14532d] rounded-full text-xs text-[#22c55e]">
           ✓ {event.n_features as number} features · {event.n_rows as number} rows
         </div>
       );
@@ -144,7 +158,7 @@ function CompletionSummary({ event }: { event: Record<string, unknown> }) {
     if (kind === "analysis") {
       const regime = event.regime as string | undefined;
       return (
-        <div className="px-4 py-1.5 text-xs text-[#22c55e]">
+        <div className="inline-flex self-start px-3 py-1 bg-[#052e16] border border-[#14532d] rounded-full text-xs text-[#22c55e]">
           ✓ Analysis complete{regime ? ` · ${regime}` : ""}
         </div>
       );
@@ -152,70 +166,88 @@ function CompletionSummary({ event }: { event: Record<string, unknown> }) {
   }
   if (event.type === "cache_hit") {
     return (
-      <div className="px-4 py-1.5 text-xs text-[#a78bfa]">⚡ cache hit — reused prior result</div>
+      <div className="inline-flex self-start px-3 py-1 bg-[#1e1040] border border-[#4c1d95] rounded-full text-xs text-[#a78bfa]">
+        ⚡ cache hit
+      </div>
     );
   }
   return null;
 }
 
-// --- Stage card ---
+// --- Agent turn ---
 
-function StageCard({ group, defaultOpen }: { group: StageGroup; defaultOpen: boolean }) {
-  const [open, setOpen] = useState(defaultOpen);
-
+function AgentTurn({ group }: { group: StageGroup }) {
+  const assistantMsgs = group.chatMessages.filter((m) => m.role === "assistant");
   const hasContent =
-    group.fetchRows.length > 0 ||
     group.thoughts.length > 0 ||
+    group.fetchRows.length > 0 ||
     group.completionEvent !== null ||
-    group.errorEvent !== null;
+    group.errorEvent !== null ||
+    assistantMsgs.length > 0;
 
-  const ts = group.startTime ? new Date(group.startTime).toLocaleTimeString() : "";
+  if (!hasContent) return null;
 
-  const dot =
-    group.status === "active" ? (
-      <span className="w-2 h-2 rounded-full bg-[#3b82f6] animate-pulse flex-shrink-0" />
-    ) : group.status === "failed" ? (
-      <span className="w-2 h-2 rounded-full bg-[#ef4444] flex-shrink-0" />
-    ) : (
-      <span className="w-2 h-2 rounded-full bg-[#22c55e] flex-shrink-0" />
-    );
+  const isActive = group.status === "active";
 
   return (
-    <div className="border border-[#1f2937] rounded-lg overflow-hidden">
-      <button
-        onClick={() => hasContent && setOpen((o) => !o)}
-        className={`flex items-center gap-3 w-full px-4 py-2.5 bg-[#111827] text-left transition-colors ${
-          hasContent ? "hover:bg-[#161b22] cursor-pointer" : "cursor-default"
-        }`}
+    <div className="flex gap-3">
+      {/* Avatar */}
+      <div
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+        style={{ background: "linear-gradient(135deg, #1d4ed8 0%, #7c3aed 100%)" }}
       >
-        {dot}
-        <span className="text-sm font-medium text-[#f9fafb] flex-1">
-          {STAGE_LABELS[group.stage] ?? group.stage}
-        </span>
-        {ts && <span className="text-xs text-[#4b5563]">{ts}</span>}
-        {hasContent && (
-          <span className="text-[#374151] text-xs ml-1">{open ? "▾" : "▸"}</span>
-        )}
-      </button>
+        S
+      </div>
 
-      {open && hasContent && (
-        <div className="bg-[#0d1117] border-t border-[#1f2937] py-1">
-          {group.fetchRows.map((row) => (
-            <FetchRowItem key={row.id} row={row} />
-          ))}
-          {group.thoughts.map((t) => (
-            <ThoughtRowItem key={t.id} thought={t} />
-          ))}
-          {group.errorEvent && (
-            <div className="px-4 py-1.5 text-xs text-[#ef4444]">
-              ✕ {(group.errorEvent.message as string) ?? "unknown error"}
-            </div>
-          )}
-          {group.completionEvent && (
-            <CompletionSummary event={group.completionEvent} />
-          )}
-        </div>
-      )}
+      {/* Content */}
+      <div className="flex flex-col gap-2 flex-1 min-w-0">
+        <span className="text-xs text-[#4b5563] font-medium">Signalyst Agent</span>
+
+        {group.thoughts.length > 0 && (
+          <ThinkingBlock thoughts={group.thoughts} active={isActive} />
+        )}
+
+        {group.fetchRows.length > 0 && (
+          <div className="flex flex-col gap-1">
+            {group.fetchRows.map((row) => (
+              <ToolChip key={row.id} row={row} />
+            ))}
+          </div>
+        )}
+
+        {group.completionEvent && <CompletionChip event={group.completionEvent} />}
+
+        {group.errorEvent && (
+          <div className="text-xs text-[#ef4444] px-3 py-1.5 bg-[#1a0505] border border-[#7c2d12] rounded-md">
+            ✕ {(group.errorEvent.message as string) ?? "unknown error"}
+          </div>
+        )}
+
+        {assistantMsgs.map((msg, i) => (
+          <div
+            key={i}
+            className="bg-[#1f2937] border border-[#374151] rounded-t-none rounded-bl-sm rounded-br-xl rounded-tl-none px-3 py-2 text-sm text-[#f9fafb] leading-relaxed"
+            style={{ borderRadius: "2px 12px 12px 12px" }}
+          >
+            {msg.content}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- User bubble ---
+
+function UserBubble({ msg }: { msg: ChatMessage }) {
+  return (
+    <div className="flex justify-end">
+      <div
+        className="bg-[#1d4ed8] text-white px-3 py-2 text-sm leading-relaxed max-w-[75%]"
+        style={{ borderRadius: "12px 12px 4px 12px" }}
+      >
+        {msg.content}
+      </div>
     </div>
   );
 }
@@ -259,7 +291,8 @@ export default function ActivityPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-auto min-h-0 p-4 flex flex-col gap-2">
+      {/* Feed */}
+      <div className="flex-1 overflow-auto min-h-0 px-4 py-4 flex flex-col gap-3">
         {!hasAny ? (
           <div className="flex items-center justify-center h-full text-[#4b5563] text-sm">
             {status === "running"
@@ -268,16 +301,20 @@ export default function ActivityPage() {
           </div>
         ) : (
           groups.map((group, idx) => (
-            <div key={`${group.stage}-${idx}`} className="flex flex-col gap-2">
-              <StageCard group={group} defaultOpen={group.status === "active"} />
-              {group.chatMessages.map((msg, i) => (
-                <ChatMessageItem key={`chat-${idx}-${i}`} msg={msg} />
-              ))}
+            <div key={`${group.stage}-${idx}`} className="flex flex-col gap-3">
+              <StagePill group={group} />
+              <AgentTurn group={group} />
+              {group.chatMessages
+                .filter((m) => m.role === "user")
+                .map((msg, i) => (
+                  <UserBubble key={`user-${idx}-${i}`} msg={msg} />
+                ))}
             </div>
           ))
         )}
       </div>
 
+      {/* Input bar */}
       {showInput && (
         <div className="border-t border-[#21262d] bg-[#0d1117] px-4 py-3 flex flex-col gap-1.5 flex-shrink-0">
           <div className="flex gap-2 items-center">
