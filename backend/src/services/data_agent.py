@@ -138,10 +138,17 @@ async def _finish_stage(
             f"Check the Data tab to review the snapshot. "
             f'Say "run analysis" to proceed, or ask me to add or adjust data sources.'
         )
-        s.conversation = [
-            *current_conversation,
-            {"role": "assistant", "content": greeting, "created_at": now_str},
-        ]
+        already_greeted = any(
+            m.get("role") == "assistant" and m.get("content") == greeting
+            for m in current_conversation
+        )
+        if already_greeted:
+            s.conversation = current_conversation
+        else:
+            s.conversation = [
+                *current_conversation,
+                {"role": "assistant", "content": greeting, "created_at": now_str},
+            ]
 
     await db.commit()
     log.info("data_agent.stage_advanced", session_id=session_id_str, stage=next_stage.value)
