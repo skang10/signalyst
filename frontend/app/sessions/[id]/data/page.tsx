@@ -36,6 +36,8 @@ function fmt(v: number | null | undefined): string {
   return v.toPrecision(3);
 }
 
+const PAGE_SIZE = 50;
+
 function DataSnapshotTable({
   seriesPreview,
   missingPct,
@@ -43,7 +45,6 @@ function DataSnapshotTable({
   seriesPreview: Record<string, { date: string; value: number | null }[]>;
   missingPct: Record<string, number>;
 }) {
-  const [showAll, setShowAll] = useState(false);
   const tickers = Object.keys(seriesPreview);
 
   // Build date-aligned rows from all series
@@ -55,8 +56,13 @@ function DataSnapshotTable({
     }
   }
   const allDates = Array.from(dateMap.keys()).sort();
-  const PREVIEW_ROWS = 5;
-  const displayDates = showAll ? allDates : allDates.slice(-PREVIEW_ROWS);
+  const totalPages = Math.max(1, Math.ceil(allDates.length / PAGE_SIZE));
+
+  // Default to last page so most-recent rows are visible first
+  const [page, setPage] = useState(totalPages - 1);
+  const clampedPage = Math.min(page, totalPages - 1);
+  const start = clampedPage * PAGE_SIZE;
+  const displayDates = allDates.slice(start, start + PAGE_SIZE);
 
   if (tickers.length === 0) return null;
 
@@ -64,12 +70,27 @@ function DataSnapshotTable({
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
         <span className="text-xs text-[#4b5563] uppercase tracking-wider">Snapshot</span>
-        <button
-          onClick={() => setShowAll((s) => !s)}
-          className="text-xs text-[#4b5563] hover:text-[#9ca3af] transition-colors"
-        >
-          {showAll ? `Show last ${PREVIEW_ROWS}` : `Show all ${allDates.length} rows`}
-        </button>
+        {allDates.length > PAGE_SIZE && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#4b5563]">
+              {start + 1}–{Math.min(start + PAGE_SIZE, allDates.length)} of {allDates.length}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={clampedPage === 0}
+              className="text-xs text-[#4b5563] hover:text-[#9ca3af] disabled:opacity-30 transition-colors px-1"
+            >
+              ←
+            </button>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={clampedPage === totalPages - 1}
+              className="text-xs text-[#4b5563] hover:text-[#9ca3af] disabled:opacity-30 transition-colors px-1"
+            >
+              →
+            </button>
+          </div>
+        )}
       </div>
       <div className="overflow-auto rounded border border-[#21262d]">
         <table className="w-full text-xs font-mono border-collapse">
