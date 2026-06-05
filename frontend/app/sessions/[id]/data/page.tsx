@@ -27,6 +27,99 @@ function MetricCard({
   );
 }
 
+function fmt(v: number | null | undefined): string {
+  if (v == null) return "—";
+  const abs = Math.abs(v);
+  if (abs === 0) return "0";
+  if (abs >= 1000) return v.toLocaleString("en-US", { maximumFractionDigits: 0 });
+  if (abs >= 1) return v.toFixed(2);
+  return v.toPrecision(3);
+}
+
+function DataSnapshotTable({
+  seriesPreview,
+  missingPct,
+}: {
+  seriesPreview: Record<string, { date: string; value: number | null }[]>;
+  missingPct: Record<string, number>;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const tickers = Object.keys(seriesPreview);
+
+  // Build date-aligned rows from all series
+  const dateMap = new Map<string, Record<string, number | null>>();
+  for (const [ticker, points] of Object.entries(seriesPreview)) {
+    for (const { date, value } of points) {
+      if (!dateMap.has(date)) dateMap.set(date, {});
+      dateMap.get(date)![ticker] = value;
+    }
+  }
+  const allDates = Array.from(dateMap.keys()).sort();
+  const PREVIEW_ROWS = 5;
+  const displayDates = showAll ? allDates : allDates.slice(-PREVIEW_ROWS);
+
+  if (tickers.length === 0) return null;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-[#4b5563] uppercase tracking-wider">Snapshot</span>
+        <button
+          onClick={() => setShowAll((s) => !s)}
+          className="text-xs text-[#4b5563] hover:text-[#9ca3af] transition-colors"
+        >
+          {showAll ? `Show last ${PREVIEW_ROWS}` : `Show all ${allDates.length} rows`}
+        </button>
+      </div>
+      <div className="overflow-auto rounded border border-[#21262d]">
+        <table className="w-full text-xs font-mono border-collapse">
+          <thead>
+            <tr className="bg-[#111827] border-b border-[#21262d]">
+              <th className="text-left px-3 py-2 text-[#4b5563] font-normal whitespace-nowrap">Date</th>
+              {tickers.map((ticker) => (
+                <th key={ticker} className="text-right px-3 py-2 font-normal whitespace-nowrap">
+                  <span className="text-[#9ca3af]">{ticker}</span>
+                  {(missingPct[ticker] ?? 0) > 0 && (
+                    <span className="ml-1 text-[#f59e0b]">·{missingPct[ticker]}%</span>
+                  )}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {displayDates.map((date, i) => {
+              const row = dateMap.get(date) ?? {};
+              return (
+                <tr
+                  key={date}
+                  className={`border-b border-[#1f2937] last:border-0 ${
+                    i % 2 === 0 ? "bg-[#0d1117]" : "bg-[#111827]"
+                  }`}
+                >
+                  <td className="px-3 py-1.5 text-[#6b7280]">{date}</td>
+                  {tickers.map((ticker) => {
+                    const v = row[ticker];
+                    return (
+                      <td
+                        key={ticker}
+                        className={`px-3 py-1.5 text-right ${
+                          v == null ? "text-[#374151]" : "text-[#f9fafb]"
+                        }`}
+                      >
+                        {fmt(v)}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function Sparkline({ points }: { points: { date: string; value: number | null }[] }) {
   const values = points.map((p) => p.value ?? 0);
   const min = Math.min(...values);
@@ -347,9 +440,12 @@ export default function DataPage() {
 
       <div className="flex gap-2">
         <MetricCard label="Rows" value={String(dm.rows)} />
-        <MetricCard label="Series" value={String(dm.tickers.length)} />
-        <MetricCard label="Missing %" value={`${avgMissing.toFixed(1)}%`} warn={avgMissing > 1} />
+        <MetricCard label="Signals" value={String(dm.tickers.length)} />
+        <MetricCard label="Date range" value={`${dm.date_range.start} – ${dm.date_range.end}`} />
+        <MetricCard label="Avg missing" value={`${avgMissing.toFixed(1)}%`} warn={avgMissing > 1} />
       </div>
+
+      <DataSnapshotTable seriesPreview={artifact.series_preview} missingPct={dm.missing_pct} />
 
       {/* Run Analysis — only shown at USER_REVIEW */}
       {stage === "user_review" && (
@@ -393,22 +489,6 @@ export default function DataPage() {
           ))}
         </div>
       ) : null}
-
-      <div className="flex flex-wrap gap-2">
-        {dm.tickers.map((ticker) => (
-          <span
-            key={ticker}
-            className={`text-xs px-2 py-0.5 rounded border ${
-              (dm.missing_pct[ticker] ?? 0) > 1
-                ? "border-[#f59e0b] text-[#f59e0b]"
-                : "border-[#21262d] text-[#9ca3af]"
-            }`}
-          >
-            {ticker}
-            {dm.missing_pct[ticker] !== undefined && ` · ${dm.missing_pct[ticker]}% missing`}
-          </span>
-        ))}
-      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {Object.entries(artifact.series_preview).map(([ticker, points]) => {
