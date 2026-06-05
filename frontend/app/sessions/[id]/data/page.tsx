@@ -36,7 +36,7 @@ function fmt(v: number | null | undefined): string {
   return v.toPrecision(3);
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 20;
 
 function DataSnapshotTable({
   seriesPreview,
@@ -45,6 +45,8 @@ function DataSnapshotTable({
   seriesPreview: Record<string, { date: string; value: number | null }[]>;
   missingPct: Record<string, number>;
 }) {
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
   const tickers = Object.keys(seriesPreview);
 
   // Build date-aligned rows from all series
@@ -57,9 +59,6 @@ function DataSnapshotTable({
   }
   const allDates = Array.from(dateMap.keys()).sort();
   const totalPages = Math.max(1, Math.ceil(allDates.length / PAGE_SIZE));
-
-  // Default to last page so most-recent rows are visible first
-  const [page, setPage] = useState(totalPages - 1);
   const clampedPage = Math.min(page, totalPages - 1);
   const start = clampedPage * PAGE_SIZE;
   const displayDates = allDates.slice(start, start + PAGE_SIZE);
@@ -69,8 +68,15 @@ function DataSnapshotTable({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-[#4b5563] uppercase tracking-wider">Snapshot</span>
-        {allDates.length > PAGE_SIZE && (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center gap-1.5 text-xs text-[#4b5563] uppercase tracking-wider hover:text-[#9ca3af] transition-colors"
+        >
+          <span>{open ? "▾" : "▸"}</span>
+          <span>Snapshot</span>
+          <span className="normal-case opacity-60">· {allDates.length} rows</span>
+        </button>
+        {open && allDates.length > PAGE_SIZE && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-[#4b5563]">
               {start + 1}–{Math.min(start + PAGE_SIZE, allDates.length)} of {allDates.length}
@@ -92,7 +98,7 @@ function DataSnapshotTable({
           </div>
         )}
       </div>
-      <div className="overflow-auto rounded border border-[#21262d]">
+      {open && <div className="overflow-auto rounded border border-[#21262d]">
         <table className="w-full text-xs font-mono border-collapse">
           <thead>
             <tr className="bg-[#111827] border-b border-[#21262d]">
@@ -136,7 +142,7 @@ function DataSnapshotTable({
             })}
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   );
 }
