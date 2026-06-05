@@ -250,7 +250,16 @@ function AgentTurn({ group }: { group: StageGroup }) {
           </div>
         )}
 
-        {group.completionEvent && <CompletionChip event={group.completionEvent} />}
+        {group.completionEvent && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <CompletionChip event={group.completionEvent} />
+            {group.cacheHit && (
+              <div className="inline-flex self-start px-2 py-1 bg-[#1e1040] border border-[#4c1d95] rounded-full text-xs text-[#a78bfa]">
+                ⚡ cached
+              </div>
+            )}
+          </div>
+        )}
 
         {group.errorEvent && (
           <div className="text-xs text-[#ef4444] px-3 py-1.5 bg-[#1a0505] border border-[#7c2d12] rounded-md">
