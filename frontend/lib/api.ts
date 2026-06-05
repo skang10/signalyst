@@ -46,7 +46,7 @@ export type SessionArtifacts = {
 };
 
 export type ChatMessage = {
-  role: "user" | "agent";
+  role: "user" | "assistant";
   content: string;
   created_at: string;
 };
@@ -169,6 +169,23 @@ export const api = {
 
   proceed: (sessionId: string) =>
     request<{ session_id: string }>(`/api/sessions/${sessionId}/proceed`, { method: "POST" }),
+
+  sendChat: (sessionId: string, message: string): Promise<{ session_id: string }> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000); // LLM can take ~60s
+    return fetch(`${API_URL}/api/sessions/${sessionId}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+      signal: controller.signal,
+    })
+      .then((res) => {
+        clearTimeout(timeout);
+        if (!res.ok) return res.text().then((t) => { throw new Error(t); });
+        return res.json() as Promise<{ session_id: string }>;
+      })
+      .catch((err) => { clearTimeout(timeout); throw err; });
+  },
 
   rerun: (
     sessionId: string,
