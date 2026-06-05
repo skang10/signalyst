@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
@@ -49,29 +49,146 @@ function Sparkline({ points }: { points: { date: string; value: number | null }[
   );
 }
 
+function UploadPanel({
+  sessionId,
+  compact,
+  onSuccess,
+}: {
+  sessionId: string;
+  compact?: boolean;
+  onSuccess?: (artifactId: string) => void;
+}) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [file, setFile] = useState<File | null>(null);
+  const [sourceName, setSourceName] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleUpload = async () => {
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const { artifact_id } = await api.uploadData(sessionId, file, sourceName || file.name);
+      onSuccess?.(artifact_id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const inner = (
+    <div className={`w-full ${compact ? "" : "max-w-md"} flex flex-col gap-4`}>
+      {!compact && (
+        <p className="text-sm text-[#9ca3af] text-center">
+          Upload a CSV or Parquet file to use as the data source for this session.
+        </p>
+      )}
+
+        {/* Drop zone */}
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          className="w-full border-2 border-dashed border-[#21262d] hover:border-[#3b82f6] rounded-lg p-8 flex flex-col items-center gap-2 text-[#6b7280] hover:text-[#9ca3af] transition-colors"
+        >
+          <span className="text-3xl">↑</span>
+          <span className="text-sm">{file ? file.name : "Click to choose file"}</span>
+          <span className="text-xs">CSV or Parquet · max 50 MB</span>
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,.parquet"
+          className="hidden"
+          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+        />
+
+        {/* Source name */}
+        <input
+          type="text"
+          value={sourceName}
+          onChange={(e) => setSourceName(e.target.value)}
+          placeholder="Source name (optional)"
+          className="w-full bg-[#111827] border border-[#21262d] rounded px-3 py-2 text-sm text-[#f9fafb] placeholder:text-[#4b5563] focus:outline-none focus:border-[#3b82f6]"
+        />
+
+        {error && <p className="text-xs text-[#ef4444]">{error}</p>}
+
+        <button
+          onClick={handleUpload}
+          disabled={!file || uploading}
+          className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {uploading ? "Uploading…" : "Upload"}
+        </button>
+      </div>
+  );
+
+  if (compact) return inner;
+  return (
+    <div className="flex flex-col items-center justify-center h-full gap-6 p-8">
+      {inner}
+    </div>
+  );
+}
+
 export default function DataPage() {
   const { id } = useParams<{ id: string }>();
-  const { artifacts } = useSessionStore();
+  const { artifacts, setSession } = useSessionStore();
   const [artifact, setArtifact] = useState<DataArtifactDetail | null>(null);
   const [fetchedId, setFetchedId] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
+  // Fetch artifact detail whenever the store's artifact list changes
   useEffect(() => {
     if (!id || artifacts.data.length === 0) return;
     const latestRef = artifacts.data[artifacts.data.length - 1];
     if (latestRef.artifact_id === fetchedId) return;
+    setFetchError(null);
     api
       .getArtifact(id, latestRef.artifact_id)
       .then((data) => {
         setArtifact(data);
         setFetchedId(latestRef.artifact_id);
       })
-      .catch(() => {});
+      .catch((e: unknown) => {
+        setFetchError(e instanceof Error ? e.message : "Failed to load artifact");
+      });
   }, [id, artifacts.data, fetchedId]);
 
+  // Called by UploadPanel with the artifact_id returned by the API
+  const handleUploadSuccess = async (artifactId: string) => {
+    if (!id) return;
+    try {
+      // Fetch artifact detail directly — don't rely on store chain
+      const [detail, updated] = await Promise.all([
+        api.getArtifact(id, artifactId),
+        api.getSession(id),
+      ]);
+      setSession(updated);   // sync the rest of the session state
+      setArtifact(detail);
+      setFetchedId(artifactId);
+      setFetchError(null);
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : "Failed to load uploaded data");
+    }
+  };
+
   if (artifacts.data.length === 0) {
+    return <UploadPanel sessionId={id} onSuccess={handleUploadSuccess} />;
+  }
+
+  if (fetchError) {
     return (
-      <div className="flex items-center justify-center h-full text-[#4b5563] text-sm">
-        No data yet — upload a CSV or Parquet file to populate this view
+      <div className="flex flex-col items-center justify-center h-full gap-2">
+        <p className="text-[#ef4444] text-sm">{fetchError}</p>
+        <button
+          onClick={() => { setFetchedId(null); setFetchError(null); }}
+          className="text-xs text-[#9ca3af] underline"
+        >
+          Retry
+        </button>
       </div>
     );
   }
@@ -138,6 +255,34 @@ export default function DataPage() {
           );
         })}
       </div>
+
+      <UploadSection sessionId={id} onSuccess={handleUploadSuccess} />
+    </div>
+  );
+}
+
+function UploadSection({
+  sessionId,
+  onSuccess,
+}: {
+  sessionId: string;
+  onSuccess: (artifactId: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="border border-[#21262d] rounded">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-3 py-2 text-xs text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
+      >
+        <span>Upload additional data</span>
+        <span>{open ? "▲" : "▼"}</span>
+      </button>
+      {open && (
+        <div className="border-t border-[#21262d] p-4">
+          <UploadPanel sessionId={sessionId} compact onSuccess={onSuccess} />
+        </div>
+      )}
     </div>
   );
 }
