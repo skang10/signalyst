@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { StageStrip } from "@/components/StageStrip";
 import { api } from "@/lib/api";
-import type { ChatMessage } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { useSessionStream } from "@/lib/websocket";
 
@@ -18,124 +17,36 @@ const TABS = [
 const DATA_LOCKED_STAGES = new Set(["configuring", "data_gathering"]);
 const RESULTS_UNLOCKED_STAGE = "follow_up";
 
-function ChatBubble({ msg }: { msg: ChatMessage }) {
-  const isUser = msg.role === "user";
-  return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[80%] px-3 py-2 rounded-lg text-sm leading-relaxed ${
-          isUser
-            ? "bg-[#1d4ed8] text-white rounded-br-sm"
-            : "bg-[#1f2937] text-[#f9fafb] rounded-bl-sm"
-        }`}
-      >
-        {msg.content}
-      </div>
-    </div>
-  );
-}
+function ReviewBanner({ sessionId }: { sessionId: string }) {
+  const { conversation, status } = useSessionStore();
+  const pathname = usePathname();
+  const activityHref = `/sessions/${sessionId}/activity`;
 
-function ChatPanel({
-  sessionId,
-  conversation,
-  status,
-  onSent,
-}: {
-  sessionId: string;
-  conversation: ChatMessage[];
-  status: string | null;
-  onSent: () => void;
-}) {
-  const [message, setMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  if (pathname === activityHref) return null;
 
-  // Scroll to bottom when new messages arrive
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [conversation.length]);
+  const lastMsg = conversation[conversation.length - 1];
+  const hasAgentReply = lastMsg?.role === "assistant";
 
-  const handleSend = async () => {
-    const text = message.trim();
-    if (!text || sending) return;
-    setMessage("");
-    setSending(true);
-    setError(null);
-    try {
-      await api.sendChat(sessionId, text);
-      onSent();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send");
-    } finally {
-      setSending(false);
-      inputRef.current?.focus();
-    }
-  };
-
-  const disabled = sending || status !== "waiting";
+  let hint: string;
+  let linkText: string;
+  if (status === "running") {
+    hint = "· Agent is thinking…";
+    linkText = "view in Activity →";
+  } else if (hasAgentReply) {
+    hint = "· Agent replied —";
+    linkText = "go to Activity to respond →";
+  } else {
+    hint = "· Satisfied with the data?";
+    linkText = "Go to Activity to proceed →";
+  }
 
   return (
-    <div className="border-t border-[#21262d] bg-[#0d1117] flex flex-col" style={{ height: "220px" }}>
-      {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-[#21262d]">
-        <span className="text-xs text-[#4b5563] uppercase tracking-wider">Review</span>
-        <span className="text-xs text-[#6b7280]">·</span>
-        <span className="text-xs text-[#6b7280]">
-          Ask to add data, adjust settings, or say &ldquo;run analysis&rdquo;
-        </span>
-      </div>
-
-      {/* Conversation history */}
-      <div className="flex-1 overflow-auto px-3 py-2 flex flex-col gap-2">
-        {conversation.length === 0 && (
-          <div className="flex flex-col gap-1 text-xs text-[#4b5563] mt-1">
-            <span>Examples:</span>
-            <span className="font-mono">&ldquo;Add Baker Hughes rig count data&rdquo;</span>
-            <span className="font-mono">&ldquo;Use 30-day rolling windows&rdquo;</span>
-            <span className="font-mono">&ldquo;Looks good, run the analysis&rdquo;</span>
-          </div>
-        )}
-        {conversation.map((msg, i) => (
-          <ChatBubble key={i} msg={msg} />
-        ))}
-        {sending && (
-          <div className="flex justify-start">
-            <div className="bg-[#1f2937] text-[#6b7280] text-xs px-3 py-2 rounded-lg rounded-bl-sm">
-              Thinking…
-            </div>
-          </div>
-        )}
-        <div ref={endRef} />
-      </div>
-
-      {/* Input row */}
-      <div className="border-t border-[#21262d] px-3 py-2 flex gap-2 items-center">
-        <input
-          ref={inputRef}
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder="Type a message…"
-          disabled={disabled}
-          className="flex-1 bg-[#111827] border border-[#21262d] rounded px-3 py-1.5 text-sm text-[#f9fafb] placeholder:text-[#4b5563] focus:outline-none focus:border-[#3b82f6] disabled:opacity-40"
-        />
-        <button
-          onClick={handleSend}
-          disabled={!message.trim() || disabled}
-          className="px-4 py-1.5 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          Send
-        </button>
-      </div>
-      {error && <p className="text-xs text-[#ef4444] px-3 pb-1.5">{error}</p>}
+    <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0a1628] border-b border-[#1d4ed8] text-xs flex-shrink-0">
+      <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse flex-shrink-0" />
+      <span className="text-[#93c5fd]">{hint}</span>
+      <Link href={activityHref} className="text-[#3b82f6] underline underline-offset-2">
+        {linkText}
+      </Link>
     </div>
   );
 }
@@ -144,12 +55,11 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const pathname = usePathname();
-  const { sessionId, stage, status, conversation, setSession } = useSessionStore();
+  const { sessionId, stage, status, setSession } = useSessionStore();
   const [canceling, setCanceling] = useState(false);
 
   useSessionStream(id ?? null);
 
-  // Initial fetch
   useEffect(() => {
     if (!id) return;
     api
@@ -158,7 +68,6 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
       .catch(() => router.push("/"));
   }, [id, router, setSession]);
 
-  // Poll while a background task is running (WS stub doesn't push events yet)
   useEffect(() => {
     if (!id || status !== "running") return;
     const interval = setInterval(() => {
@@ -172,7 +81,6 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
     setCanceling(true);
     try {
       await api.cancelSession(id);
-      // Refresh session state after cancel
       const updated = await api.getSession(id);
       setSession(updated);
     } catch {
@@ -256,7 +164,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
             return (
               <span
                 key={tab.label}
-                title={`Locked — not available at this stage`}
+                title="Locked — not available at this stage"
                 className="text-sm py-2 border-b-2 border-transparent text-[#374151] cursor-not-allowed select-none"
               >
                 {tab.label}
@@ -281,16 +189,9 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
         })}
       </div>
 
-      <main className="flex-1 overflow-auto min-h-0">{children}</main>
+      {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
 
-      {stage === "user_review" && id && (
-        <ChatPanel
-          sessionId={id}
-          conversation={conversation}
-          status={status}
-          onSent={() => api.getSession(id).then(setSession).catch(() => {})}
-        />
-      )}
+      <main className="flex-1 overflow-auto min-h-0">{children}</main>
     </div>
   );
 }
