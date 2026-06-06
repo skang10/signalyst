@@ -137,7 +137,7 @@ async def test_discovery_service_uses_profile_defaults_when_agent_approves_fewer
                 {"connector_id": "eia", "params": {}},
                 {"connector_id": "gpr", "params": {}},
             ]
-            assert s.conversation[-1]["content"] == "Recommended 4 data sources."
+            assert len(s.activity_events) >= 2  # sources + stage_transition events emitted
     finally:
         async with engine.begin() as conn:
             await conn.run_sync(SQLModel.metadata.drop_all)

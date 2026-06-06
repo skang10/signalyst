@@ -125,10 +125,11 @@ def test_chat_answer_action_keeps_user_review_and_does_not_start_background_work
     detail = client.get(f"/api/sessions/{session_id}").json()
     assert detail["stage"] == "user_review"
     assert detail["status"] == "waiting"
-    assert detail["conversation"][-1] == {
-        "role": "assistant",
-        "content": "I can help review the fetched oil-market data before you run analysis.",
-    }
+    last = detail["conversation"][-1]
+    assert last["role"] == "assistant"
+    assert (
+        last["content"] == "I can help review the fetched oil-market data before you run analysis."
+    )
 
 
 def test_chat_missing_action_defaults_to_answer_not_analysis(client):

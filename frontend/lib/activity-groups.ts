@@ -148,7 +148,6 @@ export function buildGroups(
         status = "done";
       }
     }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { pendingQueues: _, ...rest } = g;
     return { ...rest, status };
   });

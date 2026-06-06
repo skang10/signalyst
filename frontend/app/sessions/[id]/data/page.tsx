@@ -436,10 +436,10 @@ export default function DataPage() {
     if (!id || artifacts.data.length === 0) return;
     const latestRef = artifacts.data[artifacts.data.length - 1];
     if (latestRef.artifact_id === fetchedId) return;
-    setFetchError(null);
     api
       .getArtifact(id, latestRef.artifact_id)
       .then((data) => {
+        setFetchError(null);
         setArtifact(data);
         setFetchedId(latestRef.artifact_id);
       })
