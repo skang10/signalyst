@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.6.0...signalyst-frontend-v0.7.0) (2026-06-06)
+
+
+### Features
+
+* DataSourceDiscoveryAgent, DataAgent, ReviewInterpreter, /chat endpoint ([#32](https://github.com/skang10/signalyst/issues/32)) ([205728a](https://github.com/skang10/signalyst/commit/205728a457fddd72a392fd792631fcf3f968aec7))
+* deterministic pipeline (FeaturizerService, TabPFNService, stage machine) ([#30](https://github.com/skang10/signalyst/issues/30)) ([648a17a](https://github.com/skang10/signalyst/commit/648a17abaaa0e909a78a16144f0b437863e5eeb9))
+
 ## [0.6.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.5.0...signalyst-frontend-v0.6.0) (2026-06-04)
 
 
