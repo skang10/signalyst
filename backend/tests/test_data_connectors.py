@@ -1,9 +1,19 @@
+import importlib.util
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
 from src.data.connectors import fetch_fred_series, fetch_price_series
+
+
+def _load_connector_module(path: str):
+    spec = importlib.util.spec_from_file_location("test_connector", Path(path))
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _make_yf_result(n: int = 5) -> pd.DataFrame:
@@ -46,6 +56,26 @@ def test_fetch_fred_series_returns_named_series():
     MockFred.assert_called_once_with(api_key="test")
 
 
+def test_fred_connector_uses_settings_api_key(monkeypatch):
+    from src.config import settings
+
+    connector = _load_connector_module("src/data/connectors/fred/connector.py")
+
+    class Ctx:
+        date_range_start = "2024-01-01"
+        date_range_end = "2024-01-31"
+        signals: dict = {}
+
+    monkeypatch.delenv("FRED_API_KEY", raising=False)
+    monkeypatch.setattr(settings, "fred_api_key", "settings-fred-key")
+    fake_series = pd.Series([1.0], index=pd.to_datetime(["2024-01-01"]), name="INDPRO")
+
+    with patch.object(connector, "fetch_fred_series", return_value=fake_series) as fetch:
+        connector.fetch({"series_ids": ["INDPRO"]}, Ctx())
+
+    fetch.assert_called_once_with("INDPRO", "2024-01-01", "2024-01-31", api_key="settings-fred-key")
+
+
 def test_fetch_eia_inventory_returns_weekly_change():
     from src.data.connectors import fetch_eia_inventory
 
@@ -63,6 +93,26 @@ def test_fetch_eia_inventory_returns_weekly_change():
     assert len(result) == 2
     assert result.iloc[0] == pytest.approx(-2000.0)
     assert result.index.name == "date"
+
+
+def test_eia_connector_uses_settings_api_key(monkeypatch):
+    from src.config import settings
+
+    connector = _load_connector_module("src/data/connectors/eia/connector.py")
+
+    class Ctx:
+        date_range_start = "2024-01-01"
+        date_range_end = "2024-01-31"
+        signals: dict = {}
+
+    monkeypatch.delenv("EIA_API_KEY", raising=False)
+    monkeypatch.setattr(settings, "eia_api_key", "settings-eia-key")
+    fake_series = pd.Series([1.0], index=pd.to_datetime(["2024-01-01"]))
+
+    with patch.object(connector, "fetch_eia_inventory", return_value=fake_series) as fetch:
+        connector.fetch({}, Ctx())
+
+    fetch.assert_called_once_with("2024-01-01", "2024-01-31", api_key="settings-eia-key")
 
 
 def test_fetch_eia_inventory_raises_on_http_error():

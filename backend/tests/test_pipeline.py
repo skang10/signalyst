@@ -13,14 +13,15 @@ def _make_csv_bytes() -> bytes:
 
 
 def _create_session(client) -> str:
-    res = client.post(
-        "/api/sessions",
-        json={
-            "market_profile": "oil",
-            "timeframe_start": "2023-01-01",
-            "timeframe_end": "2023-06-30",
-        },
-    )
+    with patch("api.routes.sessions._run_data_pipeline_background", new_callable=AsyncMock):
+        res = client.post(
+            "/api/sessions",
+            json={
+                "market_profile": "oil",
+                "timeframe_start": "2023-01-01",
+                "timeframe_end": "2023-06-30",
+            },
+        )
     return res.json()["session_id"]
 
 
@@ -90,10 +91,11 @@ def test_cancel_running_session_returns_200(client):
     assert res.json()["status"] == "canceled"
 
 
-def test_cancel_waiting_session_returns_409(client):
+def test_cancel_running_session_at_creation_returns_200(client):
+    # Sessions now start RUNNING (pipeline background task launched immediately)
     session_id = _create_session(client)
     res = client.post(f"/api/sessions/{session_id}/cancel")
-    assert res.status_code == 409
+    assert res.status_code == 200
 
 
 def test_rerun_invalid_stage_returns_422(client):

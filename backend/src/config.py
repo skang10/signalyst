@@ -20,8 +20,8 @@ class Settings(BaseSettings):
 
     anthropic_api_key: str = ""
     openai_api_key: str = ""
-    agent_model: str = "gpt-5.5"
-    agent_model_fast: str = "gpt-5.5-mini"
+    agent_model: str = "gpt-5"
+    agent_model_fast: str = "gpt-5-mini"
     # Per-token pricing in USD (update when actual rates are published)
     agent_model_input_cost_per_1k: float = 0.01
     agent_model_output_cost_per_1k: float = 0.03

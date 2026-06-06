@@ -134,3 +134,26 @@ class DataArtifactDetail(BaseModel):
     series_preview: dict[str, list[SeriesPoint]]
     cache_hit: bool
     cached_from_session_id: str | None
+
+
+class ConnectorOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    type: str
+    available: bool
+
+
+class ConnectorCreate(BaseModel):
+    id: str
+    name: str
+    description: str = ""
+    spec: dict[str, object]
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+class ChatResponse(BaseModel):
+    session_id: str

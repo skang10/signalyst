@@ -9,6 +9,8 @@ from typing import Any
 
 import yaml
 
+from src.config import settings
+
 
 @dataclass
 class ConnectorMeta:
@@ -57,7 +59,7 @@ class ConnectorRegistry:
         available = []
         blocked = []
         for meta in self._connectors.values():
-            if meta.requires_env and not os.environ.get(meta.requires_env):
+            if meta.requires_env and not _config_value(meta.requires_env):
                 blocked.append(
                     {
                         "name": meta.name,
@@ -80,18 +82,22 @@ class ConnectorRegistry:
         if name not in self._connectors:
             return False
         meta = self._connectors[name]
-        return not meta.requires_env or bool(os.environ.get(meta.requires_env))
+        return not meta.requires_env or bool(_config_value(meta.requires_env))
 
     def fetch(self, name: str, params: dict[str, Any], context: Any) -> dict[str, Any]:
         """Dispatch to the named connector's fetch() function."""
         if name not in self._connectors:
             raise KeyError(f"Unknown connector: {name!r}")
         meta = self._connectors[name]
-        if meta.requires_env and not os.environ.get(meta.requires_env):
+        if meta.requires_env and not _config_value(meta.requires_env):
             raise RuntimeError(
                 f"Connector {name!r} requires env var {meta.requires_env!r} which is not set"
             )
         return meta.module.fetch(params, context)  # type: ignore[no-any-return]
+
+
+def _config_value(env_name: str) -> str:
+    return os.environ.get(env_name, "") or str(getattr(settings, env_name.lower(), ""))
 
 
 def _load_module(name: str, path: Path) -> ModuleType:

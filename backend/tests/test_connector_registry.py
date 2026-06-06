@@ -127,6 +127,36 @@ def test_registry_list_available_when_key_present(tmp_path, monkeypatch):
     assert any(c["name"] == "keyed" for c in result["available"])
 
 
+def test_registry_list_available_when_key_loaded_from_settings(tmp_path, monkeypatch):
+    from src.config import settings
+
+    monkeypatch.delenv("EIA_API_KEY", raising=False)
+    monkeypatch.setattr(settings, "eia_api_key", "settings-key")
+
+    conn_dir = tmp_path / "connectors" / "keyed"
+    conn_dir.mkdir(parents=True)
+    (conn_dir / "manifest.yaml").write_text(
+        "name: keyed\n"
+        "description: Keyed connector\n"
+        "provides: [macro]\n"
+        "params:\n"
+        "  type: object\n"
+        "  properties: {}\n"
+        "  required: []\n"
+        "requires:\n"
+        "  env: EIA_API_KEY\n"
+        "compute_tier: low\n"
+    )
+    (conn_dir / "connector.py").write_text("def fetch(params, context): return {}\n")
+
+    reg = ConnectorRegistry()
+    reg.scan(tmp_path / "connectors")
+    result = reg.list()
+
+    assert any(c["name"] == "keyed" for c in result["available"])
+    assert reg.is_available("keyed")
+
+
 # ── fetch ─────────────────────────────────────────────────────────────────────
 
 

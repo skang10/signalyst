@@ -46,7 +46,7 @@ export type SessionArtifacts = {
 };
 
 export type ChatMessage = {
-  role: "user" | "agent";
+  role: "user" | "assistant";
   content: string;
   created_at: string;
 };
@@ -137,6 +137,7 @@ export type DataArtifactDetail = {
     rows: number;
     missing_pct: Record<string, number>;
     summary_stats: Record<string, { mean: number; std: number; min: number; max: number }>;
+    warnings?: string[];
   };
   series_preview: Record<string, { date: string; value: number | null }[]>;
   cache_hit: boolean;
@@ -169,6 +170,23 @@ export const api = {
   proceed: (sessionId: string) =>
     request<{ session_id: string }>(`/api/sessions/${sessionId}/proceed`, { method: "POST" }),
 
+  sendChat: (sessionId: string, message: string): Promise<{ session_id: string }> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 90_000); // LLM can take ~60s
+    return fetch(`${API_URL}/api/sessions/${sessionId}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+      signal: controller.signal,
+    })
+      .then((res) => {
+        clearTimeout(timeout);
+        if (!res.ok) return res.text().then((t) => { throw new Error(t); });
+        return res.json() as Promise<{ session_id: string }>;
+      })
+      .catch((err) => { clearTimeout(timeout); throw err; });
+  },
+
   rerun: (
     sessionId: string,
     stage: string,
@@ -188,10 +206,16 @@ export const api = {
       { method: "POST" },
     ),
 
-  uploadData: (sessionId: string, file: File, sourceName: string): Promise<{ artifact_id: string }> => {
+  uploadData: (
+    sessionId: string,
+    file: File,
+    sourceName: string,
+    mode: "merge" | "replace" = "merge",
+  ): Promise<{ artifact_id: string }> => {
     const form = new FormData();
     form.append("file", file);
     form.append("source_name", sourceName);
+    form.append("mode", mode);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 60_000);
     return fetch(`${API_URL}/api/sessions/${sessionId}/upload`, {
@@ -201,7 +225,7 @@ export const api = {
     })
       .then((res) => {
         clearTimeout(timeout);
-        if (!res.ok) throw new Error(`API error ${res.status}`);
+        if (!res.ok) return res.text().then((t) => { throw new Error(t); });
         return res.json() as Promise<{ artifact_id: string }>;
       })
       .catch((err) => {

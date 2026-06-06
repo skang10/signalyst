@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, Any
 
+from src.config import settings
 from src.data.connectors import fetch_eia_inventory
 
 if TYPE_CHECKING:
@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 def fetch(params: dict[str, Any], context: AgentContext) -> dict[str, Any]:
     """Fetch weekly EIA crude oil inventory changes into context.signals."""
-    api_key = os.environ.get("EIA_API_KEY", "")
+    api_key = settings.eia_api_key
     try:
         series = fetch_eia_inventory(
             context.date_range_start, context.date_range_end, api_key=api_key

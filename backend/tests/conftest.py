@@ -22,6 +22,10 @@ def client():
             from src.db.seed import seed_profiles
 
             await seed_profiles(db)
+        async with AsyncSession(engine) as db:
+            from src.db.seed import seed_connectors
+
+            await seed_connectors(db)
 
     asyncio.run(_setup())
 

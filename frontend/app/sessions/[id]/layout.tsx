@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { StageStrip } from "@/components/StageStrip";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
@@ -14,6 +14,43 @@ const TABS = [
   { label: "Results", path: "results" },
 ];
 
+const DATA_LOCKED_STAGES = new Set(["configuring", "data_gathering"]);
+const RESULTS_UNLOCKED_STAGE = "follow_up";
+
+function ReviewBanner({ sessionId }: { sessionId: string }) {
+  const { conversation, status } = useSessionStore();
+  const pathname = usePathname();
+  const activityHref = `/sessions/${sessionId}/activity`;
+
+  if (pathname === activityHref) return null;
+
+  const lastMsg = conversation[conversation.length - 1];
+  const hasAgentReply = lastMsg?.role === "assistant";
+
+  let hint: string;
+  let linkText: string;
+  if (status === "running") {
+    hint = "· Agent is thinking…";
+    linkText = "view in Activity →";
+  } else if (hasAgentReply) {
+    hint = "· Agent replied —";
+    linkText = "go to Activity to respond →";
+  } else {
+    hint = "· Satisfied with the data?";
+    linkText = "Go to Activity to proceed →";
+  }
+
+  return (
+    <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0a1628] border-b border-[#1d4ed8] text-xs flex-shrink-0">
+      <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse flex-shrink-0" />
+      <span className="text-[#93c5fd]">{hint}</span>
+      <Link href={activityHref} className="text-[#3b82f6] underline underline-offset-2">
+        {linkText}
+      </Link>
+    </div>
+  );
+}
+
 export default function SessionLayout({ children }: { children: React.ReactNode }) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -23,7 +60,6 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
 
   useSessionStream(id ?? null);
 
-  // Initial fetch
   useEffect(() => {
     if (!id) return;
     api
@@ -32,7 +68,6 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
       .catch(() => router.push("/"));
   }, [id, router, setSession]);
 
-  // Poll while a background task is running (WS stub doesn't push events yet)
   useEffect(() => {
     if (!id || status !== "running") return;
     const interval = setInterval(() => {
@@ -46,7 +81,6 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
     setCanceling(true);
     try {
       await api.cancelSession(id);
-      // Refresh session state after cancel
       const updated = await api.getSession(id);
       setSession(updated);
     } catch {
@@ -114,6 +148,30 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
         {TABS.map((tab) => {
           const href = `/sessions/${id}/${tab.path}`;
           const isActive = pathname === href;
+
+          const isLocked =
+            (tab.path === "data" && stage !== null && DATA_LOCKED_STAGES.has(stage)) ||
+            (tab.path === "results" && stage !== RESULTS_UNLOCKED_STAGE);
+
+          const badge =
+            tab.path === "data" && stage !== null && !DATA_LOCKED_STAGES.has(stage)
+              ? " ✓"
+              : tab.path === "results" && stage === RESULTS_UNLOCKED_STAGE
+              ? " ✦"
+              : "";
+
+          if (isLocked) {
+            return (
+              <span
+                key={tab.label}
+                title="Locked — not available at this stage"
+                className="text-sm py-2 border-b-2 border-transparent text-[#374151] cursor-not-allowed select-none"
+              >
+                {tab.label}
+              </span>
+            );
+          }
+
           return (
             <Link
               key={tab.label}
@@ -125,13 +183,15 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
                   : "border-transparent text-[#9ca3af] hover:text-[#f9fafb]",
               ].join(" ")}
             >
-              {tab.label}
+              {tab.label}{badge}
             </Link>
           );
         })}
       </div>
 
-      <main className="flex-1 overflow-auto">{children}</main>
+      {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
+
+      <main className="flex-1 overflow-auto min-h-0">{children}</main>
     </div>
   );
 }

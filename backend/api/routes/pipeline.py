@@ -19,6 +19,7 @@ from fastapi import (
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 from api.models import (
     CancelResponse,
@@ -81,6 +82,9 @@ def _build_manifest(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
+_MIN_ROWS = 70  # max(windows=60) + max(lags=20) + 10 for default oil config
+
+
 def _parse_upload(content: bytes, filename: str) -> pd.DataFrame:
     buf = io.BytesIO(content)
     if filename.endswith(".parquet"):
@@ -88,11 +92,32 @@ def _parse_upload(content: bytes, filename: str) -> pd.DataFrame:
     else:
         df = pd.read_csv(buf)
 
+    # Validation 1: parseable date index
+    _NO_DATE_MSG = "No parseable date column found. Include a 'date' column in YYYY-MM-DD format."
     if "date" in df.columns:
         df = df.set_index("date")
-    df.index = pd.DatetimeIndex(df.index)
+    elif not isinstance(df.index, pd.DatetimeIndex):
+        # Only try to parse if the index looks like strings, not integers
+        if df.index.dtype == object or str(df.index.dtype).startswith("datetime"):
+            try:
+                df.index = pd.DatetimeIndex(df.index)
+            except Exception:
+                raise ValueError(_NO_DATE_MSG)
+        else:
+            raise ValueError(_NO_DATE_MSG)
+    try:
+        df.index = pd.DatetimeIndex(df.index)
+    except Exception:
+        raise ValueError(_NO_DATE_MSG)
+
     df = df.sort_index()
-    return df.select_dtypes(include="number")
+    df = df.select_dtypes(include="number")
+
+    # Validation 2: minimum row count
+    if len(df) < _MIN_ROWS:
+        raise ValueError(f"Uploaded file has {len(df)} rows; at least {_MIN_ROWS} are required.")
+
+    return df
 
 
 async def _get_session_or_404(session_id: str, db: AsyncSession) -> tuple[uuid.UUID, SessionModel]:
@@ -121,6 +146,16 @@ async def _run_tabpfn_background(session_id: uuid.UUID) -> None:
     await run_tabpfn_service(session_id, engine)
 
 
+async def _run_data_agent_background(session_id: uuid.UUID) -> None:
+    from src.services.data_agent import run_data_agent_service
+    from src.services.featurizer import run_featurizer_service
+    from src.services.tabpfn import run_tabpfn_service
+
+    await run_data_agent_service(session_id, engine)
+    await run_featurizer_service(session_id, engine)
+    await run_tabpfn_service(session_id, engine)
+
+
 @router.post(
     "/sessions/{session_id}/upload",
     response_model=UploadResponse,
@@ -132,6 +167,7 @@ async def upload_data(
     db: SessionDep,
     file: UploadFile = File(...),
     source_name: str = Form(...),
+    mode: str = Form(default="merge"),
 ) -> UploadResponse:
     uid, s = await _get_session_or_404(session_id, db)
 
@@ -139,7 +175,10 @@ async def upload_data(
     if len(content) > _UPLOAD_SIZE_LIMIT:
         raise HTTPException(status_code=413, detail="File exceeds 50 MB limit")
 
-    df = _parse_upload(content, file.filename or "")
+    try:
+        df = _parse_upload(content, file.filename or "")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
     if df.empty:
         raise HTTPException(status_code=422, detail="No numeric columns found in uploaded file")
 
@@ -147,11 +186,97 @@ async def upload_data(
     source_hash = stable_hash(f"upload:{source_name}:{file_hash}")
     data_manifest = _build_manifest(df)
 
+    # Validation 3: date range overlap warning (non-blocking)
+    warnings: list[str] = []
+    upload_start = df.index.min().date()
+    upload_end = df.index.max().date()
+    if upload_end < s.timeframe_start or upload_start > s.timeframe_end:
+        warnings.append(
+            f"Uploaded date range {upload_start}–{upload_end} does not overlap with "
+            f"session timeframe {s.timeframe_start}–{s.timeframe_end}."
+        )
+
+    # Validation 4: oil profile — no WTI column hint (non-blocking)
+    wti_cols = [c for c in df.columns if "CL=F" in c or "wti" in c.lower()]
+    if not wti_cols and s.market_profile == "oil":
+        warnings.append(
+            "No column matching 'CL=F' or 'wti' found. "
+            "TabPFNService will use the first column as a WTI proxy for regime labelling."
+        )
+
+    if warnings:
+        data_manifest["warnings"] = warnings
+
+    # Load existing artifact for merge or round-number tracking
+    existing = (
+        (
+            await db.execute(
+                select(DataArtifact)
+                .where(DataArtifact.session_id == uid)
+                .order_by(DataArtifact.created_at.desc())  # type: ignore[attr-defined]
+            )
+        )
+        .scalars()
+        .first()
+    )
+    round_num = (existing.round + 1) if existing else 1
+    prior_sources: list[Any] = list(existing.sources) if (existing and mode == "merge") else []
+
+    if existing is not None and mode == "merge":
+        # Load existing raw data into a DataFrame
+        if existing.raw_data:
+            existing_df = pd.DataFrame(
+                {
+                    col: pd.Series(v["data"], index=pd.DatetimeIndex(v["index"]), dtype=float)
+                    for col, v in existing.raw_data.items()
+                }
+            )
+        elif existing.raw_data_ref:
+            existing_df = pd.read_parquet(existing.raw_data_ref)
+        else:
+            existing_df = pd.DataFrame()
+
+        if not existing_df.empty:
+            # Outer join — uploaded columns take precedence on overlap
+            merged = existing_df.join(df, how="outer", rsuffix="_upload")
+            for col in df.columns:
+                dup = f"{col}_upload"
+                if dup in merged.columns:
+                    merged[col] = merged[dup]
+                    merged = merged.drop(columns=[dup])
+                else:
+                    merged[col] = df[col]
+            df = merged.sort_index()
+
+        # Re-build manifest and warnings from merged data
+        data_manifest = _build_manifest(df)
+        warnings = []
+        upload_start = df.index.min().date()
+        upload_end = df.index.max().date()
+        if upload_end < s.timeframe_start or upload_start > s.timeframe_end:
+            warnings.append(
+                f"Uploaded date range {upload_start}–{upload_end} does not overlap with "
+                f"session timeframe {s.timeframe_start}–{s.timeframe_end}."
+            )
+        wti_cols = [c for c in df.columns if "CL=F" in c or "wti" in c.lower()]
+        if not wti_cols and s.market_profile == "oil":
+            warnings.append(
+                "No column matching 'CL=F' or 'wti' found. "
+                "TabPFNService will use the first column as a WTI proxy for regime labelling."
+            )
+        if warnings:
+            data_manifest["warnings"] = warnings
+
+        # Recompute source_hash from merged content
+        merged_bytes = df.to_json().encode()
+        source_hash = stable_hash(hashlib.sha256(merged_bytes).hexdigest()[:16])
+
     artifact_id = uuid.uuid4()
     raw_data: dict[str, Any] | None = None
     raw_data_ref: str | None = None
 
-    if len(content) <= _RAW_INLINE_THRESHOLD:
+    merged_bytes_for_size = df.to_json().encode()
+    if len(merged_bytes_for_size) <= _RAW_INLINE_THRESHOLD:
         raw_data = _df_to_raw_data(df)
     else:
         _ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -159,11 +284,13 @@ async def upload_data(
         df.to_parquet(ref)
         raw_data_ref = ref
 
+    all_sources = [*prior_sources, {"connector_id": "upload", "source_name": source_name}]
+
     a = DataArtifact(
         id=artifact_id,
         session_id=uid,
-        round=1,
-        sources=[{"connector_id": "upload", "source_name": source_name}],
+        round=round_num,
+        sources=all_sources,
         data_manifest=data_manifest,
         raw_data=raw_data,
         raw_data_ref=raw_data_ref,
@@ -214,6 +341,32 @@ async def proceed(
             status_code=409, detail="a task is already running — POST /cancel first"
         )
 
+    # Guard: reject if the latest DataArtifact has too much missing data
+    _MAX_MISSING_PCT = 30.0
+    latest_artifact = (
+        (
+            await db.execute(
+                select(DataArtifact)
+                .where(DataArtifact.session_id == uid)
+                .order_by(DataArtifact.created_at.desc())  # type: ignore[attr-defined]
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if latest_artifact is not None:
+        missing_vals = list(latest_artifact.data_manifest.get("missing_pct", {}).values())
+        avg_missing = sum(missing_vals) / len(missing_vals) if missing_vals else 0.0
+        if avg_missing > _MAX_MISSING_PCT:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Average missing data is {avg_missing:.1f}% (limit {_MAX_MISSING_PCT:.0f}%). "
+                    "Fix data quality before running analysis — upload a file with overlapping "
+                    "dates or use 'Replace existing data'."
+                ),
+            )
+
     from_stage = s.stage
     transition_stage(s, SessionStage.FEATURIZING)
     set_status(s, SessionStatus.RUNNING)
@@ -262,6 +415,8 @@ async def rerun(
         background_tasks.add_task(_run_featurizer_background, uid)
     elif target == SessionStage.ANALYZING:
         background_tasks.add_task(_run_tabpfn_background, uid)
+    elif target == SessionStage.DATA_GATHERING:
+        background_tasks.add_task(_run_data_agent_background, uid)
 
     log.info("session.rerun", session_id=session_id, stage=req.stage)
     return RerunResponse(session_id=session_id)

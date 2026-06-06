@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import uuid
+import uuid as _uuid  # noqa: PLC0414
 from datetime import date
 from typing import Annotated, Any
 
 import structlog
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -19,14 +20,27 @@ from api.models import (
     SessionDetail,
     SessionListItem,
 )
-from src.db.models import AnalysisResult, DataArtifact, FeatureArtifact
+from src.db.models import AnalysisResult, DataArtifact, FeatureArtifact, SessionStatus
 from src.db.models import Session as SessionModel
-from src.db.session import get_session
+from src.db.session import engine, get_session
 
 log = structlog.get_logger()
 router = APIRouter(tags=["sessions"])
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+
+async def _run_data_pipeline_background(session_id: _uuid.UUID) -> None:
+    from src.services.data_agent import run_data_agent_service
+    from src.services.discovery import run_discovery_service
+    from src.services.featurizer import run_featurizer_service
+    from src.services.tabpfn import run_tabpfn_service
+
+    await run_discovery_service(session_id, engine)
+    await run_data_agent_service(session_id, engine)
+    # Stage guards in featurizer/tabpfn ensure they skip if stage ≠ their target
+    await run_featurizer_service(session_id, engine)
+    await run_tabpfn_service(session_id, engine)
 
 
 def _iso(dt: Any) -> str:
@@ -105,16 +119,22 @@ def _to_detail(s: SessionModel, artifacts: SessionArtifacts) -> SessionDetail:
     response_model=CreateSessionResponse,
     status_code=status.HTTP_202_ACCEPTED,
 )
-async def create_session(req: CreateSessionRequest, db: SessionDep) -> CreateSessionResponse:
+async def create_session(
+    req: CreateSessionRequest,
+    background_tasks: BackgroundTasks,
+    db: SessionDep,
+) -> CreateSessionResponse:
     s = SessionModel(
         market_profile=req.market_profile,
         timeframe_start=date.fromisoformat(req.timeframe_start),
         timeframe_end=date.fromisoformat(req.timeframe_end),
         auto=req.auto,
+        status=SessionStatus.RUNNING,
     )
     db.add(s)
     await db.commit()
     await db.refresh(s)
+    background_tasks.add_task(_run_data_pipeline_background, s.id)
     log.info(
         "session.created",
         session_id=str(s.id),
