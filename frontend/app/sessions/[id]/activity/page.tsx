@@ -2,10 +2,11 @@
 
 import { useRef, useState } from "react";
 import { api } from "@/lib/api";
-import type { ChatMessage } from "@/lib/api";
+import type { ChatMessage, FeaturizerConfig } from "@/lib/api";
 import { buildGroups } from "@/lib/activity-groups";
 import type { FetchRow, StageGroup, ThoughtEntry } from "@/lib/activity-groups";
 import { useSessionStore } from "@/lib/store";
+import { UserReviewGate } from "@/components/GateMessage";
 
 // --- Labels ---
 
@@ -323,28 +324,6 @@ function AgentThinkingLine() {
   );
 }
 
-// --- Run Analysis quick-action chip ---
-
-function RunAnalysisChip({
-  onProceed,
-  proceeding,
-}: {
-  onProceed: () => void;
-  proceeding: boolean;
-}) {
-  return (
-    <div className="flex justify-end">
-      <button
-        onClick={onProceed}
-        disabled={proceeding}
-        className="px-4 py-2 bg-[#052e16] border border-[#15803d] rounded-full text-[#22c55e] text-sm font-semibold hover:bg-[#14532d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {proceeding ? "Starting…" : "→ Run Analysis"}
-      </button>
-    </div>
-  );
-}
-
 // --- User bubble ---
 
 function UserBubble({ msg }: { msg: ChatMessage }) {
@@ -363,14 +342,23 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
 // --- Page ---
 
 export default function ActivityPage() {
-  const { activityEvents, wsMessages, conversation, stage, status, sessionId, setSession } =
-    useSessionStore();
+  const {
+    activityEvents,
+    wsMessages,
+    conversation,
+    stage,
+    status,
+    sessionId,
+    featurizerConfig,
+    setSession,
+  } = useSessionStore();
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [optimisticMsg, setOptimisticMsg] = useState<ChatMessage | null>(null);
   const [proceeding, setProceeding] = useState(false);
   const [proceedError, setProceedError] = useState<string | null>(null);
+  const [reviewConfigDirty, setReviewConfigDirty] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Append optimistic user message so it appears instantly on send
@@ -404,12 +392,12 @@ export default function ActivityPage() {
     }
   };
 
-  const handleProceed = async () => {
+  const handleProceed = async (featurizerConfigPatch?: FeaturizerConfig) => {
     if (!sessionId || proceeding) return;
     setProceeding(true);
     setProceedError(null);
     try {
-      await api.proceed(sessionId);
+      await api.proceed(sessionId, featurizerConfigPatch);
       const updated = await api.getSession(sessionId);
       setSession(updated);
     } catch (e) {
@@ -421,7 +409,8 @@ export default function ActivityPage() {
 
   const showInput = stage === "user_review" || stage === "data_gathering";
   const showRunAnalysis = stage === "user_review" && status === "waiting" && !sending;
-  const inputDisabled = sending || status !== "waiting";
+  const inputDisabled =
+    sending || status !== "waiting" || (stage === "user_review" && reviewConfigDirty);
 
   return (
     <div className="flex flex-col h-full">
@@ -449,8 +438,14 @@ export default function ActivityPage() {
                 )}
               </div>
             ))}
-            {showRunAnalysis && (
-              <RunAnalysisChip onProceed={handleProceed} proceeding={proceeding} />
+            {showRunAnalysis && featurizerConfig && (
+              <UserReviewGate
+                key={JSON.stringify(featurizerConfig)}
+                serverConfig={featurizerConfig}
+                onProceed={handleProceed}
+                proceeding={proceeding}
+                onDirtyChange={setReviewConfigDirty}
+              />
             )}
             {proceedError && (
               <p className="text-xs text-[#ef4444] text-right">{proceedError}</p>
@@ -480,6 +475,8 @@ export default function ActivityPage() {
                   ? "Fetching data..."
                   : status === "running"
                   ? "Agent is thinking..."
+                  : stage === "user_review" && reviewConfigDirty
+                  ? "Config changes pending — Run Analysis or Discard to continue chatting"
                   : "Ask to adjust data, or say “run analysis”"
               }
               disabled={inputDisabled}

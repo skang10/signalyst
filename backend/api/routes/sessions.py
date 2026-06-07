@@ -20,7 +20,13 @@ from api.models import (
     SessionDetail,
     SessionListItem,
 )
-from src.db.models import AnalysisResult, DataArtifact, FeatureArtifact, SessionStatus
+from src.db.models import (
+    AnalysisResult,
+    DataArtifact,
+    FeatureArtifact,
+    MarketProfile,
+    SessionStatus,
+)
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
 
@@ -124,12 +130,14 @@ async def create_session(
     background_tasks: BackgroundTasks,
     db: SessionDep,
 ) -> CreateSessionResponse:
+    profile = await db.get(MarketProfile, req.market_profile)
     s = SessionModel(
         market_profile=req.market_profile,
         timeframe_start=date.fromisoformat(req.timeframe_start),
         timeframe_end=date.fromisoformat(req.timeframe_end),
         auto=req.auto,
         status=SessionStatus.RUNNING,
+        featurizer_config=profile.default_featurizer_config if profile else {},
     )
     db.add(s)
     await db.commit()

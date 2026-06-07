@@ -72,14 +72,30 @@ describe("api.getProfiles", () => {
 });
 
 describe("api.proceed", () => {
-  it("posts to /proceed", async () => {
+  it("posts to /proceed with no body when no patch is given", async () => {
     const { api } = await import("../api");
     mockOk({ session_id: "ses-1" });
     await api.proceed("ses-1");
+    const [, init] = mockFetch.mock.calls[0];
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/sessions/ses-1/proceed"),
       expect.objectContaining({ method: "POST" }),
     );
+    expect(init.body).toBeUndefined();
+  });
+
+  it("posts featurizer_config_patch in the body when a patch is given", async () => {
+    const { api } = await import("../api");
+    mockOk({ session_id: "ses-1" });
+    const patch = {
+      windows: [5, 30, 90],
+      lags: [1, 5],
+      feature_families: ["rolling_stats"],
+      energy_specific: true,
+    };
+    await api.proceed("ses-1", patch);
+    const [, init] = mockFetch.mock.calls[0];
+    expect(JSON.parse(init.body as string)).toEqual({ featurizer_config_patch: patch });
   });
 });
 

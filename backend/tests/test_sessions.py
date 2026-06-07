@@ -22,6 +22,18 @@ def test_create_session_returns_202(client):
     assert "session_id" in res.json()
 
 
+def test_create_session_seeds_featurizer_config_from_profile_defaults(client):
+    res = _create(client)
+    session_id = res.json()["session_id"]
+    s = client.get(f"/api/sessions/{session_id}").json()
+    assert s["featurizer_config"] == {
+        "windows": [5, 20, 60],
+        "lags": [1, 5, 20],
+        "feature_families": ["rolling_stats", "momentum", "regime", "lag"],
+        "energy_specific": True,
+    }
+
+
 def test_create_session_missing_fields_returns_422(client):
     res = client.post("/api/sessions", json={})
     assert res.status_code == 422

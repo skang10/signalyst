@@ -24,6 +24,7 @@ from sqlmodel import select
 from api.models import (
     CancelResponse,
     DataArtifactDetail,
+    ProceedRequest,
     ProceedResponse,
     RerunRequest,
     RerunResponse,
@@ -331,6 +332,7 @@ async def proceed(
     session_id: str,
     background_tasks: BackgroundTasks,
     db: SessionDep,
+    req: ProceedRequest | None = None,
 ) -> ProceedResponse:
     uid, s = await _get_session_or_404(session_id, db)
 
@@ -366,6 +368,9 @@ async def proceed(
                     "dates or use 'Replace existing data'."
                 ),
             )
+
+    if req and req.featurizer_config_patch:
+        s.featurizer_config = {**s.featurizer_config, **req.featurizer_config_patch}
 
     from_stage = s.stage
     transition_stage(s, SessionStage.FEATURIZING)

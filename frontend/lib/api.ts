@@ -167,8 +167,13 @@ export const api = {
 
   getProfiles: () => request<MarketProfile[]>("/api/profiles"),
 
-  proceed: (sessionId: string) =>
-    request<{ session_id: string }>(`/api/sessions/${sessionId}/proceed`, { method: "POST" }),
+  proceed: (sessionId: string, featurizerConfigPatch?: FeaturizerConfig) =>
+    request<{ session_id: string }>(`/api/sessions/${sessionId}/proceed`, {
+      method: "POST",
+      body: featurizerConfigPatch
+        ? JSON.stringify({ featurizer_config_patch: featurizerConfigPatch })
+        : undefined,
+    }),
 
   sendChat: (sessionId: string, message: string): Promise<{ session_id: string }> => {
     const controller = new AbortController();

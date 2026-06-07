@@ -73,6 +73,25 @@ def test_proceed_from_wrong_stage_returns_409(client):
     assert res.status_code == 409
 
 
+def test_proceed_with_featurizer_config_patch_merges_into_session(client):
+    session_id = _create_session(client)
+    csv_bytes = _make_csv_bytes()
+    with patch("api.routes.pipeline._run_featurizer_background", new_callable=AsyncMock):
+        client.post(
+            f"/api/sessions/{session_id}/upload",
+            files={"file": ("data.csv", csv_bytes, "text/csv")},
+            data={"source_name": "test"},
+        )
+    with patch("api.routes.pipeline._run_featurizer_background", new_callable=AsyncMock):
+        res = client.post(
+            f"/api/sessions/{session_id}/proceed",
+            json={"featurizer_config_patch": {"windows": [5, 30, 90]}},
+        )
+    assert res.status_code == 202
+    s = client.get(f"/api/sessions/{session_id}").json()
+    assert s["featurizer_config"]["windows"] == [5, 30, 90]
+
+
 def test_cancel_running_session_returns_200(client):
     session_id = _create_session(client)
     csv_bytes = _make_csv_bytes()
