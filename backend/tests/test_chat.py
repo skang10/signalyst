@@ -100,27 +100,33 @@ def test_chat_advance_action_emits_stage_transition_activity_event(client):
     assert any(t["to"] == "featurizing" for t in transitions)
 
 
-def test_chat_update_config_action_emits_stage_transition_activity_event(client):
+def test_chat_update_config_action_patches_config_and_stays_in_user_review(client):
     session_id = _setup_session_at_user_review(client)
 
     fake_result = {
         "action": "update_config",
-        "updates": {"featurizer_config_patch": {"windows": [10, 30]}},
-        "reply": "Updated windows and proceeding.",
+        "updates": {"featurizer_config_patch": {"windows": [30, 90, 180]}},
+        "reply": "Updated to 30/90/180d windows. Say 'run analysis' when ready, or keep adjusting.",
     }
     with (
         patch("api.routes.chat.ReviewInterpreter") as mock_cls,
-        patch("api.routes.chat._run_featurizer_background", new_callable=AsyncMock),
+        patch("api.routes.chat._run_featurizer_background", new_callable=AsyncMock) as mock_bg,
     ):
         mock_cls.return_value.interpret = AsyncMock(return_value=fake_result)
-        client.post(
+        res = client.post(
             f"/api/sessions/{session_id}/chat",
-            json={"message": "use 10 and 30 day windows"},
+            json={"message": "use 30/90/180d"},
         )
 
+    assert res.status_code == 202
+    mock_bg.assert_not_called()
+
     detail = client.get(f"/api/sessions/{session_id}").json()
+    assert detail["stage"] == "user_review"
+    assert detail["status"] == "waiting"
+    assert detail["featurizer_config"]["windows"] == [30, 90, 180]
     transitions = [e for e in detail["activity_events"] if e["type"] == "stage_transition"]
-    assert any(t["to"] == "featurizing" for t in transitions)
+    assert transitions == []
 
 
 def test_chat_refetch_action_triggers_data_gathering(client):

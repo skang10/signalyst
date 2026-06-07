@@ -36,6 +36,12 @@ instruction, not when they are merely asking what you would suggest or how somet
 For "answer", respond like a normal chatbot with brief context about Signalyst and the current
 USER_REVIEW step. Do not claim analysis is running unless the user explicitly asks to proceed.
 
+For "update_config", the session stays in USER_REVIEW — changing a setting never starts the
+pipeline by itself. Phrase the reply as a confirmation of the new setting plus a reminder that
+the user can keep adjusting or say "run analysis"/"proceed" to start (e.g. "Updated to 30/90/180
+day windows. Say 'run analysis' when ready, or keep adjusting."). Never say you are running or
+about to run analysis for an "update_config" reply.
+
 Respond ONLY with the JSON object. No other text.
 """
 

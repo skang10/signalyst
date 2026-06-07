@@ -171,25 +171,13 @@ async def chat(
         background_tasks.add_task(_run_data_agent_background, uid)
 
     elif action == "update_config":
+        # Patch the config but stay in USER_REVIEW — only an explicit "advance"
+        # starts the pipeline. This guarantees changing a setting can never by
+        # itself trigger a run, regardless of how the LLM phrases its reply.
         config_patch = updates.get("featurizer_config_patch", {})
         s.featurizer_config = {**current_featurizer_config, **config_patch}
-        s.stage = SessionStage.FEATURIZING.value
-        transition_ts = (now + timedelta(milliseconds=1)).isoformat()
-        s.stage_history = [
-            *current_stage_history,
-            {"stage": SessionStage.FEATURIZING.value, "entered_at": transition_ts},
-        ]
-        s.status = SessionStatus.RUNNING.value
-        config_transition: dict[str, Any] = {
-            "event_id": str(uuid.uuid4()),
-            "created_at": transition_ts,
-            "type": "stage_transition",
-            "from": SessionStage.USER_REVIEW.value,
-            "to": SessionStage.FEATURIZING.value,
-        }
-        s.activity_events = [*current_activity_events, chat_event, config_transition]
+        s.stage_history = current_stage_history
         await db.commit()
-        background_tasks.add_task(_run_featurizer_background, uid)
 
     else:
         s.stage_history = current_stage_history
