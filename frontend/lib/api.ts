@@ -205,6 +205,12 @@ export const api = {
       }),
     }),
 
+  updateConfig: (sessionId: string, patch: Partial<FeaturizerConfig>) =>
+    request<{ session_id: string }>(`/api/sessions/${sessionId}/config`, {
+      method: "PATCH",
+      body: JSON.stringify({ featurizer_config_patch: patch }),
+    }),
+
   cancelSession: (sessionId: string) =>
     request<{ session_id: string; stage: string; status: string }>(
       `/api/sessions/${sessionId}/cancel`,
