@@ -23,6 +23,8 @@ from sqlmodel import select
 
 from api.models import (
     CancelResponse,
+    ConfigPatchRequest,
+    ConfigPatchResponse,
     DataArtifactDetail,
     ProceedRequest,
     ProceedResponse,
@@ -34,6 +36,7 @@ from api.models import (
 from src.db.models import DataArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
+from src.services.featurizer_config import apply_config_patch
 from src.services.hashing import stable_hash
 from src.services.stage import append_activity_event, set_status, transition_stage
 
@@ -425,6 +428,27 @@ async def rerun(
 
     log.info("session.rerun", session_id=session_id, stage=req.stage)
     return RerunResponse(session_id=session_id)
+
+
+@router.patch(
+    "/sessions/{session_id}/config",
+    response_model=ConfigPatchResponse,
+)
+async def update_config(
+    session_id: str,
+    req: ConfigPatchRequest,
+    db: SessionDep,
+) -> ConfigPatchResponse:
+    uid, s = await _get_session_or_404(session_id, db)
+
+    if s.stage != SessionStage.USER_REVIEW:
+        raise HTTPException(status_code=409, detail="config can only be edited during user_review")
+
+    s.featurizer_config = apply_config_patch(s.featurizer_config, req.featurizer_config_patch)
+    await db.commit()
+
+    log.info("session.config_updated", session_id=session_id)
+    return ConfigPatchResponse(session_id=session_id)
 
 
 @router.post("/sessions/{session_id}/cancel", response_model=CancelResponse)

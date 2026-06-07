@@ -92,6 +92,55 @@ def test_proceed_with_featurizer_config_patch_merges_into_session(client):
     assert s["featurizer_config"]["windows"] == [5, 30, 90]
 
 
+def test_update_config_returns_200_and_merges_patch(client):
+    session_id = _create_session(client)
+    csv_bytes = _make_csv_bytes()
+    with patch("api.routes.pipeline._run_featurizer_background", new_callable=AsyncMock):
+        client.post(
+            f"/api/sessions/{session_id}/upload",
+            files={"file": ("data.csv", csv_bytes, "text/csv")},
+            data={"source_name": "test"},
+        )
+    res = client.patch(
+        f"/api/sessions/{session_id}/config",
+        json={"featurizer_config_patch": {"windows": [7, 30, 90]}},
+    )
+    assert res.status_code == 200
+    assert res.json() == {"session_id": session_id}
+    s = client.get(f"/api/sessions/{session_id}").json()
+    assert s["featurizer_config"]["windows"] == [7, 30, 90]
+
+
+def test_update_config_outside_user_review_returns_409(client):
+    session_id = _create_session(client)
+    # Session is at CONFIGURING, not USER_REVIEW
+    res = client.patch(
+        f"/api/sessions/{session_id}/config",
+        json={"featurizer_config_patch": {"windows": [7, 30, 90]}},
+    )
+    assert res.status_code == 409
+    assert res.json()["detail"] == "config can only be edited during user_review"
+
+
+def test_update_config_drops_unknown_patch_keys(client):
+    session_id = _create_session(client)
+    csv_bytes = _make_csv_bytes()
+    with patch("api.routes.pipeline._run_featurizer_background", new_callable=AsyncMock):
+        client.post(
+            f"/api/sessions/{session_id}/upload",
+            files={"file": ("data.csv", csv_bytes, "text/csv")},
+            data={"source_name": "test"},
+        )
+    res = client.patch(
+        f"/api/sessions/{session_id}/config",
+        json={"featurizer_config_patch": {"rolling_windows_days": [1, 2, 3], "lags": [2, 10]}},
+    )
+    assert res.status_code == 200
+    s = client.get(f"/api/sessions/{session_id}").json()
+    assert "rolling_windows_days" not in s["featurizer_config"]
+    assert s["featurizer_config"]["lags"] == [2, 10]
+
+
 def test_cancel_running_session_returns_200(client):
     session_id = _create_session(client)
     csv_bytes = _make_csv_bytes()
