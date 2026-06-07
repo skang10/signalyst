@@ -84,6 +84,45 @@ def test_chat_advance_action_triggers_featurizing(client):
     mock_bg.assert_called_once()
 
 
+def test_chat_advance_action_emits_stage_transition_activity_event(client):
+    session_id = _setup_session_at_user_review(client)
+
+    fake_result = {"action": "advance", "updates": {}, "reply": "Proceeding."}
+    with (
+        patch("api.routes.chat.ReviewInterpreter") as mock_cls,
+        patch("api.routes.chat._run_featurizer_background", new_callable=AsyncMock),
+    ):
+        mock_cls.return_value.interpret = AsyncMock(return_value=fake_result)
+        client.post(f"/api/sessions/{session_id}/chat", json={"message": "run it"})
+
+    detail = client.get(f"/api/sessions/{session_id}").json()
+    transitions = [e for e in detail["activity_events"] if e["type"] == "stage_transition"]
+    assert any(t["to"] == "featurizing" for t in transitions)
+
+
+def test_chat_update_config_action_emits_stage_transition_activity_event(client):
+    session_id = _setup_session_at_user_review(client)
+
+    fake_result = {
+        "action": "update_config",
+        "updates": {"featurizer_config_patch": {"windows": [10, 30]}},
+        "reply": "Updated windows and proceeding.",
+    }
+    with (
+        patch("api.routes.chat.ReviewInterpreter") as mock_cls,
+        patch("api.routes.chat._run_featurizer_background", new_callable=AsyncMock),
+    ):
+        mock_cls.return_value.interpret = AsyncMock(return_value=fake_result)
+        client.post(
+            f"/api/sessions/{session_id}/chat",
+            json={"message": "use 10 and 30 day windows"},
+        )
+
+    detail = client.get(f"/api/sessions/{session_id}").json()
+    transitions = [e for e in detail["activity_events"] if e["type"] == "stage_transition"]
+    assert any(t["to"] == "featurizing" for t in transitions)
+
+
 def test_chat_refetch_action_triggers_data_gathering(client):
     session_id = _setup_session_at_user_review(client)
 
@@ -214,3 +253,44 @@ def test_review_interpreter_accepts_answer_action():
         )
 
     assert result["action"] == "answer"
+
+
+def test_review_interpreter_includes_conversation_history_in_prompt():
+    import asyncio
+
+    from src.agents.review_interpreter import ReviewInterpreter
+
+    interp = ReviewInterpreter()
+    captured: dict[str, str] = {}
+
+    async def fake_create(**kwargs):  # type: ignore[return]
+        captured["user_content"] = kwargs["messages"][1]["content"]
+        msg = MagicMock()
+        msg.content = json.dumps({"action": "answer", "updates": {}, "reply": "..."})
+        r = MagicMock()
+        r.choices = [MagicMock(message=msg)]
+        return r
+
+    conversation = [
+        {"role": "assistant", "content": "Tell me which parameter to change, or say 'proceed'."},
+        {"role": "user", "content": "For example, which windows would you suggest?"},
+    ]
+
+    with patch("src.agents.review_interpreter.openai.AsyncOpenAI") as cls:
+        cls.return_value.chat.completions.create = fake_create
+        asyncio.run(
+            interp.interpret(
+                message="For example, which windows would you suggest?",
+                session_stage="user_review",
+                conversation=conversation,
+                data_manifest={"tickers": ["CL=F"]},
+            )
+        )
+
+    assert "Tell me which parameter to change" in captured["user_content"]
+
+
+def test_review_interpreter_system_prompt_guards_against_question_misclassification():
+    from src.agents.review_interpreter import _SYSTEM_PROMPT
+
+    assert "question-form" in _SYSTEM_PROMPT.lower()

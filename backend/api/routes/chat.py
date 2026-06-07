@@ -125,11 +125,22 @@ async def chat(
 
     if action == "advance":
         s.stage = SessionStage.FEATURIZING.value
+        transition_ts = (now + timedelta(milliseconds=1)).isoformat()
         s.stage_history = [
             *current_stage_history,
-            {"stage": SessionStage.FEATURIZING.value, "entered_at": now.isoformat()},
+            {"stage": SessionStage.FEATURIZING.value, "entered_at": transition_ts},
         ]
         s.status = SessionStatus.RUNNING.value
+        # Emit a stage_transition so the activity feed visibly shows the pipeline
+        # advancing, instead of silently jumping from review to results.
+        advance_transition: dict[str, Any] = {
+            "event_id": str(uuid.uuid4()),
+            "created_at": transition_ts,
+            "type": "stage_transition",
+            "from": SessionStage.USER_REVIEW.value,
+            "to": SessionStage.FEATURIZING.value,
+        }
+        s.activity_events = [*current_activity_events, chat_event, advance_transition]
         await db.commit()
         background_tasks.add_task(_run_featurizer_background, uid)
 
@@ -163,11 +174,20 @@ async def chat(
         config_patch = updates.get("featurizer_config_patch", {})
         s.featurizer_config = {**current_featurizer_config, **config_patch}
         s.stage = SessionStage.FEATURIZING.value
+        transition_ts = (now + timedelta(milliseconds=1)).isoformat()
         s.stage_history = [
             *current_stage_history,
-            {"stage": SessionStage.FEATURIZING.value, "entered_at": now.isoformat()},
+            {"stage": SessionStage.FEATURIZING.value, "entered_at": transition_ts},
         ]
         s.status = SessionStatus.RUNNING.value
+        config_transition: dict[str, Any] = {
+            "event_id": str(uuid.uuid4()),
+            "created_at": transition_ts,
+            "type": "stage_transition",
+            "from": SessionStage.USER_REVIEW.value,
+            "to": SessionStage.FEATURIZING.value,
+        }
+        s.activity_events = [*current_activity_events, chat_event, config_transition]
         await db.commit()
         background_tasks.add_task(_run_featurizer_background, uid)
 
