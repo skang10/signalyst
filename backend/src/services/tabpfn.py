@@ -16,6 +16,7 @@ from sqlmodel import select
 from src.config import settings
 from src.db.models import AnalysisResult, FeatureArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
+from src.services.explanation import run_explanation_service
 from src.services.hashing import canonical_json, stable_hash
 from src.services.stage import append_activity_event, set_status, transition_stage
 
@@ -163,10 +164,11 @@ async def _run(
     if existing is not None:
         log.info("tabpfn.cache_hit", session_id=str(session_id))
         append_activity_event(s, {"type": "cache_hit", "stage": "analyzing"})
-        transition_stage(s, SessionStage.FOLLOW_UP)
-        set_status(s, SessionStatus.WAITING)
+        transition_stage(s, SessionStage.EXPLAINING)
+        set_status(s, SessionStatus.RUNNING)
         await db.commit()
-        await publisher({"type": "stage_transition", "from": "analyzing", "to": "follow_up"})
+        await publisher({"type": "stage_transition", "from": "analyzing", "to": "explaining"})
+        await run_explanation_service(session_id, engine)
         return
 
     features = pd.read_parquet(fa.feature_matrix_ref)
@@ -257,8 +259,8 @@ async def _run(
         "regime": regime_result.get("regime") if regime_result else None,
     }
     append_activity_event(s, analysis_event)
-    # PR 2: skip EXPLAINING (ExplanationAgent is PR 4), go straight to FOLLOW_UP
-    transition_stage(s, SessionStage.FOLLOW_UP)
-    set_status(s, SessionStatus.WAITING)
+    transition_stage(s, SessionStage.EXPLAINING)
+    set_status(s, SessionStatus.RUNNING)
     await db.commit()
     await publisher(analysis_event)
+    await run_explanation_service(session_id, engine)
