@@ -114,6 +114,14 @@ class RerunResponse(BaseModel):
     session_id: str
 
 
+class ConfigPatchRequest(BaseModel):
+    featurizer_config_patch: dict[str, object]
+
+
+class ConfigPatchResponse(BaseModel):
+    session_id: str
+
+
 class CancelResponse(BaseModel):
     session_id: str
     stage: str

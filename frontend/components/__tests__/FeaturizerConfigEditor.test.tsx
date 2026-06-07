@@ -53,3 +53,24 @@ describe("FeaturizerConfigEditor", () => {
     expect(onChange).toHaveBeenCalledWith({ ...baseConfig, energy_specific: false });
   });
 });
+
+describe("FeaturizerConfigEditor readOnly mode", () => {
+  it("renders pills without remove buttons or an add input", () => {
+    render(<FeaturizerConfigEditor value={baseConfig} readOnly />);
+    expect(screen.queryByText("20d ×")).toBeNull();
+    expect(screen.getByText("20d")).toBeTruthy();
+    expect(screen.queryAllByPlaceholderText("+ add")).toHaveLength(0);
+  });
+
+  it("does not call onChange when a family pill is clicked", () => {
+    const onChange = vi.fn();
+    render(<FeaturizerConfigEditor value={baseConfig} onChange={onChange} readOnly />);
+    fireEvent.click(screen.getByText("Lag"));
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it("disables the energy-specific checkbox", () => {
+    render(<FeaturizerConfigEditor value={baseConfig} readOnly />);
+    expect(screen.getByRole("checkbox")).toBeDisabled();
+  });
+});

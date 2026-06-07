@@ -3,19 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
+import { SessionSidebar } from "@/components/SessionSidebar";
 import { StageStrip } from "@/components/StageStrip";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { useSessionStream } from "@/lib/websocket";
-
-const TABS = [
-  { label: "Activity", path: "activity" },
-  { label: "Data", path: "data" },
-  { label: "Results", path: "results" },
-];
-
-const DATA_LOCKED_STAGES = new Set(["configuring", "data_gathering"]);
-const RESULTS_UNLOCKED_STAGE = "follow_up";
 
 function ReviewBanner({ sessionId }: { sessionId: string }) {
   const { conversation, status } = useSessionStore();
@@ -54,7 +46,6 @@ function ReviewBanner({ sessionId }: { sessionId: string }) {
 export default function SessionLayout({ children }: { children: React.ReactNode }) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const pathname = usePathname();
   const { sessionId, stage, status, setSession } = useSessionStore();
   const [canceling, setCanceling] = useState(false);
 
@@ -144,54 +135,12 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
 
       <StageStrip currentStage={stage} />
 
-      <div className="flex gap-4 px-4 border-b border-[#21262d] bg-[#111827]">
-        {TABS.map((tab) => {
-          const href = `/sessions/${id}/${tab.path}`;
-          const isActive = pathname === href;
-
-          const isLocked =
-            (tab.path === "data" && stage !== null && DATA_LOCKED_STAGES.has(stage)) ||
-            (tab.path === "results" && stage !== RESULTS_UNLOCKED_STAGE);
-
-          const badge =
-            tab.path === "data" && stage !== null && !DATA_LOCKED_STAGES.has(stage)
-              ? " ✓"
-              : tab.path === "results" && stage === RESULTS_UNLOCKED_STAGE
-              ? " ✦"
-              : "";
-
-          if (isLocked) {
-            return (
-              <span
-                key={tab.label}
-                title="Locked — not available at this stage"
-                className="text-sm py-2 border-b-2 border-transparent text-[#374151] cursor-not-allowed select-none"
-              >
-                {tab.label}
-              </span>
-            );
-          }
-
-          return (
-            <Link
-              key={tab.label}
-              href={href}
-              className={[
-                "text-sm py-2 border-b-2 transition-colors",
-                isActive
-                  ? "border-[#3b82f6] text-[#f9fafb]"
-                  : "border-transparent text-[#9ca3af] hover:text-[#f9fafb]",
-              ].join(" ")}
-            >
-              {tab.label}{badge}
-            </Link>
-          );
-        })}
-      </div>
-
       {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
 
-      <main className="flex-1 overflow-auto min-h-0">{children}</main>
+      <div className="flex-1 min-h-0 m-4 flex border border-[#21262d] rounded-lg overflow-hidden">
+        {id && <SessionSidebar sessionId={id} stage={stage} />}
+        <main className="flex-1 overflow-auto min-h-0">{children}</main>
+      </div>
     </div>
   );
 }
