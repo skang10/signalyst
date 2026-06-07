@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.7.0...signalyst-frontend-v0.8.0) (2026-06-07)
+
+
+### Features
+
+* replace RunAnalysisChip with UserReviewGate config editor ([#36](https://github.com/skang10/signalyst/issues/36)) ([718a88a](https://github.com/skang10/signalyst/commit/718a88aac80075bf42679bca7487572a1d2f0984))
+
 ## [0.7.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.6.0...signalyst-frontend-v0.7.0) (2026-06-06)
 
 
