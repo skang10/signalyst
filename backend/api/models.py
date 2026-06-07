@@ -97,6 +97,10 @@ class MarketSnapshotResponse(BaseModel):
     fetched_at: str
 
 
+class ProceedRequest(BaseModel):
+    featurizer_config_patch: dict[str, object] | None = None
+
+
 class ProceedResponse(BaseModel):
     session_id: str
 
