@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.13.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.12.0...signalyst-backend-v0.13.0) (2026-06-07)
+
+
+### Features
+
+* add ExplanationAgent and wire EXPLAINING into the pipeline ([#41](https://github.com/skang10/signalyst/issues/41)) ([542435b](https://github.com/skang10/signalyst/commit/542435b907705413cd98fb79e470bb34064f8a9e))
+* move session tabs to a vertical sidebar and add an editable Config tab ([#39](https://github.com/skang10/signalyst/issues/39)) ([4e1bf7b](https://github.com/skang10/signalyst/commit/4e1bf7bce1a69904f0c3d547576e6383267fa1d9))
+
 ## [0.12.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.11.0...signalyst-backend-v0.12.0) (2026-06-07)
 
 
