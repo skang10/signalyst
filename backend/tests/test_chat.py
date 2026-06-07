@@ -129,6 +129,39 @@ def test_chat_update_config_action_patches_config_and_stays_in_user_review(clien
     assert transitions == []
 
 
+def test_chat_update_config_action_drops_unknown_patch_keys(client):
+    session_id = _setup_session_at_user_review(client)
+
+    fake_result = {
+        "action": "update_config",
+        "updates": {
+            "featurizer_config_patch": {
+                "rolling_windows_days": [7, 30, 90],
+                "lags": [2, 10],
+            }
+        },
+        "reply": "Updated lags to 2/10d. Say 'run analysis' when ready, or keep adjusting.",
+    }
+    with (
+        patch("api.routes.chat.ReviewInterpreter") as mock_cls,
+        patch("api.routes.chat._run_featurizer_background", new_callable=AsyncMock) as mock_bg,
+    ):
+        mock_cls.return_value.interpret = AsyncMock(return_value=fake_result)
+        res = client.post(
+            f"/api/sessions/{session_id}/chat",
+            json={"message": "use lags of 2 and 10, and 7/30/90 windows"},
+        )
+
+    assert res.status_code == 202
+    mock_bg.assert_not_called()
+
+    detail = client.get(f"/api/sessions/{session_id}").json()
+    config = detail["featurizer_config"]
+    assert config["lags"] == [2, 10]
+    assert config["windows"] == [5, 20, 60]
+    assert "rolling_windows_days" not in config
+
+
 def test_chat_refetch_action_triggers_data_gathering(client):
     session_id = _setup_session_at_user_review(client)
 
@@ -300,3 +333,10 @@ def test_review_interpreter_system_prompt_guards_against_question_misclassificat
     from src.agents.review_interpreter import _SYSTEM_PROMPT
 
     assert "question-form" in _SYSTEM_PROMPT.lower()
+
+
+def test_review_interpreter_system_prompt_lists_valid_config_patch_keys():
+    from src.agents.review_interpreter import _SYSTEM_PROMPT
+
+    for key in ("windows", "lags", "feature_families", "energy_specific"):
+        assert f'"{key}"' in _SYSTEM_PROMPT

@@ -23,6 +23,11 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 _CHAT_ALLOWED_STAGES = {SessionStage.USER_REVIEW.value}
 
+# The only fields a featurizer_config_patch may touch — guards the stored config's
+# schema against hallucinated key names (e.g. "rolling_windows_days" instead of "windows")
+# regardless of how the LLM phrases the patch.
+_VALID_CONFIG_PATCH_KEYS = {"windows", "lags", "feature_families", "energy_specific"}
+
 
 async def _run_featurizer_background(session_id: uuid.UUID) -> None:
     from src.services.featurizer import run_featurizer_service
@@ -174,7 +179,8 @@ async def chat(
         # Patch the config but stay in USER_REVIEW — only an explicit "advance"
         # starts the pipeline. This guarantees changing a setting can never by
         # itself trigger a run, regardless of how the LLM phrases its reply.
-        config_patch = updates.get("featurizer_config_patch", {})
+        raw_patch = updates.get("featurizer_config_patch", {})
+        config_patch = {k: v for k, v in raw_patch.items() if k in _VALID_CONFIG_PATCH_KEYS}
         s.featurizer_config = {**current_featurizer_config, **config_patch}
         s.stage_history = current_stage_history
         await db.commit()

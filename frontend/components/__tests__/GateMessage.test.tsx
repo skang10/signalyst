@@ -55,6 +55,33 @@ describe("UserReviewGate", () => {
     expect(onProceed).toHaveBeenCalledWith({ ...serverConfig, windows: [5, 60] });
   });
 
+  it("resyncs the draft when the server config changes from outside (e.g. a chat update)", () => {
+    const { rerender } = render(
+      <UserReviewGate
+        serverConfig={serverConfig}
+        onProceed={() => {}}
+        proceeding={false}
+        onDirtyChange={() => {}}
+      />,
+    );
+    expect(screen.getByText("20d ×")).toBeTruthy();
+
+    const updatedConfig: FeaturizerConfig = { ...serverConfig, windows: [7, 30, 90] };
+    rerender(
+      <UserReviewGate
+        serverConfig={updatedConfig}
+        onProceed={() => {}}
+        proceeding={false}
+        onDirtyChange={() => {}}
+      />,
+    );
+
+    expect(screen.queryByText(/Config changed/)).toBeNull();
+    expect(screen.getByText("30d ×")).toBeTruthy();
+    expect(screen.getByText("90d ×")).toBeTruthy();
+    expect(screen.queryByText("20d ×")).toBeNull();
+  });
+
   it("discard resets the draft to the server config and clears dirty state", () => {
     const onDirtyChange = vi.fn();
     render(

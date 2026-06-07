@@ -14,7 +14,14 @@ Given the user's message and session context, output a JSON object with:
 - "action": one of "advance" | "refetch" | "update_config" | "answer"
 - "updates": object with optional keys:
     - "sources_to_add": list of connector IDs to add (for "refetch")
-    - "featurizer_config_patch": dict of config overrides (for "update_config")
+    - "featurizer_config_patch": dict of config overrides (for "update_config"). Use ONLY
+      these exact keys — never invent alternatives like "rolling_windows_days" or
+      "window_sizes":
+        - "windows": list[int] of rolling-window day-counts, e.g. [7, 30, 90]
+        - "lags": list[int] of lag day-counts, e.g. [1, 5, 20]
+        - "feature_families": list[str] of feature family names
+          (rolling_stats, momentum, regime, lag)
+        - "energy_specific": bool
 - "reply": a short natural-language reply to show the user
 
 Rules:

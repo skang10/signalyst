@@ -31,7 +31,17 @@ export function UserReviewGate({
   onDirtyChange,
 }: UserReviewGateProps) {
   const [draft, setDraft] = useState(serverConfig);
+  const [syncedConfig, setSyncedConfig] = useState(serverConfig);
   const isDirty = !configsEqual(draft, serverConfig);
+
+  // Resync local edits whenever the server config changes from outside
+  // (e.g. a chat-driven `update_config`), so the editor doesn't show stale values.
+  // Adjusted during render (React's recommended pattern) rather than in an effect,
+  // to avoid an extra render pass — see https://react.dev/learn/you-might-not-need-an-effect
+  if (!configsEqual(syncedConfig, serverConfig)) {
+    setSyncedConfig(serverConfig);
+    setDraft(serverConfig);
+  }
 
   // Notify the parent so the chat input can be disabled while edits are unsaved —
   // this is what keeps the structured-edit and free-text-chat paths from racing
