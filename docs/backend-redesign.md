@@ -1214,12 +1214,24 @@ A market profile drives: which data connectors are recommended, the default feat
 - `GET /api/connectors`, `POST /api/connectors`
 - Full pipeline from session creation to USER_REVIEW gate
 
-### PR 4 — ExplanationAgent + FollowUpAgent
-- `ExplanationAgent` with WebSocket streaming
-- `FollowUpAgent` with stage regression tools
-- `POST /api/sessions/{id}/chat` extended to FOLLOW_UP stage — routes to FollowUpAgent (USER_REVIEW path from PR 3 unchanged)
-- `GET /api/sessions/{id}/artifacts/{artifact_id}` for dashboard rendering
-- Full end-to-end pipeline working
+### PR 4a — ExplanationAgent ✅ done (`feat/explanation-agent`)
+- `ExplanationAgent` (LLM, no tools) with WebSocket streaming
+- `run_explanation_service` writes `AnalysisResult.summary`, chained from `tabpfn._run` so
+  `EXPLAINING` always runs after `ANALYZING` (cache-hit and fresh-analysis branches both
+  transition `ANALYZING → EXPLAINING → FOLLOW_UP`)
+- `GET /api/sessions/{id}/artifacts/{artifact_id}` for dashboard rendering (already existed
+  from PR 3 work — verified, no changes needed)
+- See `docs/superpowers/specs/2026-06-07-explanation-agent-design.md` and
+  `docs/superpowers/plans/2026-06-07-explanation-agent.md`
+
+### PR 4b — FollowUpAgent (next up — separate branch)
+- `FollowUpAgent` (LLM + tools) with stage regression tools
+- `POST /api/sessions/{id}/chat` extended to FOLLOW_UP stage — routes to FollowUpAgent
+  (USER_REVIEW path from PR 3 unchanged)
+- Full end-to-end pipeline working (CONFIGURING → ... → FOLLOW_UP, with chat-driven regression)
+- Needs its own design spec + implementation plan — split out of the original "PR 4" scope
+  because it's substantially larger than ExplanationAgent (4 tools, stage regression, chat
+  routing changes) and deserves independent design review
 
 ### PR 5 — Cross-Session Artifact Cache
 - Global artifact cache lookup across sessions

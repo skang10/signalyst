@@ -11,6 +11,10 @@ Most real-world prediction problems have both a temporal dimension (things chang
 For the current backend architecture, agent definitions, session data model, API design, and PR breakdown see:
 **[`docs/backend-redesign.md`](docs/backend-redesign.md)**
 
+> **Backend redesign progress:** PRs 1-3 and PR 4a (`ExplanationAgent`) are done. **Next up: PR 4b
+> (`FollowUpAgent` + chat routing at `FOLLOW_UP`)** — needs its own design spec and implementation
+> plan; see the PR 4b entry in `docs/backend-redesign.md`'s PR Breakdown for scope.
+
 ---
 
 ## Domain: Energy / Oil & Gas Market Intelligence
