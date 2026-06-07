@@ -6,7 +6,7 @@ from datetime import date
 from unittest.mock import MagicMock, patch
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 import src.db.models  # noqa: F401 — registers all tables
@@ -49,7 +49,7 @@ class _FakeRedis:
         pass
 
 
-async def _make_engine():
+async def _make_engine() -> AsyncEngine:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
