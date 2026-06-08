@@ -41,12 +41,12 @@ export function NewAnalysisModal({ onClose }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-      <div className="bg-[#111827] border border-[#21262d] rounded-lg p-6 w-full max-w-md shadow-xl">
+      <div className="bg-white border border-gray-200 rounded-lg p-6 w-full max-w-md shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-semibold text-[#f9fafb]">New Analysis</h2>
+          <h2 className="text-base font-semibold text-gray-900">New Analysis</h2>
           <button
             onClick={onClose}
-            className="text-[#6b7280] hover:text-[#f9fafb] transition-colors text-lg"
+            className="text-gray-400 hover:text-gray-600 transition-colors text-lg"
           >
             ×
           </button>
@@ -54,11 +54,11 @@ export function NewAnalysisModal({ onClose }: Props) {
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <label className="flex flex-col gap-1">
-            <span className="text-xs text-[#9ca3af] uppercase tracking-wider">Market Profile</span>
+            <span className="text-xs text-gray-500 uppercase tracking-wider">Market Profile</span>
             <select
               value={profileId}
               onChange={(e) => setProfileId(e.target.value)}
-              className="bg-[#1f2937] border border-[#374151] rounded px-3 py-2 text-sm text-[#f9fafb] focus:outline-none focus:border-[#3b82f6]"
+              className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-teal-500"
             >
               {profiles.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -71,21 +71,21 @@ export function NewAnalysisModal({ onClose }: Props) {
 
           <div className="flex gap-3">
             <label className="flex flex-col gap-1 flex-1">
-              <span className="text-xs text-[#9ca3af] uppercase tracking-wider">Start</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">Start</span>
               <input
                 type="date"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="bg-[#1f2937] border border-[#374151] rounded px-3 py-2 text-sm text-[#f9fafb] focus:outline-none focus:border-[#3b82f6]"
+                className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-teal-500"
               />
             </label>
             <label className="flex flex-col gap-1 flex-1">
-              <span className="text-xs text-[#9ca3af] uppercase tracking-wider">End</span>
+              <span className="text-xs text-gray-500 uppercase tracking-wider">End</span>
               <input
                 type="date"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="bg-[#1f2937] border border-[#374151] rounded px-3 py-2 text-sm text-[#f9fafb] focus:outline-none focus:border-[#3b82f6]"
+                className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-teal-500"
               />
             </label>
           </div>
@@ -95,17 +95,17 @@ export function NewAnalysisModal({ onClose }: Props) {
               type="checkbox"
               checked={autoMode}
               onChange={(e) => setAutoMode(e.target.checked)}
-              className="w-4 h-4 accent-[#3b82f6]"
+              className="w-4 h-4 accent-teal-600"
             />
-            <span className="text-sm text-[#9ca3af]">Auto mode (skip user review gate)</span>
+            <span className="text-sm text-gray-500">Auto mode (skip user review gate)</span>
           </label>
 
-          {error && <p className="text-xs text-[#ef4444]">{error}</p>}
+          {error && <p className="text-xs text-red-500">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] disabled:opacity-50 text-sm font-semibold text-white transition-colors"
+            className="mt-1 py-2 rounded bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-sm font-semibold text-white transition-colors"
           >
             {loading ? "Starting…" : "Start Analysis"}
           </button>
