@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.8.0...signalyst-frontend-v0.9.0) (2026-06-07)
+
+
+### Features
+
+* move session tabs to a vertical sidebar and add an editable Config tab ([#39](https://github.com/skang10/signalyst/issues/39)) ([4e1bf7b](https://github.com/skang10/signalyst/commit/4e1bf7bce1a69904f0c3d547576e6383267fa1d9))
+
 ## [0.8.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.7.0...signalyst-frontend-v0.8.0) (2026-06-07)
 
 
