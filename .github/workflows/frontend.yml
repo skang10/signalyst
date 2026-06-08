@@ -54,7 +54,7 @@ jobs:
           NEXT_PUBLIC_WS_URL: ws://localhost:8000
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: frontend/coverage/lcov.info
           flags: frontend
