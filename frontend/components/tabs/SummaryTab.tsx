@@ -19,12 +19,12 @@ export function SummaryTab({ summary }: Props) {
 
   return (
     <div className="p-4 h-full overflow-y-auto">
-      <div className="bg-[#0d0d18] border border-slate-800 rounded p-5">
-        <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-4">
+      <div className="bg-white border border-gray-200 rounded p-5">
+        <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-4">
           Agent Narrative
         </div>
         <p
-          className="text-sm text-slate-300 leading-7"
+          className="text-sm text-gray-700 leading-7"
           dangerouslySetInnerHTML={{ __html: renderSummary(summary) }}
         />
       </div>
