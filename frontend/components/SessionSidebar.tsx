@@ -23,7 +23,7 @@ export function SessionSidebar({
   const pathname = usePathname();
 
   return (
-    <nav className="w-[170px] flex-shrink-0 flex flex-col gap-1 p-2.5 border-r border-[#21262d]">
+    <nav className="w-[170px] flex-shrink-0 flex flex-col gap-1 p-2.5 border-r border-gray-200">
       {TABS.map((tab) => {
         const href = `/sessions/${sessionId}/${tab.path}`;
         const isActive = pathname === href;
@@ -44,7 +44,7 @@ export function SessionSidebar({
             <span
               key={tab.label}
               title="Locked — not available at this stage"
-              className="flex items-center justify-between px-3 py-2 rounded text-sm text-[#374151] cursor-not-allowed select-none"
+              className="flex items-center justify-between px-3 py-2 rounded text-sm text-gray-300 cursor-not-allowed select-none"
             >
               {tab.label}
               <span aria-hidden>🔒</span>
@@ -59,8 +59,8 @@ export function SessionSidebar({
             className={[
               "px-3 py-2 rounded text-sm transition-colors",
               isActive
-                ? "bg-[#1f2937] text-[#60a5fa] font-medium"
-                : "text-[#9ca3af] hover:text-[#f9fafb]",
+                ? "bg-gray-100 text-gray-900 font-semibold"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
             ].join(" ")}
           >
             {tab.label}
