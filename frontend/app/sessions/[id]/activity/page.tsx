@@ -450,7 +450,7 @@ export default function ActivityPage() {
             {proceedError && (
               <p className="text-xs text-[#ef4444] text-right">{proceedError}</p>
             )}
-            {sending && <AgentThinkingLine />}
+            {(sending || (stage === "follow_up" && status === "running")) && <AgentThinkingLine />}
           </>
         )}
       </div>
