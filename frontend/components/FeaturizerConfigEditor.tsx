@@ -17,14 +17,14 @@ type Props = {
 };
 
 const TAG_ACTIVE =
-  "px-2 py-0.5 bg-[#1e3a5f] border border-[#1d4ed8] rounded text-xs text-[#93c5fd] hover:bg-[#234876]";
+  "px-2 py-0.5 bg-teal-50 border border-teal-300 rounded text-xs text-teal-700 hover:bg-teal-100";
 const TAG_INACTIVE =
-  "px-2 py-0.5 bg-transparent border border-[#374151] rounded text-xs text-[#4b5563] line-through hover:border-[#4b5563]";
+  "px-2 py-0.5 bg-transparent border border-gray-300 rounded text-xs text-gray-400 line-through hover:border-gray-400";
 const TAG_READONLY =
-  "px-2 py-0.5 bg-transparent border border-[#374151] rounded text-xs text-[#9ca3af]";
+  "px-2 py-0.5 bg-transparent border border-gray-200 rounded text-xs text-gray-500";
 const ADD_INPUT =
-  "w-14 bg-transparent border border-dashed border-[#374151] rounded px-2 py-0.5 text-xs text-[#6b7280] placeholder:text-[#4b5563] focus:outline-none focus:border-[#3b82f6]";
-const ROW_LABEL = "text-[10px] text-[#6b7280] w-16 flex-shrink-0";
+  "w-14 bg-transparent border border-dashed border-gray-300 rounded px-2 py-0.5 text-xs text-gray-500 placeholder:text-gray-400 focus:outline-none focus:border-teal-400";
+const ROW_LABEL = "text-[10px] text-gray-500 w-16 flex-shrink-0";
 
 function NumberRow({
   label,
@@ -134,13 +134,13 @@ export function FeaturizerConfigEditor({ value, onChange, readOnly = false }: Pr
           </button>
         ))}
       </div>
-      <label className="flex items-center gap-2 text-xs text-[#9ca3af]">
+      <label className="flex items-center gap-2 text-xs text-gray-500">
         <input
           type="checkbox"
           checked={value.energy_specific}
           onChange={(e) => onChange?.({ ...value, energy_specific: e.target.checked })}
           disabled={readOnly}
-          className="accent-[#3b82f6]"
+          className="accent-teal-600"
         />
         Energy-specific features
       </label>
