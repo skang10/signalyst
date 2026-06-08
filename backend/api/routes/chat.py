@@ -16,13 +16,14 @@ from src.db.models import DataArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
 from src.services.featurizer_config import apply_config_patch
+from src.services.followup import run_followup_service
 
 router = APIRouter(tags=["chat"])
 log = structlog.get_logger()
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
-_CHAT_ALLOWED_STAGES = {SessionStage.USER_REVIEW.value}
+_CHAT_ALLOWED_STAGES = {SessionStage.USER_REVIEW.value, SessionStage.FOLLOW_UP.value}
 
 
 async def _run_featurizer_background(session_id: uuid.UUID) -> None:
@@ -65,6 +66,18 @@ async def chat(
 
     if s.stage not in _CHAT_ALLOWED_STAGES:
         raise HTTPException(status_code=409, detail=f"chat not available at stage {s.stage}")
+
+    if s.stage == SessionStage.FOLLOW_UP.value:
+        now = datetime.now(UTC)
+        s.conversation = [
+            *s.conversation,
+            {"role": "user", "content": req.message, "created_at": now.isoformat()},
+        ]
+        s.status = SessionStatus.RUNNING.value
+        s.updated_at = now.replace(tzinfo=None)
+        await db.commit()
+        background_tasks.add_task(run_followup_service, uid, engine)
+        return ChatResponse(session_id=session_id)
 
     # Snapshot all fields before any async calls that could expire s
     _req_time = datetime.now(UTC).isoformat()
