@@ -406,7 +406,7 @@ function UploadPanel({
           <button
             onClick={() => handleUpload("replace")}
             disabled={!file || uploading}
-            className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {uploading ? "Uploading…" : "Upload"}
           </button>

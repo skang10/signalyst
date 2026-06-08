@@ -445,7 +445,7 @@ export default function ActivityPage() {
               />
             )}
             {proceedError && (
-              <p className="text-xs text-[#ef4444] text-right">{proceedError}</p>
+              <p className="text-xs text-red-500 text-right">{proceedError}</p>
             )}
             {(sending || (stage === "follow_up" && status === "running")) && <AgentThinkingLine />}
           </>
