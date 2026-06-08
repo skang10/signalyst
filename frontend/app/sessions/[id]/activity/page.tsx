@@ -407,7 +407,7 @@ export default function ActivityPage() {
     }
   };
 
-  const showInput = stage === "user_review" || stage === "data_gathering";
+  const showInput = stage === "user_review" || stage === "data_gathering" || stage === "follow_up";
   const showRunAnalysis = stage === "user_review" && status === "waiting" && !sending;
   const inputDisabled =
     sending || status !== "waiting" || (stage === "user_review" && reviewConfigDirty);
@@ -477,7 +477,9 @@ export default function ActivityPage() {
                   ? "Agent is thinking..."
                   : stage === "user_review" && reviewConfigDirty
                   ? "Config changes pending — Run Analysis or Discard to continue chatting"
-                  : "Ask to adjust data, or say “run analysis”"
+                  : stage === "follow_up"
+                  ? "Ask about the results, or request a re-run with different settings"
+                  : "Ask to adjust data, or say \"run analysis\""
               }
               disabled={inputDisabled}
               className="flex-1 bg-[#111827] border border-[#21262d] rounded-lg px-3 py-2 text-sm text-[#f9fafb] placeholder:text-[#4b5563] focus:outline-none focus:border-[#3b82f6] disabled:opacity-40"
