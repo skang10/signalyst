@@ -65,7 +65,7 @@ export function SessionSidebar({
   return (
     <nav className="w-[170px] flex-shrink-0 flex flex-col p-2.5 border-r border-gray-200">
       <SectionLabel>Navigation</SectionLabel>
-      <NavItem label="Activity" path="activity" />
+      <NavItem label="Agent Chat" path="activity" />
 
       <SectionLabel>Data</SectionLabel>
       <NavItem label="Sources" path="data" badge={sourcesBadge} />
