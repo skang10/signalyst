@@ -20,22 +20,22 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#060b14] text-[#f9fafb]">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-[#21262d] bg-[#111827]">
-        <span className="font-bold text-[#3b82f6] text-base tracking-tight">■ SIGNALYST</span>
+    <div className="flex flex-col min-h-screen bg-white text-gray-900">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white">
+        <span className="font-bold text-gray-900 text-base tracking-tight">■ Signalyst</span>
         <button
           onClick={() => setShowModal(true)}
-          className="text-sm px-3 py-1 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white font-semibold transition-colors"
+          className="text-sm px-3 py-1 rounded bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors"
         >
-          + NEW ANALYSIS
+          + New Analysis
         </button>
       </header>
 
       <SessionIndicators />
 
       <main className="flex-1 px-4 py-4">
-        <h1 className="text-xs text-[#6b7280] uppercase tracking-wider mb-3">Sessions</h1>
-        <div className="rounded-lg border border-[#21262d] overflow-hidden">
+        <h1 className="text-xs text-gray-500 uppercase tracking-wider mb-3">Sessions</h1>
+        <div className="rounded-lg border border-gray-200 overflow-hidden">
           <SessionsTable sessions={sessions} onDelete={refresh} />
         </div>
       </main>

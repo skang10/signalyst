@@ -19,11 +19,11 @@ function StatTile({
   accent?: string;
 }) {
   return (
-    <div className="bg-[#0d0d18] border border-slate-800 rounded p-3 flex flex-col gap-1">
-      <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+    <div className="bg-white border border-gray-200 rounded p-3 flex flex-col gap-1">
+      <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
         {label}
       </div>
-      <div className={`text-lg font-mono font-bold ${accent ?? "text-slate-200"}`}>
+      <div className={`text-lg font-mono font-bold ${accent ?? "text-gray-700"}`}>
         {value}
       </div>
     </div>
@@ -69,11 +69,11 @@ export function DriftTab({ drift }: Props) {
         />
       </div>
 
-      <div className="bg-[#0d0d18] border border-slate-800 rounded overflow-hidden">
-        <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest p-3 border-b border-slate-800">
+      <div className="bg-white border border-gray-200 rounded overflow-hidden">
+        <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest p-3 border-b border-gray-200">
           Feature KS Statistics
         </div>
-        <div className="divide-y divide-slate-800">
+        <div className="divide-y divide-gray-100">
           {Object.entries(drift.ks_results)
             .sort((a, b) => b[1].statistic - a[1].statistic)
             .map(([feature, { statistic, p_value }]) => {
@@ -83,18 +83,18 @@ export function DriftTab({ drift }: Props) {
                   key={feature}
                   className="flex items-center gap-3 px-3 py-2 text-xs font-mono"
                 >
-                  <div className="flex-1 text-slate-300 truncate">{feature}</div>
-                  <div className="text-slate-500 w-12 text-right">
+                  <div className="flex-1 text-gray-700 truncate">{feature}</div>
+                  <div className="text-gray-400 w-12 text-right">
                     {statistic.toFixed(3)}
                   </div>
-                  <div className="text-slate-600 w-12 text-right">
+                  <div className="text-gray-400 w-12 text-right">
                     p={p_value.toFixed(3)}
                   </div>
                   <div
                     className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                       isDrifted
-                        ? "bg-amber-950 text-amber-400"
-                        : "bg-slate-800 text-slate-500"
+                        ? "bg-amber-50 text-amber-600"
+                        : "bg-gray-100 text-gray-500"
                     }`}
                   >
                     {isDrifted ? "DRIFT" : "OK"}
@@ -105,11 +105,11 @@ export function DriftTab({ drift }: Props) {
         </div>
       </div>
 
-      <div className="bg-[#0d0d18] border border-slate-800 rounded p-3">
-        <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-2">
+      <div className="bg-white border border-gray-200 rounded p-3">
+        <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-2">
           Interpretation
         </div>
-        <p className="text-xs text-slate-400 leading-relaxed">
+        <p className="text-xs text-gray-600 leading-relaxed">
           {psiInterpretation(drift.psi_score, drift.drift_detected)}
         </p>
       </div>

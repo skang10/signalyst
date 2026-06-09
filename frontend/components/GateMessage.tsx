@@ -51,13 +51,13 @@ export function UserReviewGate({
   }, [isDirty, onDirtyChange]);
 
   return (
-    <div className="self-end max-w-[85%] flex flex-col gap-3 bg-[#0d1117] border border-[#21262d] rounded-lg p-3">
+    <div className="self-end max-w-[85%] flex flex-col gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
       <FeaturizerConfigEditor value={draft} onChange={setDraft} />
 
       {isDirty && (
-        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-[#1c1009] border border-[#92400e] rounded text-xs text-[#fbbf24]">
+        <div className="flex items-center gap-2 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
           <span className="flex-1">Config changed — Run Analysis to apply, or discard your edits</span>
-          <button onClick={() => setDraft(serverConfig)} className="text-[#f97316] hover:underline">
+          <button onClick={() => setDraft(serverConfig)} className="text-amber-600 hover:underline">
             Discard
           </button>
         </div>
@@ -67,7 +67,7 @@ export function UserReviewGate({
         <button
           onClick={() => onProceed(isDirty ? draft : undefined)}
           disabled={proceeding}
-          className="px-4 py-2 bg-[#052e16] border border-[#15803d] rounded-full text-[#22c55e] text-sm font-semibold hover:bg-[#14532d] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-teal-600 border border-teal-700 rounded-full text-white text-sm font-semibold hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {proceeding ? "Starting…" : "→ Run Analysis"}
         </button>

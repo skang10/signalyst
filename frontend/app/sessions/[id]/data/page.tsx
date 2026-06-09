@@ -17,10 +17,10 @@ function MetricCard({
 }) {
   return (
     <div
-      className={`flex-1 px-3 py-2 rounded border bg-[#111827] ${warn ? "border-[#f59e0b]" : "border-[#21262d]"}`}
+      className={`flex-1 px-3 py-2 rounded border bg-white ${warn ? "border-amber-400" : "border-gray-200"}`}
     >
-      <div className="text-[10px] text-[#6b7280] uppercase tracking-wider mb-1">{label}</div>
-      <div className={`text-base font-mono ${warn ? "text-[#f59e0b]" : "text-[#f9fafb]"}`}>
+      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{label}</div>
+      <div className={`text-base font-mono ${warn ? "text-amber-500" : "text-gray-900"}`}>
         {value}
       </div>
     </div>
@@ -70,7 +70,7 @@ function DataSnapshotTable({
       <div className="flex items-center justify-between">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="flex items-center gap-1.5 text-xs text-[#4b5563] uppercase tracking-wider hover:text-[#9ca3af] transition-colors"
+          className="flex items-center gap-1.5 text-xs text-gray-400 uppercase tracking-wider hover:text-gray-600 transition-colors"
         >
           <span>{open ? "▾" : "▸"}</span>
           <span>Snapshot</span>
@@ -78,36 +78,36 @@ function DataSnapshotTable({
         </button>
         {open && allDates.length > PAGE_SIZE && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-[#4b5563]">
+            <span className="text-xs text-gray-400">
               {start + 1}–{Math.min(start + PAGE_SIZE, allDates.length)} of {allDates.length}
             </span>
             <button
               onClick={() => setPage((p) => Math.max(0, p - 1))}
               disabled={clampedPage === 0}
-              className="text-xs text-[#4b5563] hover:text-[#9ca3af] disabled:opacity-30 transition-colors px-1"
+              className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors px-1"
             >
               ←
             </button>
             <button
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
               disabled={clampedPage === totalPages - 1}
-              className="text-xs text-[#4b5563] hover:text-[#9ca3af] disabled:opacity-30 transition-colors px-1"
+              className="text-xs text-gray-400 hover:text-gray-600 disabled:opacity-30 transition-colors px-1"
             >
               →
             </button>
           </div>
         )}
       </div>
-      {open && <div className="overflow-auto rounded border border-[#21262d]">
+      {open && <div className="overflow-auto rounded border border-gray-200">
         <table className="w-full text-xs font-mono border-collapse">
           <thead>
-            <tr className="bg-[#111827] border-b border-[#21262d]">
-              <th className="text-left px-3 py-2 text-[#4b5563] font-normal whitespace-nowrap">Date</th>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="text-left px-3 py-2 text-gray-400 font-normal whitespace-nowrap">Date</th>
               {tickers.map((ticker) => (
                 <th key={ticker} className="text-right px-3 py-2 font-normal whitespace-nowrap">
-                  <span className="text-[#9ca3af]">{ticker}</span>
+                  <span className="text-gray-500">{ticker}</span>
                   {(missingPct[ticker] ?? 0) > 0 && (
-                    <span className="ml-1 text-[#f59e0b]">·{missingPct[ticker]}%</span>
+                    <span className="ml-1 text-amber-500">·{missingPct[ticker]}%</span>
                   )}
                 </th>
               ))}
@@ -119,18 +119,18 @@ function DataSnapshotTable({
               return (
                 <tr
                   key={date}
-                  className={`border-b border-[#1f2937] last:border-0 ${
-                    i % 2 === 0 ? "bg-[#0d1117]" : "bg-[#111827]"
+                  className={`border-b border-gray-100 last:border-0 ${
+                    i % 2 === 0 ? "bg-white" : "bg-gray-50"
                   }`}
                 >
-                  <td className="px-3 py-1.5 text-[#6b7280]">{date}</td>
+                  <td className="px-3 py-1.5 text-gray-400">{date}</td>
                   {tickers.map((ticker) => {
                     const v = row[ticker];
                     return (
                       <td
                         key={ticker}
                         className={`px-3 py-1.5 text-right ${
-                          v == null ? "text-[#374151]" : "text-[#f9fafb]"
+                          v == null ? "text-gray-300" : "text-gray-900"
                         }`}
                       >
                         {fmt(v)}
@@ -200,29 +200,29 @@ function Sparkline({ points }: { points: { date: string; value: number | null }[
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-24">
       {/* Axis lines */}
-      <line x1={mL} y1={mT} x2={mL} y2={mT + cH} stroke="#1f2937" strokeWidth="1" />
-      <line x1={mL} y1={mT + cH} x2={mL + cW} y2={mT + cH} stroke="#1f2937" strokeWidth="1" />
+      <line x1={mL} y1={mT} x2={mL} y2={mT + cH} stroke="#e5e7eb" strokeWidth="1" />
+      <line x1={mL} y1={mT + cH} x2={mL + cW} y2={mT + cH} stroke="#e5e7eb" strokeWidth="1" />
 
       {/* Y-axis ticks */}
       {yTicks.map(({ val, y }) => (
         <g key={y}>
-          <line x1={mL - 3} y1={y} x2={mL} y2={y} stroke="#374151" strokeWidth="1" />
-          <text x={mL - 5} y={y + 3} textAnchor="end" fontSize="8" fill="#4b5563" fontFamily="monospace">
+          <line x1={mL - 3} y1={y} x2={mL} y2={y} stroke="#d1d5db" strokeWidth="1" />
+          <text x={mL - 5} y={y + 3} textAnchor="end" fontSize="8" fill="#6b7280" fontFamily="monospace">
             {fmt(val)}
           </text>
         </g>
       ))}
 
       {/* X-axis labels */}
-      <text x={mL} y={H - 3} textAnchor="start" fontSize="8" fill="#4b5563" fontFamily="monospace">
+      <text x={mL} y={H - 3} textAnchor="start" fontSize="8" fill="#6b7280" fontFamily="monospace">
         {firstDate}
       </text>
-      <text x={mL + cW} y={H - 3} textAnchor="end" fontSize="8" fill="#4b5563" fontFamily="monospace">
+      <text x={mL + cW} y={H - 3} textAnchor="end" fontSize="8" fill="#6b7280" fontFamily="monospace">
         {lastDate}
       </text>
 
       {/* Data line */}
-      <polyline points={pts} fill="none" stroke="#3b82f6" strokeWidth="1.5" />
+      <polyline points={pts} fill="none" stroke="#0d9488" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -308,7 +308,7 @@ function UploadPanel({
   const inner = (
     <div className={`w-full ${compact ? "" : "max-w-md"} flex flex-col gap-4`}>
       {!compact && (
-        <p className="text-sm text-[#9ca3af] text-center">
+        <p className="text-sm text-gray-500 text-center">
           Upload a CSV or Parquet file to merge with existing data.
         </p>
       )}
@@ -317,7 +317,7 @@ function UploadPanel({
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="w-full border-2 border-dashed border-[#21262d] hover:border-[#3b82f6] rounded-lg p-8 flex flex-col items-center gap-2 text-[#6b7280] hover:text-[#9ca3af] transition-colors"
+          className="w-full border-2 border-dashed border-gray-200 hover:border-teal-400 rounded-lg p-8 flex flex-col items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
         >
           <span className="text-3xl">↑</span>
           <span className="text-sm">{file ? file.name : "Click to choose file"}</span>
@@ -333,13 +333,13 @@ function UploadPanel({
 
         {/* File preview */}
         {preview && (
-          <div className="bg-[#0d1117] border border-[#21262d] rounded p-3 flex flex-col gap-1 text-xs">
-            <div className="flex gap-4 text-[#9ca3af]">
+          <div className="bg-gray-50 border border-gray-200 rounded p-3 flex flex-col gap-1 text-xs">
+            <div className="flex gap-4 text-gray-500">
               <span>{preview.rows} rows</span>
               <span>{preview.columns.length} columns</span>
               <span>{preview.start} – {preview.end}</span>
             </div>
-            <div className="text-[#6b7280] font-mono truncate">
+            <div className="text-gray-400 font-mono truncate">
               {preview.columns.slice(0, 6).join(", ")}{preview.columns.length > 6 ? ` +${preview.columns.length - 6} more` : ""}
             </div>
           </div>
@@ -347,7 +347,7 @@ function UploadPanel({
 
         {/* Overlap warning */}
         {overlapWarning && (
-          <div className="flex gap-2 bg-[#1c1208] border border-[#f59e0b] rounded p-3 text-xs text-[#f59e0b]">
+          <div className="flex gap-2 bg-amber-50 border border-amber-300 rounded p-3 text-xs text-amber-600">
             <span>⚠</span>
             <span>{overlapWarning}</span>
           </div>
@@ -359,10 +359,10 @@ function UploadPanel({
           value={sourceName}
           onChange={(e) => setSourceName(e.target.value)}
           placeholder="Source name (optional)"
-          className="w-full bg-[#111827] border border-[#21262d] rounded px-3 py-2 text-sm text-[#f9fafb] placeholder:text-[#4b5563] focus:outline-none focus:border-[#3b82f6]"
+          className="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-teal-400"
         />
 
-        {error && <p className="text-xs text-[#ef4444]">{error}</p>}
+        {error && <p className="text-xs text-red-500">{error}</p>}
 
         {/* Action buttons — context-aware based on overlap */}
         {overlapWarning ? (
@@ -371,14 +371,14 @@ function UploadPanel({
             <button
               onClick={() => handleUpload("replace")}
               disabled={!file || uploading}
-              className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {uploading ? "Uploading…" : "Replace existing data with this file"}
             </button>
             <button
               onClick={() => handleUpload("merge")}
               disabled={!file || uploading}
-              className="w-full py-1.5 rounded border border-[#374151] text-[#9ca3af] hover:text-[#f9fafb] text-xs transition-colors disabled:opacity-40"
+              className="w-full py-1.5 rounded border border-gray-200 text-gray-400 hover:text-gray-700 text-xs transition-colors disabled:opacity-40"
             >
               Merge anyway (will create gaps)
             </button>
@@ -389,14 +389,14 @@ function UploadPanel({
             <button
               onClick={() => handleUpload("merge")}
               disabled={!file || uploading}
-              className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {uploading ? "Uploading…" : "Merge with existing data"}
             </button>
             <button
               onClick={() => handleUpload("replace")}
               disabled={!file || uploading}
-              className="w-full py-1.5 rounded border border-[#374151] text-[#9ca3af] hover:text-[#f9fafb] text-xs transition-colors disabled:opacity-40"
+              className="w-full py-1.5 rounded border border-gray-200 text-gray-400 hover:text-gray-700 text-xs transition-colors disabled:opacity-40"
             >
               Replace existing data
             </button>
@@ -406,7 +406,7 @@ function UploadPanel({
           <button
             onClick={() => handleUpload("replace")}
             disabled={!file || uploading}
-            className="w-full py-2 rounded bg-[#1d4ed8] hover:bg-[#2563eb] text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {uploading ? "Uploading…" : "Upload"}
           </button>
@@ -473,10 +473,10 @@ export default function DataPage() {
   if (fetchError) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-2">
-        <p className="text-[#ef4444] text-sm">{fetchError}</p>
+        <p className="text-red-500 text-sm">{fetchError}</p>
         <button
           onClick={() => { setFetchedId(null); setFetchError(null); }}
-          className="text-xs text-[#9ca3af] underline"
+          className="text-xs text-gray-400 underline"
         >
           Retry
         </button>
@@ -486,7 +486,7 @@ export default function DataPage() {
 
   if (!artifact) {
     return (
-      <div className="flex items-center justify-center h-full text-[#4b5563] text-sm">
+      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
         Loading…
       </div>
     );
@@ -502,8 +502,8 @@ export default function DataPage() {
   return (
     <div className="flex flex-col gap-4 p-4 overflow-auto">
       <div className="flex items-center gap-2">
-        <h2 className="text-sm font-semibold text-[#f9fafb]">Data Manifest</h2>
-        {artifact.cache_hit && <span className="text-xs text-[#f59e0b]">⚡ Cached</span>}
+        <h2 className="text-sm font-semibold text-gray-900">Data Manifest</h2>
+        {artifact.cache_hit && <span className="text-xs text-amber-500">⚡ Cached</span>}
       </div>
 
       <div className="flex gap-2">
@@ -517,13 +517,13 @@ export default function DataPage() {
 
       {/* High missing data warning — shown at USER_REVIEW when data quality is poor */}
       {stage === "user_review" && avgMissing > MISSING_PCT_LIMIT && (
-        <div className="flex items-start gap-3 bg-[#1c1208] border border-[#f59e0b] rounded p-3">
-          <span className="text-[#f59e0b] mt-0.5">⚠</span>
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded p-3">
+          <span className="text-amber-500 mt-0.5">⚠</span>
           <div className="flex-1">
-            <p className="text-sm text-[#f59e0b] font-medium">
+            <p className="text-sm text-amber-600 font-medium">
               {avgMissing.toFixed(1)}% average missing data — analysis blocked
             </p>
-            <p className="text-xs text-[#9ca3af] mt-1">
+            <p className="text-xs text-gray-500 mt-1">
               More than {MISSING_PCT_LIMIT}% missing values will produce unreliable results.
               Upload a file that overlaps the existing date range, or use
               &ldquo;Replace existing data&rdquo; to start fresh.
@@ -536,7 +536,7 @@ export default function DataPage() {
       {dm.warnings?.length ? (
         <div className="flex flex-col gap-1">
           {dm.warnings.map((w, i) => (
-            <div key={i} className="flex gap-2 bg-[#1c1208] border border-[#f59e0b] rounded p-2 text-xs text-[#f59e0b]">
+            <div key={i} className="flex gap-2 bg-amber-50 border border-amber-300 rounded p-2 text-xs text-amber-600">
               <span>⚠</span><span>{w}</span>
             </div>
           ))}
@@ -547,18 +547,18 @@ export default function DataPage() {
         {Object.entries(artifact.series_preview).map(([ticker, points]) => {
           const stats = dm.summary_stats[ticker];
           return (
-            <div key={ticker} className="bg-[#111827] rounded border border-[#21262d] p-3 group">
+            <div key={ticker} className="bg-white rounded border border-gray-200 p-3 group">
               <div className="flex items-baseline gap-2 mb-1">
-                <div className="text-xs font-mono text-[#9ca3af]">{ticker}</div>
+                <div className="text-xs font-mono text-gray-500">{ticker}</div>
                 {TICKER_DESCRIPTIONS[ticker] && (
-                  <div className="text-[10px] text-[#374151] group-hover:text-[#6b7280] transition-colors truncate">
+                  <div className="text-[10px] text-gray-300 group-hover:text-gray-500 transition-colors truncate">
                     {TICKER_DESCRIPTIONS[ticker]}
                   </div>
                 )}
               </div>
               <Sparkline points={points} />
               {stats && (
-                <div className="flex gap-3 mt-1 text-[10px] text-[#6b7280] font-mono">
+                <div className="flex gap-3 mt-1 text-[10px] text-gray-400 font-mono">
                   <span>min {stats.min.toFixed(2)}</span>
                   <span>mean {stats.mean.toFixed(2)}</span>
                   <span>max {stats.max.toFixed(2)}</span>
@@ -589,16 +589,16 @@ function UploadSection({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border border-[#21262d] rounded">
+    <div className="border border-gray-200 rounded">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-3 py-2 text-xs text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
+        className="w-full flex items-center justify-between px-3 py-2 text-xs text-gray-400 hover:text-gray-700 transition-colors"
       >
         <span>Upload additional data</span>
         <span>{open ? "▲" : "▼"}</span>
       </button>
       {open && (
-        <div className="border-t border-[#21262d] p-4">
+        <div className="border-t border-gray-200 p-4">
           <UploadPanel
             sessionId={sessionId}
             compact

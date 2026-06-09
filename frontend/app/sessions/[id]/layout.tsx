@@ -33,10 +33,10 @@ function ReviewBanner({ sessionId }: { sessionId: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 px-4 py-1.5 bg-[#0a1628] border-b border-[#1d4ed8] text-xs flex-shrink-0">
-      <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6] animate-pulse flex-shrink-0" />
-      <span className="text-[#93c5fd]">{hint}</span>
-      <Link href={activityHref} className="text-[#3b82f6] underline underline-offset-2">
+    <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-50 border-b border-blue-200 text-xs flex-shrink-0">
+      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
+      <span className="text-blue-700">{hint}</span>
+      <Link href={activityHref} className="text-blue-600 underline underline-offset-2">
         {linkText}
       </Link>
     </div>
@@ -82,27 +82,27 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#060b14] text-[#f9fafb]">
-      <header className="flex items-center justify-between px-4 py-2 border-b border-[#21262d] bg-[#111827]">
-        <span className="font-bold text-[#3b82f6] text-base tracking-tight">■ SIGNALYST</span>
+    <div className="flex flex-col h-screen bg-gray-50 text-gray-900">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white">
+        <span className="font-bold text-gray-900 text-base tracking-tight">■ Signalyst</span>
         <Link
           href="/"
-          className="text-sm px-3 py-1 rounded border border-[#21262d] text-[#9ca3af] hover:text-[#f9fafb] transition-colors"
+          className="text-sm px-3 py-1 rounded border border-gray-200 text-gray-500 hover:text-gray-900 transition-colors"
         >
-          + NEW ANALYSIS
+          + New Analysis
         </Link>
       </header>
 
-      <div className="flex items-center gap-3 px-4 py-2 border-b border-[#21262d] bg-[#111827]">
-        <Link href="/" className="text-[#9ca3af] hover:text-[#f9fafb] text-sm transition-colors">
+      <div className="flex items-center gap-3 px-4 py-2 border-b border-gray-200 bg-white">
+        <Link href="/" className="text-gray-500 hover:text-gray-900 text-sm transition-colors">
           ← Sessions
         </Link>
         {sessionId && (
           <>
-            <span className="text-[#6b7280] text-xs">·</span>
-            <span className="text-sm text-[#9ca3af] font-mono">{id?.slice(0, 8)}</span>
+            <span className="text-gray-300 text-xs">·</span>
+            <span className="text-sm text-gray-500 font-mono">{id?.slice(0, 8)}</span>
             {stage && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-[#1f2937] text-[#60a5fa] border border-[#1d4ed8]">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 border border-teal-200">
                 {stage}
               </span>
             )}
@@ -110,10 +110,10 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
               <span
                 className={[
                   "text-xs",
-                  status === "running" ? "text-[#22c55e]" : "",
-                  status === "waiting" ? "text-[#9ca3af]" : "",
-                  status === "failed" ? "text-[#ef4444]" : "",
-                  status === "canceled" ? "text-[#f59e0b]" : "",
+                  status === "running" ? "text-green-600" : "",
+                  status === "waiting" ? "text-gray-500" : "",
+                  status === "failed" ? "text-red-500" : "",
+                  status === "canceled" ? "text-amber-500" : "",
                 ].join(" ")}
               >
                 {status === "running" && "● "}
@@ -124,7 +124,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
               <button
                 onClick={handleCancel}
                 disabled={canceling}
-                className="ml-auto text-xs px-2 py-0.5 rounded border border-[#ef4444] text-[#ef4444] hover:bg-[#ef4444] hover:text-white transition-colors disabled:opacity-40"
+                className="ml-auto text-xs px-2 py-0.5 rounded border border-red-400 text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
               >
                 {canceling ? "Canceling…" : "Cancel"}
               </button>
@@ -133,13 +133,13 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
         )}
       </div>
 
-      <StageStrip currentStage={stage} />
-
-      {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
-
-      <div className="flex-1 min-h-0 m-4 flex border border-[#21262d] rounded-lg overflow-hidden">
+      <div className="flex-1 min-h-0 m-4 flex border border-gray-200 rounded-lg overflow-hidden bg-white">
         {id && <SessionSidebar sessionId={id} stage={stage} />}
-        <main className="flex-1 overflow-auto min-h-0">{children}</main>
+        <div className="flex-1 flex flex-col min-h-0">
+          <StageStrip currentStage={stage} />
+          {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
+          <main className="flex-1 overflow-auto min-h-0">{children}</main>
+        </div>
       </div>
     </div>
   );

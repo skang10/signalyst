@@ -43,14 +43,14 @@ function StatTile({
   accent?: string;
 }) {
   return (
-    <div className="bg-[#0d0d18] border border-slate-800 rounded p-3 flex flex-col gap-1">
-      <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest">
+    <div className="bg-white border border-gray-200 rounded p-3 flex flex-col gap-1">
+      <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
         {label}
       </div>
-      <div className={`text-lg font-mono font-bold ${accent ?? "text-slate-200"}`}>
+      <div className={`text-lg font-mono font-bold ${accent ?? "text-gray-700"}`}>
         {value}
       </div>
-      {sub && <div className="text-[10px] text-slate-600 font-mono">{sub}</div>}
+      {sub && <div className="text-[10px] text-gray-400 font-mono">{sub}</div>}
     </div>
   );
 }
@@ -66,11 +66,11 @@ function DistBar({
 }) {
   return (
     <div className="flex items-center gap-2 text-xs font-mono">
-      <div className="w-28 text-right text-slate-400 truncate">{label}</div>
-      <div className="flex-1 bg-slate-900 rounded h-2 overflow-hidden">
+      <div className="w-28 text-right text-gray-500 truncate">{label}</div>
+      <div className="flex-1 bg-gray-100 rounded h-2 overflow-hidden">
         <div className={`h-full rounded ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <div className="w-8 text-slate-500 text-right">{pct.toFixed(0)}%</div>
+      <div className="w-8 text-gray-400 text-right">{pct.toFixed(0)}%</div>
     </div>
   );
 }
@@ -112,7 +112,7 @@ export function OverviewTab({ result }: Props) {
           label="Regime"
           value={REGIME_LABELS[regime.regime] ?? regime.regime}
           sub={`${(regime.confidence * 100).toFixed(1)}% confidence`}
-          accent="text-violet-400"
+          accent="text-teal-600"
         />
         <StatTile
           label="WTI Direction"
@@ -130,13 +130,13 @@ export function OverviewTab({ result }: Props) {
           label="Top Signal"
           value={topSignalName}
           sub={topSignalScore != null ? `SHAP ${topSignalScore.toFixed(2)}` : undefined}
-          accent="text-violet-300"
+          accent="text-teal-600"
         />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="bg-[#0d0d18] border border-slate-800 rounded p-3 flex flex-col gap-2">
-          <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1">
+        <div className="bg-white border border-gray-200 rounded p-3 flex flex-col gap-2">
+          <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">
             Regime Distribution
           </div>
           {Object.entries(regime.distribution)
@@ -153,14 +153,14 @@ export function OverviewTab({ result }: Props) {
                     ? "bg-red-600"
                     : r === "geopolitical_spike"
                     ? "bg-amber-500"
-                    : "bg-violet-600"
+                    : "bg-teal-600"
                 }
               />
             ))}
         </div>
 
-        <div className="bg-[#0d0d18] border border-slate-800 rounded p-3 flex flex-col gap-2">
-          <div className="text-[10px] text-slate-500 font-mono uppercase tracking-widest mb-1">
+        <div className="bg-white border border-gray-200 rounded p-3 flex flex-col gap-2">
+          <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest mb-1">
             Direction Distribution
           </div>
           {Object.entries(direction.distribution)

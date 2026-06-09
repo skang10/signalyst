@@ -17,20 +17,20 @@ function IndicatorCard({
 }) {
   const changeColor =
     changePct === null
-      ? "text-[#6b7280]"
+      ? "text-gray-500"
       : changePct >= 0
-        ? "text-[#22c55e]"
-        : "text-[#ef4444]";
+        ? "text-green-600"
+        : "text-red-500";
 
   return (
     <div
       className={[
-        "flex-1 px-3 py-2 rounded border bg-[#111827]",
-        warn ? "border-[#f59e0b]" : "border-[#21262d]",
+        "flex-1 px-3 py-2 rounded border bg-white",
+        warn ? "border-amber-400" : "border-gray-200",
       ].join(" ")}
     >
-      <div className="text-[10px] text-[#6b7280] uppercase tracking-wider mb-1">{label}</div>
-      <div className="text-base font-mono text-[#f9fafb]">{value}</div>
+      <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{label}</div>
+      <div className="text-base font-mono text-gray-900">{value}</div>
       {changePct !== null && (
         <div className={`text-xs ${changeColor}`}>
           {changePct >= 0 ? "+" : ""}
@@ -49,7 +49,7 @@ export function SessionIndicators() {
   }, []);
 
   return (
-    <div className="flex gap-2 px-4 py-3 border-b border-[#21262d]">
+    <div className="flex gap-2 px-4 py-3 border-b border-gray-200">
       <IndicatorCard
         label="WTI Crude"
         value={snapshot?.wti ? `$${snapshot.wti.price.toFixed(2)}` : "—"}

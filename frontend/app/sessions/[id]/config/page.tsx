@@ -23,7 +23,7 @@ export default function ConfigPage() {
 
   if (!featurizerConfig) {
     return (
-      <div className="flex items-center justify-center h-full text-[#4b5563] text-sm">
+      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
         Loading…
       </div>
     );
@@ -52,11 +52,11 @@ export default function ConfigPage() {
     return (
       <div className="flex flex-col gap-3 p-4">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-[#9ca3af]">Session config — read only</span>
-          <span className="text-xs text-[#6b7280]">🔒 locked at this stage</span>
+          <span className="text-xs text-gray-400">Session config — read only</span>
+          <span className="text-xs text-gray-500">🔒 locked at this stage</span>
         </div>
         <FeaturizerConfigEditor value={featurizerConfig} readOnly />
-        <p className="text-xs text-[#6b7280]">Editable only during the review step.</p>
+        <p className="text-xs text-gray-500">Editable only during the review step.</p>
       </div>
     );
   }
@@ -64,11 +64,11 @@ export default function ConfigPage() {
   return (
     <div className="flex flex-col gap-3 p-4">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-[#9ca3af]">Session config — editable while in review</span>
-        {status === "saving" && <span className="text-xs text-[#9ca3af]">Saving…</span>}
-        {status === "saved" && <span className="text-xs text-[#22c55e]">✓ Saved</span>}
+        <span className="text-xs text-gray-400">Session config — editable while in review</span>
+        {status === "saving" && <span className="text-xs text-gray-400">Saving…</span>}
+        {status === "saved" && <span className="text-xs text-green-600">✓ Saved</span>}
         {status === "failed" && (
-          <span className="text-xs text-[#ef4444] flex items-center gap-2">
+          <span className="text-xs text-red-500 flex items-center gap-2">
             Failed to save
             <button onClick={handleRetry} className="underline underline-offset-2">
               retry
