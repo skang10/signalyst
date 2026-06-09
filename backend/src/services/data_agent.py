@@ -112,7 +112,6 @@ async def _finish_stage(
     new_stage_entry = {"stage": next_stage.value, "entered_at": now_str}
     events = [*(extra_events or []), artifact_event]
 
-    s.pending_sources = []
     s.activity_events = [*current_activity_events, *events]
     s.stage = next_stage.value
     s.stage_history = [*current_stage_history, new_stage_entry]
