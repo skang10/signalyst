@@ -7,7 +7,13 @@ import { ConnectorEditor } from "@/components/ConnectorEditor";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { isSessionStale } from "@/lib/stale";
-import type { ConnectorOut, DataArtifactDetail, FeaturizerConfig, PendingSource } from "@/lib/api";
+import type {
+  ConnectorOut,
+  DataArtifactDetail,
+  FeaturizerConfig,
+  PendingSource,
+  Session,
+} from "@/lib/api";
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
@@ -33,36 +39,23 @@ function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () =>
   );
 }
 
-export default function ConfigPage() {
+// Rendered only after the session is loaded — useState initializes from correct values.
+function ConfigForm({ session }: { session: Session }) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const {
-    featurizerConfig,
-    stage,
-    status,
-    marketProfile,
-    timeframeStart,
-    timeframeEnd,
-    pendingSources,
-    artifacts,
-    setSession,
-  } = useSessionStore();
+  const { featurizerConfig, stage, status, setSession } = useSessionStore();
+  const { artifacts } = useSessionStore();
 
   const [connectors, setConnectors] = useState<ConnectorOut[]>([]);
   const [latestArtifact, setLatestArtifact] = useState<DataArtifactDetail | null>(null);
 
-  const [localStart, setLocalStart] = useState(timeframeStart ?? "");
-  const [localEnd, setLocalEnd] = useState(timeframeEnd ?? "");
-  const [localSources, setLocalSources] = useState<PendingSource[]>(pendingSources);
+  const [localStart, setLocalStart] = useState(session.timeframe_start ?? "");
+  const [localEnd, setLocalEnd] = useState(session.timeframe_end ?? "");
+  const [localSources, setLocalSources] = useState<PendingSource[]>(session.pending_sources ?? []);
 
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [featStatus, setFeatStatus] = useState<SaveStatus>("idle");
   const [pendingFeatConfig, setPendingFeatConfig] = useState<FeaturizerConfig | null>(null);
-
-  // Sync local copies when store updates (e.g. after session refresh in layout)
-  useEffect(() => setLocalStart(timeframeStart ?? ""), [timeframeStart]);
-  useEffect(() => setLocalEnd(timeframeEnd ?? ""), [timeframeEnd]);
-  useEffect(() => setLocalSources(pendingSources), [pendingSources]);
 
   useEffect(() => {
     api.getConnectors().then(setConnectors).catch(() => {});
@@ -87,15 +80,23 @@ export default function ConfigPage() {
   }, [featStatus]);
 
   const isDirty =
-    localStart !== (timeframeStart ?? "") ||
-    localEnd !== (timeframeEnd ?? "") ||
-    JSON.stringify(localSources) !== JSON.stringify(pendingSources);
+    localStart !== (session.timeframe_start ?? "") ||
+    localEnd !== (session.timeframe_end ?? "") ||
+    JSON.stringify(localSources) !== JSON.stringify(session.pending_sources ?? []);
 
   const stale = isSessionStale(
-    { timeframeStart, timeframeEnd, pendingSources },
+    {
+      timeframeStart: session.timeframe_start ?? null,
+      timeframeEnd: session.timeframe_end ?? null,
+      pendingSources: session.pending_sources ?? [],
+    },
     latestArtifact
       ? {
-          data_manifest: { date_range: latestArtifact.data_manifest.date_range, requested_start: latestArtifact.data_manifest.requested_start, requested_end: latestArtifact.data_manifest.requested_end },
+          data_manifest: {
+            date_range: latestArtifact.data_manifest.date_range,
+            requested_start: latestArtifact.data_manifest.requested_start,
+            requested_end: latestArtifact.data_manifest.requested_end,
+          },
           sources: latestArtifact.sources as { connector_id: string }[],
         }
       : null,
@@ -114,6 +115,10 @@ export default function ConfigPage() {
       });
       const updated = await api.getSession(id);
       setSession(updated);
+      // Explicitly reset local state to match what was saved
+      setLocalStart(updated.timeframe_start ?? "");
+      setLocalEnd(updated.timeframe_end ?? "");
+      setLocalSources(updated.pending_sources ?? []);
       setSaveStatus("saved");
     } catch {
       setSaveStatus("failed");
@@ -140,14 +145,6 @@ export default function ConfigPage() {
     await api.rerun(id, "data_gathering");
     router.push(`/sessions/${id}/activity`);
   };
-
-  if (!featurizerConfig) {
-    return (
-      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
-        Loading…
-      </div>
-    );
-  }
 
   return (
     <div className="flex flex-col gap-4 p-4 overflow-y-auto h-full">
@@ -189,7 +186,7 @@ export default function ConfigPage() {
           <div className="flex items-center justify-between">
             <span className="text-xs text-gray-500">Market profile</span>
             <span className="bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded">
-              {marketProfile ?? "—"}
+              {session.market_profile ?? "—"}
             </span>
           </div>
           <div className="flex items-center justify-between gap-2">
@@ -236,7 +233,7 @@ export default function ConfigPage() {
           />
         </div>
         <FeaturizerConfigEditor
-          value={featurizerConfig}
+          value={featurizerConfig!}
           onChange={stage === "user_review" ? handleFeatChange : undefined}
           readOnly={stage !== "user_review"}
         />
@@ -246,4 +243,25 @@ export default function ConfigPage() {
       </div>
     </div>
   );
+}
+
+export default function ConfigPage() {
+  const { id } = useParams<{ id: string }>();
+  const { featurizerConfig } = useSessionStore();
+  const [session, setSessionLocal] = useState<Session | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    api.getSession(id).then(setSessionLocal).catch(() => {});
+  }, [id]);
+
+  if (!featurizerConfig || !session) {
+    return (
+      <div className="flex items-center justify-center h-full text-gray-400 text-sm">
+        Loading…
+      </div>
+    );
+  }
+
+  return <ConfigForm session={session} />;
 }
