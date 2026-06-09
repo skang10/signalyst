@@ -119,7 +119,39 @@ def test_update_config_outside_user_review_returns_409(client):
         json={"featurizer_config_patch": {"windows": [7, 30, 90]}},
     )
     assert res.status_code == 409
-    assert res.json()["detail"] == "config can only be edited during user_review"
+    assert res.json()["detail"] == "featurizer config can only be edited during user_review"
+
+
+def test_update_config_timeframe_succeeds_at_configuring(client):
+    session_id = _create_session(client)
+    # Session is at CONFIGURING — timeframe patch should succeed (no stage gate)
+    res = client.patch(
+        f"/api/sessions/{session_id}/config",
+        json={"timeframe_start": "2024-01-01", "timeframe_end": "2024-12-31"},
+    )
+    assert res.status_code == 200
+    s = client.get(f"/api/sessions/{session_id}").json()
+    assert s["timeframe_start"] == "2024-01-01"
+    assert s["timeframe_end"] == "2024-12-31"
+
+
+def test_update_config_pending_sources_succeeds(client):
+    session_id = _create_session(client)
+    sources = [{"connector_id": "yfinance", "params": {"tickers": ["CL=F"]}}]
+    res = client.patch(
+        f"/api/sessions/{session_id}/config",
+        json={"pending_sources": sources},
+    )
+    assert res.status_code == 200
+    s = client.get(f"/api/sessions/{session_id}").json()
+    assert s["pending_sources"] == sources
+
+
+def test_update_config_empty_patch_succeeds(client):
+    session_id = _create_session(client)
+    # All fields optional — empty patch is valid (no-op)
+    res = client.patch(f"/api/sessions/{session_id}/config", json={})
+    assert res.status_code == 200
 
 
 def test_update_config_drops_unknown_patch_keys(client):

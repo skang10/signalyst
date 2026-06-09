@@ -111,6 +111,7 @@ def _to_detail(s: SessionModel, artifacts: SessionArtifacts) -> SessionDetail:
         error=s.error,
         auto=s.auto,
         featurizer_config=s.featurizer_config,
+        pending_sources=list(s.pending_sources or []),
         conversation=s.conversation,
         activity_events=s.activity_events,
         stage_history=s.stage_history,
