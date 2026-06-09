@@ -18,6 +18,7 @@ function mockSession(overrides: Partial<Session> = {}): Session {
       feature_families: [],
       energy_specific: true,
     },
+    pending_sources: [],
     conversation: [],
     activity_events: [],
     stage_history: [],

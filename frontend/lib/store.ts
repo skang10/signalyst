@@ -3,6 +3,7 @@ import type {
   ActivityEvent,
   ChatMessage,
   FeaturizerConfig,
+  PendingSource,
   Session,
   SessionArtifacts,
   SessionStage,
@@ -18,6 +19,10 @@ type SessionStore = {
   sessionId: string | null;
   stage: SessionStage | null;
   status: SessionStatus | null;
+  marketProfile: string | null;
+  timeframeStart: string | null;
+  timeframeEnd: string | null;
+  pendingSources: PendingSource[];
   featurizerConfig: FeaturizerConfig | null;
   conversation: ChatMessage[];
   activityEvents: ActivityEvent[];
@@ -34,6 +39,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
   sessionId: null,
   stage: null,
   status: null,
+  marketProfile: null,
+  timeframeStart: null,
+  timeframeEnd: null,
+  pendingSources: [],
   featurizerConfig: null,
   conversation: [],
   activityEvents: [],
@@ -46,6 +55,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
       sessionId: session.session_id,
       stage: session.stage,
       status: session.status,
+      marketProfile: session.market_profile,
+      timeframeStart: session.timeframe_start,
+      timeframeEnd: session.timeframe_end,
+      pendingSources: session.pending_sources ?? [],
       featurizerConfig: session.featurizer_config,
       conversation: session.conversation,
       activityEvents: session.activity_events,
@@ -67,6 +80,10 @@ export const useSessionStore = create<SessionStore>((set) => ({
       sessionId: null,
       stage: null,
       status: null,
+      marketProfile: null,
+      timeframeStart: null,
+      timeframeEnd: null,
+      pendingSources: [],
       featurizerConfig: null,
       conversation: [],
       activityEvents: [],

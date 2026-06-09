@@ -7,9 +7,11 @@ Pure utility functions in the services are tested directly.
 
 from __future__ import annotations
 
+from datetime import UTC
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
+import pytest
 
 
 def _create_session(client, **extra) -> str:
@@ -86,3 +88,69 @@ def test_data_agent_service_manifest_empty_signals():
     manifest = _build_manifest({})
     assert manifest["tickers"] == []
     assert manifest["rows"] == 0
+
+
+@pytest.mark.asyncio
+async def test_finish_stage_preserves_pending_sources():
+    """Regression: _finish_stage must not clear pending_sources (config page sync bug)."""
+    from datetime import date, datetime
+
+    from sqlalchemy.ext.asyncio import create_async_engine
+    from sqlmodel.ext.asyncio.session import AsyncSession
+
+    from src.db.models import Session as SessionModel
+    from src.db.models import SessionStage, SessionStatus
+    from src.services.data_agent import _finish_stage
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    try:
+        async with engine.begin() as conn:
+            from sqlmodel import SQLModel
+
+            await conn.run_sync(SQLModel.metadata.create_all)
+
+        async with AsyncSession(engine) as db:
+            sources = [{"connector_id": "yfinance", "params": {"tickers": ["CL=F"]}}]
+            s = SessionModel(
+                market_profile="oil",
+                timeframe_start=date(2023, 1, 1),
+                timeframe_end=date(2023, 6, 30),
+                stage=SessionStage.DATA_GATHERING.value,
+                status=SessionStatus.RUNNING.value,
+                pending_sources=sources,
+            )
+            db.add(s)
+            await db.commit()
+            await db.refresh(s)
+
+            now = datetime.now(UTC).isoformat()
+            artifact_event = {
+                "event_id": "e1",
+                "created_at": now,
+                "type": "artifact_ready",
+                "kind": "data",
+                "artifact_id": "a1",
+                "rows": 10,
+                "tickers": ["CL=F"],
+            }
+            await _finish_stage(
+                s,
+                db,
+                str(s.id),
+                False,
+                list(s.activity_events or []),
+                list(s.stage_history or []),
+                list(s.conversation or []),
+                {"tickers": ["CL=F"], "rows": 10, "date_range": {}, "missing_pct": {}},
+                artifact_event,
+            )
+            await db.commit()
+            await db.refresh(s)
+
+            assert s.pending_sources == sources
+    finally:
+        async with engine.begin() as conn:
+            from sqlmodel import SQLModel
+
+            await conn.run_sync(SQLModel.metadata.drop_all)
+        await engine.dispose()

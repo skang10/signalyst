@@ -4,6 +4,7 @@ import hashlib
 import io
 import pathlib
 import uuid
+from datetime import date
 from typing import Annotated, Any
 
 import pandas as pd
@@ -441,12 +442,22 @@ async def update_config(
 ) -> ConfigPatchResponse:
     uid, s = await _get_session_or_404(session_id, db)
 
-    if s.stage != SessionStage.USER_REVIEW:
-        raise HTTPException(status_code=409, detail="config can only be edited during user_review")
+    if req.featurizer_config_patch is not None:
+        if s.stage != SessionStage.USER_REVIEW:
+            raise HTTPException(
+                status_code=409,
+                detail="featurizer config can only be edited during user_review",
+            )
+        s.featurizer_config = apply_config_patch(s.featurizer_config, req.featurizer_config_patch)
 
-    s.featurizer_config = apply_config_patch(s.featurizer_config, req.featurizer_config_patch)
+    if req.timeframe_start is not None:
+        s.timeframe_start = date.fromisoformat(req.timeframe_start)
+    if req.timeframe_end is not None:
+        s.timeframe_end = date.fromisoformat(req.timeframe_end)
+    if req.pending_sources is not None:
+        s.pending_sources = req.pending_sources
+
     await db.commit()
-
     log.info("session.config_updated", session_id=session_id)
     return ConfigPatchResponse(session_id=session_id)
 

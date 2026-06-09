@@ -19,6 +19,19 @@ export type FeaturizerConfig = {
   energy_specific: boolean;
 };
 
+export type PendingSource = {
+  connector_id: string;
+  params?: Record<string, unknown>;
+};
+
+export type ConnectorOut = {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  available: boolean;
+};
+
 export type DataArtifactRef = {
   artifact_id: string;
   round: number;
@@ -73,6 +86,7 @@ export type Session = {
   error: string | null;
   auto: boolean;
   featurizer_config: FeaturizerConfig;
+  pending_sources: PendingSource[];
   conversation: ChatMessage[];
   activity_events: ActivityEvent[];
   stage_history: StageHistoryEntry[];
@@ -134,6 +148,8 @@ export type DataArtifactDetail = {
   data_manifest: {
     tickers: string[];
     date_range: { start: string; end: string };
+    requested_start?: string;
+    requested_end?: string;
     rows: number;
     missing_pct: Record<string, number>;
     summary_stats: Record<string, { mean: number; std: number; min: number; max: number }>;
@@ -205,11 +221,21 @@ export const api = {
       }),
     }),
 
-  updateConfig: (sessionId: string, patch: Partial<FeaturizerConfig>) =>
+  updateConfig: (
+    sessionId: string,
+    patch: {
+      featurizer_config_patch?: Partial<FeaturizerConfig>;
+      timeframe_start?: string;
+      timeframe_end?: string;
+      pending_sources?: PendingSource[];
+    },
+  ) =>
     request<{ session_id: string }>(`/api/sessions/${sessionId}/config`, {
       method: "PATCH",
-      body: JSON.stringify({ featurizer_config_patch: patch }),
+      body: JSON.stringify(patch),
     }),
+
+  getConnectors: () => request<ConnectorOut[]>("/api/connectors"),
 
   cancelSession: (sessionId: string) =>
     request<{ session_id: string; stage: string; status: string }>(

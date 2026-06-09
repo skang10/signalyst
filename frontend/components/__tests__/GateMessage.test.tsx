@@ -15,6 +15,7 @@ describe("UserReviewGate", () => {
     const onProceed = vi.fn();
     render(
       <UserReviewGate
+        sessionId="test-session"
         serverConfig={serverConfig}
         onProceed={onProceed}
         proceeding={false}
@@ -29,6 +30,7 @@ describe("UserReviewGate", () => {
     const onDirtyChange = vi.fn();
     render(
       <UserReviewGate
+        sessionId="test-session"
         serverConfig={serverConfig}
         onProceed={() => {}}
         proceeding={false}
@@ -44,6 +46,7 @@ describe("UserReviewGate", () => {
     const onProceed = vi.fn();
     render(
       <UserReviewGate
+        sessionId="test-session"
         serverConfig={serverConfig}
         onProceed={onProceed}
         proceeding={false}
@@ -58,6 +61,7 @@ describe("UserReviewGate", () => {
   it("resyncs the draft when the server config changes from outside (e.g. a chat update)", () => {
     const { rerender } = render(
       <UserReviewGate
+        sessionId="test-session"
         serverConfig={serverConfig}
         onProceed={() => {}}
         proceeding={false}
@@ -69,6 +73,7 @@ describe("UserReviewGate", () => {
     const updatedConfig: FeaturizerConfig = { ...serverConfig, windows: [7, 30, 90] };
     rerender(
       <UserReviewGate
+        sessionId="test-session"
         serverConfig={updatedConfig}
         onProceed={() => {}}
         proceeding={false}
@@ -86,6 +91,7 @@ describe("UserReviewGate", () => {
     const onDirtyChange = vi.fn();
     render(
       <UserReviewGate
+        sessionId="test-session"
         serverConfig={serverConfig}
         onProceed={() => {}}
         proceeding={false}

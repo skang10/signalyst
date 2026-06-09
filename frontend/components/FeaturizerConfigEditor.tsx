@@ -43,7 +43,7 @@ function NumberRow({
 }) {
   const [draft, setDraft] = useState("");
   const commit = () => {
-    const n = Number(draft);
+    const n = parseInt(draft, 10);
     if (Number.isInteger(n) && n > 0 && !values.includes(n)) onAdd(n);
     setDraft("");
   };
@@ -72,8 +72,12 @@ function NumberRow({
         </button>
       ))}
       <input
+        type="number"
+        min={1}
+        step={1}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();

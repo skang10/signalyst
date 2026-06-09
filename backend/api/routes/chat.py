@@ -111,6 +111,7 @@ async def chat(
             session_stage=current_stage,
             conversation=user_conversation,
             data_manifest=data_manifest,
+            featurizer_config=current_featurizer_config,
         )
     except Exception as exc:
         log.error("chat.interpret_failed", session_id=session_id, error=str(exc))

@@ -103,14 +103,14 @@ describe("api.updateConfig", () => {
   it("PATCHes /config with the featurizer_config_patch body", async () => {
     const { api } = await import("../api");
     mockOk({ session_id: "ses-1" });
-    const patch = { windows: [7, 30, 90] };
+    const patch = { featurizer_config_patch: { windows: [7, 30, 90] } };
     await api.updateConfig("ses-1", patch);
     const [, init] = mockFetch.mock.calls[0];
     expect(mockFetch).toHaveBeenCalledWith(
       expect.stringContaining("/api/sessions/ses-1/config"),
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(JSON.parse(init.body as string)).toEqual({ featurizer_config_patch: patch });
+    expect(JSON.parse(init.body as string)).toEqual(patch);
   });
 });
 

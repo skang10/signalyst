@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { FeaturizerConfigEditor } from "./FeaturizerConfigEditor";
+import { api } from "@/lib/api";
 import type { FeaturizerConfig } from "@/lib/api";
 
 function arraysEqual<T>(a: T[], b: T[]): boolean {
@@ -18,6 +19,7 @@ function configsEqual(a: FeaturizerConfig, b: FeaturizerConfig): boolean {
 }
 
 type UserReviewGateProps = {
+  sessionId: string;
   serverConfig: FeaturizerConfig;
   onProceed: (patch?: FeaturizerConfig) => void;
   proceeding: boolean;
@@ -25,12 +27,18 @@ type UserReviewGateProps = {
 };
 
 export function UserReviewGate({
+  sessionId,
   serverConfig,
   onProceed,
   proceeding,
   onDirtyChange,
 }: UserReviewGateProps) {
   const [draft, setDraft] = useState(serverConfig);
+
+  const handleConfigChange = (next: FeaturizerConfig) => {
+    setDraft(next);
+    api.updateConfig(sessionId, { featurizer_config_patch: next }).catch(() => {});
+  };
   const [syncedConfig, setSyncedConfig] = useState(serverConfig);
   const isDirty = !configsEqual(draft, serverConfig);
 
@@ -52,7 +60,7 @@ export function UserReviewGate({
 
   return (
     <div className="self-end max-w-[85%] flex flex-col gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
-      <FeaturizerConfigEditor value={draft} onChange={setDraft} />
+      <FeaturizerConfigEditor value={draft} onChange={handleConfigChange} />
 
       {isDirty && (
         <div className="flex items-center gap-2 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded text-xs text-amber-700">
