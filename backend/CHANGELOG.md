@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.14.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.13.0...signalyst-backend-v0.14.0) (2026-06-09)
+
+
+### Features
+
+* add follow-up analysis and refresh session UI ([#49](https://github.com/skang10/signalyst/issues/49)) ([a34eb66](https://github.com/skang10/signalyst/commit/a34eb664fbf3300e964998f375bf17cea4a6cc36))
+* add FollowUpAgent and route FOLLOW_UP-stage chat to it (PR 4b) ([#47](https://github.com/skang10/signalyst/issues/47)) ([e0a4c77](https://github.com/skang10/signalyst/commit/e0a4c77a516f48df9ec8991ff27ffdcde99beb40))
+
 ## [0.13.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.12.0...signalyst-backend-v0.13.0) (2026-06-07)
 
 
