@@ -34,7 +34,7 @@ export default function ConfigPage() {
     setStatus("saving");
     setPendingConfig(next);
     try {
-      await api.updateConfig(id, next);
+      await api.updateConfig(id, { featurizer_config_patch: next });
       const updated = await api.getSession(id);
       setSession(updated);
       setStatus("saved");
