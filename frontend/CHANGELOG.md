@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.9.0...signalyst-frontend-v0.10.0) (2026-06-09)
+
+
+### Features
+
+* add follow-up analysis and refresh session UI ([#49](https://github.com/skang10/signalyst/issues/49)) ([a34eb66](https://github.com/skang10/signalyst/commit/a34eb664fbf3300e964998f375bf17cea4a6cc36))
+
 ## [0.9.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.8.0...signalyst-frontend-v0.9.0) (2026-06-07)
 
 
