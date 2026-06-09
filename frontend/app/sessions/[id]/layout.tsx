@@ -133,13 +133,13 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
         )}
       </div>
 
-      <StageStrip currentStage={stage} />
-
-      {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
-
       <div className="flex-1 min-h-0 m-4 flex border border-gray-200 rounded-lg overflow-hidden bg-white">
         {id && <SessionSidebar sessionId={id} stage={stage} />}
-        <main className="flex-1 overflow-auto min-h-0">{children}</main>
+        <div className="flex-1 flex flex-col min-h-0">
+          <StageStrip currentStage={stage} />
+          {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
+          <main className="flex-1 overflow-auto min-h-0">{children}</main>
+        </div>
       </div>
     </div>
   );
