@@ -30,9 +30,12 @@ describe("FeaturizerConfigEditor", () => {
   it("adds a new window on Enter, keeping the list sorted and de-duplicated", () => {
     const onChange = vi.fn();
     render(<FeaturizerConfigEditor value={baseConfig} onChange={onChange} />);
-    const [windowsInput] = screen.getAllByPlaceholderText("+ add");
-    fireEvent.change(windowsInput, { target: { value: "10" } });
-    fireEvent.keyDown(windowsInput, { key: "Enter" });
+    // Click the first "+ add" button (Windows row) to enter editing mode
+    const [windowsAddBtn] = screen.getAllByText("+ add");
+    fireEvent.click(windowsAddBtn);
+    const input = screen.getByPlaceholderText("e.g. 90");
+    fireEvent.change(input, { target: { value: "10" } });
+    fireEvent.keyDown(input, { key: "Enter" });
     expect(onChange).toHaveBeenCalledWith({ ...baseConfig, windows: [5, 10, 20, 60] });
   });
 
