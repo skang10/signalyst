@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const DATA_LOCKED_STAGES = new Set(["configuring", "data_gathering"]);
+const RESULTS_PATHS = new Set(["overview", "features", "backtest"]);
 const RESULTS_UNLOCKED_STAGE = "follow_up";
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -23,20 +24,13 @@ export function SessionSidebar({
 }) {
   const pathname = usePathname();
 
-  function NavItem({ label, path }: { label: string; path: string }) {
+  function NavItem({ label, path, badge }: { label: string; path: string; badge?: string }) {
     const href = `/sessions/${sessionId}/${path}`;
     const isActive = pathname === href;
 
     const isLocked =
       (path === "data" && stage !== null && DATA_LOCKED_STAGES.has(stage)) ||
-      (path === "results" && stage !== RESULTS_UNLOCKED_STAGE);
-
-    const badge =
-      path === "data" && stage !== null && !DATA_LOCKED_STAGES.has(stage)
-        ? " ✓"
-        : path === "results" && stage === RESULTS_UNLOCKED_STAGE
-        ? " ✦"
-        : "";
+      (RESULTS_PATHS.has(path) && stage !== RESULTS_UNLOCKED_STAGE);
 
     if (isLocked) {
       return (
@@ -60,21 +54,27 @@ export function SessionSidebar({
             : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
         ].join(" ")}
       >
-        {label}
-        {badge}
+        {label}{badge}
       </Link>
     );
   }
 
+  const sourcesBadge = stage !== null && !DATA_LOCKED_STAGES.has(stage) ? " ✓" : "";
+  const overviewBadge = stage === RESULTS_UNLOCKED_STAGE ? " ✦" : "";
+
   return (
     <nav className="w-[170px] flex-shrink-0 flex flex-col p-2.5 border-r border-gray-200">
-      <SectionLabel>Analysis</SectionLabel>
+      <SectionLabel>Navigation</SectionLabel>
       <NavItem label="Activity" path="activity" />
 
-      <SectionLabel>Resources</SectionLabel>
-      <NavItem label="Data" path="data" />
+      <SectionLabel>Data</SectionLabel>
+      <NavItem label="Sources" path="data" badge={sourcesBadge} />
       <NavItem label="Config" path="config" />
-      <NavItem label="Results" path="results" />
+
+      <SectionLabel>Results</SectionLabel>
+      <NavItem label="Overview" path="overview" badge={overviewBadge} />
+      <NavItem label="Features" path="features" />
+      <NavItem label="Backtest" path="backtest" />
     </nav>
   );
 }
