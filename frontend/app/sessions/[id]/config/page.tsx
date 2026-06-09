@@ -40,10 +40,16 @@ function SaveIndicator({ status, onRetry }: { status: SaveStatus; onRetry: () =>
 }
 
 // Rendered only after the session is loaded — useState initializes from correct values.
-function ConfigForm({ session }: { session: Session }) {
+function ConfigForm({
+  session,
+  onSessionUpdated,
+}: {
+  session: Session;
+  onSessionUpdated: (s: Session) => void;
+}) {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const { featurizerConfig, stage, status, setSession } = useSessionStore();
+  const { stage, status, setSession } = useSessionStore();
   const { artifacts } = useSessionStore();
 
   const [connectors, setConnectors] = useState<ConnectorOut[]>([]);
@@ -133,6 +139,7 @@ function ConfigForm({ session }: { session: Session }) {
       await api.updateConfig(id, { featurizer_config_patch: next });
       const updated = await api.getSession(id);
       setSession(updated);
+      onSessionUpdated(updated);
       setFeatStatus("saved");
       setPendingFeatConfig(null);
     } catch {
@@ -233,7 +240,7 @@ function ConfigForm({ session }: { session: Session }) {
           />
         </div>
         <FeaturizerConfigEditor
-          value={featurizerConfig!}
+          value={session.featurizer_config as FeaturizerConfig}
           onChange={stage === "user_review" ? handleFeatChange : undefined}
           readOnly={stage !== "user_review"}
         />
@@ -247,7 +254,6 @@ function ConfigForm({ session }: { session: Session }) {
 
 export default function ConfigPage() {
   const { id } = useParams<{ id: string }>();
-  const { featurizerConfig } = useSessionStore();
   const [session, setSessionLocal] = useState<Session | null>(null);
 
   useEffect(() => {
@@ -255,7 +261,7 @@ export default function ConfigPage() {
     api.getSession(id).then(setSessionLocal).catch(() => {});
   }, [id]);
 
-  if (!featurizerConfig || !session) {
+  if (!session) {
     return (
       <div className="flex items-center justify-center h-full text-gray-400 text-sm">
         Loading…
@@ -263,5 +269,5 @@ export default function ConfigPage() {
     );
   }
 
-  return <ConfigForm session={session} />;
+  return <ConfigForm session={session} onSessionUpdated={setSessionLocal} />;
 }

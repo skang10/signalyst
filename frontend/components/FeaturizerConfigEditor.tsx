@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { FeaturizerConfig } from "@/lib/api";
 
 const FAMILY_LABELS: Record<string, string> = {
@@ -21,9 +21,7 @@ const TAG_ACTIVE =
 const TAG_INACTIVE =
   "px-2 py-0.5 bg-transparent border border-gray-300 rounded text-xs text-gray-400 line-through hover:border-gray-400";
 const TAG_READONLY =
-  "px-2 py-0.5 bg-transparent border border-gray-200 rounded text-xs text-gray-500";
-const ADD_INPUT =
-  "w-14 bg-transparent border border-dashed border-gray-300 rounded px-2 py-0.5 text-xs text-gray-500 placeholder:text-gray-400 focus:outline-none focus:border-teal-400";
+  "px-2 py-0.5 bg-teal-50 border border-teal-300 rounded text-xs text-teal-700 opacity-60";
 const ROW_LABEL = "text-[10px] text-gray-500 w-16 flex-shrink-0";
 
 function NumberRow({
@@ -41,11 +39,20 @@ function NumberRow({
   onRemove: (n: number) => void;
   readOnly?: boolean;
 }) {
+  const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const commit = () => {
     const n = parseInt(draft, 10);
     if (Number.isInteger(n) && n > 0 && !values.includes(n)) onAdd(n);
     setDraft("");
+    setEditing(false);
+  };
+
+  const startEditing = () => {
+    setEditing(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   if (readOnly) {
@@ -71,22 +78,30 @@ function NumberRow({
           {unit} ×
         </button>
       ))}
-      <input
-        type="number"
-        min={1}
-        step={1}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            commit();
-          }
-        }}
-        placeholder="+ add"
-        className={ADD_INPUT}
-      />
+      {editing ? (
+        <input
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") { e.preventDefault(); commit(); }
+            if (e.key === "Escape") { setDraft(""); setEditing(false); }
+          }}
+          placeholder={`e.g. 90`}
+          className="w-16 bg-transparent border border-teal-400 rounded px-2 py-0.5 text-xs font-mono outline-none"
+        />
+      ) : (
+        <button
+          onClick={startEditing}
+          className="px-2 py-0.5 border border-dashed border-gray-300 rounded text-xs text-gray-400 hover:border-teal-400 hover:text-teal-600 transition-colors"
+        >
+          + add
+        </button>
+      )}
     </div>
   );
 }
