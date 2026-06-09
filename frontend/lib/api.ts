@@ -148,6 +148,8 @@ export type DataArtifactDetail = {
   data_manifest: {
     tickers: string[];
     date_range: { start: string; end: string };
+    requested_start?: string;
+    requested_end?: string;
     rows: number;
     missing_pct: Record<string, number>;
     summary_stats: Record<string, { mean: number; std: number; min: number; max: number }>;

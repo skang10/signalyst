@@ -164,6 +164,8 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
     is_auto = s.auto
 
     pending = list(s.pending_sources or [])
+    requested_start = str(s.timeframe_start) if s.timeframe_start else ""
+    requested_end = str(s.timeframe_end) if s.timeframe_end else ""
     log.info(
         "data_agent.starting",
         session_id=session_id_str,
@@ -204,7 +206,11 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
                 select(func.count()).where(DataArtifact.session_id == session_id)
             )
             round_num = (count_result.scalar() or 0) + 1
-            data_manifest = cached.data_manifest
+            data_manifest = {
+                **cached.data_manifest,
+                "requested_start": requested_start,
+                "requested_end": requested_end,
+            }
 
             a = DataArtifact(
                 id=artifact_id,
@@ -274,7 +280,11 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
 
         # All reads below use snapshots — s is expired after the await above
         raw_data = _series_to_raw_data(ctx.signals)
-        data_manifest = _build_manifest(ctx.signals)
+        data_manifest = {
+            **_build_manifest(ctx.signals),
+            "requested_start": requested_start,
+            "requested_end": requested_end,
+        }
 
         artifact_id = uuid.uuid4()
         count_result = await db.execute(
