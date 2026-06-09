@@ -50,6 +50,7 @@ class SessionDetail(BaseModel):
     error: str | None
     auto: bool
     featurizer_config: dict[str, object]
+    pending_sources: list[object]
     conversation: list[object]
     activity_events: list[object]
     stage_history: list[object]
@@ -115,7 +116,10 @@ class RerunResponse(BaseModel):
 
 
 class ConfigPatchRequest(BaseModel):
-    featurizer_config_patch: dict[str, object]
+    featurizer_config_patch: dict[str, object] | None = None
+    timeframe_start: str | None = None
+    timeframe_end: str | None = None
+    pending_sources: list[dict[str, object]] | None = None
 
 
 class ConfigPatchResponse(BaseModel):
