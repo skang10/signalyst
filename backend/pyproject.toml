@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "signalyst-backend"
-version = "0.12.0"
+version = "0.14.0"
 requires-python = ">=3.12"
 dependencies = [
     # Web
     "fastapi>=0.136.1",
     "starlette>=1.2.1",
-    "uvicorn[standard]>=0.48.0",
+    "uvicorn[standard]>=0.49.0",
     "websockets>=13.0",
     "httpx>=0.27.0",
     # Data / validation
@@ -40,7 +40,7 @@ dependencies = [
     "anthropic>=0.105.2",
     "openai>=2.37.0",
     # Observability
-    "structlog>=24.4.0",
+    "structlog>=26.1.0",
     "sentry-sdk[fastapi]>=2.61.1",
     # Auth
     "python-jose[cryptography]>=3.5.0",

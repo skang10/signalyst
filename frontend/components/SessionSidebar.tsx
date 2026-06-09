@@ -15,6 +15,56 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+function NavItem({
+  label,
+  path,
+  badge,
+  sessionId,
+  pathname,
+  stage,
+}: {
+  label: string;
+  path: string;
+  badge?: string;
+  sessionId: string;
+  pathname: string;
+  stage: string | null;
+}) {
+  const href = `/sessions/${sessionId}/${path}`;
+  const isActive = pathname === href;
+
+  const isLocked =
+    (path === "data" && stage !== null && DATA_LOCKED_STAGES.has(stage)) ||
+    (RESULTS_PATHS.has(path) && stage !== RESULTS_UNLOCKED_STAGE);
+
+  if (isLocked) {
+    return (
+      <span
+        title="Locked — not available at this stage"
+        className="flex items-center justify-between px-3 py-2 rounded text-sm text-gray-300 cursor-not-allowed select-none"
+      >
+        {label}
+        <span aria-hidden>🔒</span>
+      </span>
+    );
+  }
+
+  return (
+    <Link
+      href={href}
+      className={[
+        "px-3 py-2 rounded text-sm transition-colors",
+        isActive
+          ? "bg-gray-100 text-gray-900 font-semibold"
+          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
+      ].join(" ")}
+    >
+      {label}
+      {badge}
+    </Link>
+  );
+}
+
 export function SessionSidebar({
   sessionId,
   stage,
@@ -24,57 +74,60 @@ export function SessionSidebar({
 }) {
   const pathname = usePathname();
 
-  function NavItem({ label, path, badge }: { label: string; path: string; badge?: string }) {
-    const href = `/sessions/${sessionId}/${path}`;
-    const isActive = pathname === href;
-
-    const isLocked =
-      (path === "data" && stage !== null && DATA_LOCKED_STAGES.has(stage)) ||
-      (RESULTS_PATHS.has(path) && stage !== RESULTS_UNLOCKED_STAGE);
-
-    if (isLocked) {
-      return (
-        <span
-          title="Locked — not available at this stage"
-          className="flex items-center justify-between px-3 py-2 rounded text-sm text-gray-300 cursor-not-allowed select-none"
-        >
-          {label}
-          <span aria-hidden>🔒</span>
-        </span>
-      );
-    }
-
-    return (
-      <Link
-        href={href}
-        className={[
-          "px-3 py-2 rounded text-sm transition-colors",
-          isActive
-            ? "bg-gray-100 text-gray-900 font-semibold"
-            : "text-gray-600 hover:text-gray-900 hover:bg-gray-50",
-        ].join(" ")}
-      >
-        {label}{badge}
-      </Link>
-    );
-  }
-
   const sourcesBadge = stage !== null && !DATA_LOCKED_STAGES.has(stage) ? " ✓" : "";
   const overviewBadge = stage === RESULTS_UNLOCKED_STAGE ? " ✦" : "";
 
   return (
     <nav className="w-[170px] flex-shrink-0 flex flex-col p-2.5 border-r border-gray-200">
       <SectionLabel>Navigation</SectionLabel>
-      <NavItem label="Agent Chat" path="activity" />
+      <NavItem
+        label="Agent Chat"
+        path="activity"
+        sessionId={sessionId}
+        pathname={pathname}
+        stage={stage}
+      />
 
       <SectionLabel>Data</SectionLabel>
-      <NavItem label="Config" path="config" />
-      <NavItem label="Sources" path="data" badge={sourcesBadge} />
+      <NavItem
+        label="Config"
+        path="config"
+        sessionId={sessionId}
+        pathname={pathname}
+        stage={stage}
+      />
+      <NavItem
+        label="Sources"
+        path="data"
+        badge={sourcesBadge}
+        sessionId={sessionId}
+        pathname={pathname}
+        stage={stage}
+      />
 
       <SectionLabel>Results</SectionLabel>
-      <NavItem label="Overview" path="overview" badge={overviewBadge} />
-      <NavItem label="Features" path="features" />
-      <NavItem label="Backtest" path="backtest" />
+      <NavItem
+        label="Overview"
+        path="overview"
+        badge={overviewBadge}
+        sessionId={sessionId}
+        pathname={pathname}
+        stage={stage}
+      />
+      <NavItem
+        label="Features"
+        path="features"
+        sessionId={sessionId}
+        pathname={pathname}
+        stage={stage}
+      />
+      <NavItem
+        label="Backtest"
+        path="backtest"
+        sessionId={sessionId}
+        pathname={pathname}
+        stage={stage}
+      />
     </nav>
   );
 }

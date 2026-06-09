@@ -1,10 +1,16 @@
 from __future__ import annotations
 
+import asyncio
 import io
 import json
+import uuid
+from datetime import date
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
+
+from src.db.models import Session as SessionModel
+from src.db.models import SessionStage, SessionStatus
 
 
 def _make_csv_bytes(n: int = 100) -> bytes:
@@ -34,6 +40,35 @@ def _setup_session_at_user_review(client) -> str:
             data={"source_name": "test"},
         )
     return session_id
+
+
+def _seed_session_at_follow_up(client) -> str:
+    async def _seed() -> uuid.UUID:
+        from api.main import app
+        from src.db.session import get_session
+
+        session_id = uuid.uuid4()
+        override = app.dependency_overrides[get_session]
+        agen = override()
+        db = await agen.__anext__()
+        try:
+            db.add(
+                SessionModel(
+                    id=session_id,
+                    market_profile="oil",
+                    timeframe_start=date(2023, 1, 1),
+                    timeframe_end=date(2023, 6, 30),
+                    stage=SessionStage.FOLLOW_UP.value,
+                    status=SessionStatus.WAITING.value,
+                    conversation=[],
+                )
+            )
+            await db.commit()
+        finally:
+            await agen.aclose()
+        return session_id
+
+    return str(asyncio.run(_seed()))
 
 
 def test_chat_at_user_review_returns_202(client):
@@ -340,3 +375,34 @@ def test_review_interpreter_system_prompt_lists_valid_config_patch_keys():
 
     for key in ("windows", "lags", "feature_families", "energy_specific"):
         assert f'"{key}"' in _SYSTEM_PROMPT
+
+
+def test_chat_at_follow_up_returns_202_and_enqueues_followup_service(client):
+    session_id = _seed_session_at_follow_up(client)
+
+    with patch("api.routes.chat.run_followup_service", new_callable=AsyncMock) as mock_followup:
+        res = client.post(
+            f"/api/sessions/{session_id}/chat",
+            json={"message": "what regime are we in?"},
+        )
+
+    assert res.status_code == 202
+    mock_followup.assert_called_once()
+
+    detail = client.get(f"/api/sessions/{session_id}").json()
+    assert detail["stage"] == "follow_up"
+    assert detail["status"] == "running"
+    assert detail["conversation"][-1]["role"] == "user"
+    assert detail["conversation"][-1]["content"] == "what regime are we in?"
+
+
+def test_chat_at_follow_up_does_not_invoke_review_interpreter(client):
+    session_id = _seed_session_at_follow_up(client)
+
+    with (
+        patch("api.routes.chat.run_followup_service", new_callable=AsyncMock),
+        patch("api.routes.chat.ReviewInterpreter") as mock_cls,
+    ):
+        client.post(f"/api/sessions/{session_id}/chat", json={"message": "hi"})
+
+    mock_cls.assert_not_called()
