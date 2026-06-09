@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FeaturizerConfigEditor } from "@/components/FeaturizerConfigEditor";
 import { ConnectorEditor } from "@/components/ConnectorEditor";
@@ -55,12 +55,9 @@ export default function ConfigPage() {
   const [localEnd, setLocalEnd] = useState(timeframeEnd ?? "");
   const [localSources, setLocalSources] = useState<PendingSource[]>(pendingSources);
 
-  const [tfStatus, setTfStatus] = useState<SaveStatus>("idle");
-  const [srcStatus, setSrcStatus] = useState<SaveStatus>("idle");
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [featStatus, setFeatStatus] = useState<SaveStatus>("idle");
   const [pendingFeatConfig, setPendingFeatConfig] = useState<FeaturizerConfig | null>(null);
-
-  const srcDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync local copies when store updates (e.g. after session refresh in layout)
   useEffect(() => setLocalStart(timeframeStart ?? ""), [timeframeStart]);
@@ -77,28 +74,28 @@ export default function ConfigPage() {
     api.getArtifact(id, last.artifact_id).then(setLatestArtifact).catch(() => {});
   }, [id, artifacts.data]);
 
-  // Auto-clear save indicators after 2 s
   useEffect(() => {
-    if (tfStatus !== "saved") return;
-    const t = setTimeout(() => setTfStatus("idle"), 2000);
+    if (saveStatus !== "saved") return;
+    const t = setTimeout(() => setSaveStatus("idle"), 2000);
     return () => clearTimeout(t);
-  }, [tfStatus]);
-  useEffect(() => {
-    if (srcStatus !== "saved") return;
-    const t = setTimeout(() => setSrcStatus("idle"), 2000);
-    return () => clearTimeout(t);
-  }, [srcStatus]);
+  }, [saveStatus]);
+
   useEffect(() => {
     if (featStatus !== "saved") return;
     const t = setTimeout(() => setFeatStatus("idle"), 2000);
     return () => clearTimeout(t);
   }, [featStatus]);
 
+  const isDirty =
+    localStart !== (timeframeStart ?? "") ||
+    localEnd !== (timeframeEnd ?? "") ||
+    JSON.stringify(localSources) !== JSON.stringify(pendingSources);
+
   const stale = isSessionStale(
     { timeframeStart, timeframeEnd, pendingSources },
     latestArtifact
       ? {
-          data_manifest: { date_range: latestArtifact.data_manifest.date_range },
+          data_manifest: { date_range: latestArtifact.data_manifest.date_range, requested_start: latestArtifact.data_manifest.requested_start, requested_end: latestArtifact.data_manifest.requested_end },
           sources: latestArtifact.sources as { connector_id: string }[],
         }
       : null,
@@ -106,34 +103,21 @@ export default function ConfigPage() {
 
   const isRunning = status === "running";
 
-  const saveTimeframe = useCallback(async () => {
+  const handleSaveConfig = async () => {
     if (!id) return;
-    setTfStatus("saving");
+    setSaveStatus("saving");
     try {
-      await api.updateConfig(id, { timeframe_start: localStart, timeframe_end: localEnd });
+      await api.updateConfig(id, {
+        timeframe_start: localStart,
+        timeframe_end: localEnd,
+        pending_sources: localSources,
+      });
       const updated = await api.getSession(id);
       setSession(updated);
-      setTfStatus("saved");
+      setSaveStatus("saved");
     } catch {
-      setTfStatus("failed");
+      setSaveStatus("failed");
     }
-  }, [id, localStart, localEnd, setSession]);
-
-  const handleSourcesChange = (next: PendingSource[]) => {
-    setLocalSources(next);
-    if (srcDebounce.current) clearTimeout(srcDebounce.current);
-    srcDebounce.current = setTimeout(async () => {
-      if (!id) return;
-      setSrcStatus("saving");
-      try {
-        await api.updateConfig(id, { pending_sources: next });
-        const updated = await api.getSession(id);
-        setSession(updated);
-        setSrcStatus("saved");
-      } catch {
-        setSrcStatus("failed");
-      }
-    }, 600);
   };
 
   const handleFeatChange = async (next: FeaturizerConfig) => {
@@ -182,6 +166,22 @@ export default function ConfigPage() {
         </div>
       )}
 
+      {(isDirty || saveStatus !== "idle") && (
+        <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg flex-shrink-0">
+          <span className="text-xs text-gray-500">You have unsaved changes.</span>
+          <div className="flex items-center gap-3">
+            <SaveIndicator status={saveStatus} onRetry={handleSaveConfig} />
+            <button
+              onClick={handleSaveConfig}
+              disabled={isRunning || saveStatus === "saving"}
+              className="px-3 py-1 text-xs font-medium bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-40 transition-colors"
+            >
+              {saveStatus === "saving" ? "Saving…" : "Save"}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* SESSION */}
       <div>
         <SectionLabel>Session</SectionLabel>
@@ -200,7 +200,6 @@ export default function ConfigPage() {
                 value={localStart}
                 disabled={isRunning}
                 onChange={(e) => setLocalStart(e.target.value)}
-                onBlur={saveTimeframe}
                 className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
               />
               <span className="text-xs text-gray-400">→</span>
@@ -209,10 +208,8 @@ export default function ConfigPage() {
                 value={localEnd}
                 disabled={isRunning}
                 onChange={(e) => setLocalEnd(e.target.value)}
-                onBlur={saveTimeframe}
                 className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
               />
-              <SaveIndicator status={tfStatus} onRetry={saveTimeframe} />
             </div>
           </div>
         </div>
@@ -220,17 +217,11 @@ export default function ConfigPage() {
 
       {/* DATA SOURCES */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <SectionLabel>Data Sources</SectionLabel>
-          <SaveIndicator
-            status={srcStatus}
-            onRetry={() => handleSourcesChange(localSources)}
-          />
-        </div>
+        <SectionLabel>Data Sources</SectionLabel>
         <ConnectorEditor
           available={connectors}
           value={localSources}
-          onChange={handleSourcesChange}
+          onChange={setLocalSources}
           readOnly={isRunning}
         />
       </div>
