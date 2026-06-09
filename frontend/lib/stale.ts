@@ -17,13 +17,16 @@ export function isSessionStale(
 ): boolean {
   if (!latestArtifact) return false;
 
-  const artifactStart =
-    latestArtifact.data_manifest.requested_start ?? latestArtifact.data_manifest.date_range.start;
-  const artifactEnd =
-    latestArtifact.data_manifest.requested_end ?? latestArtifact.data_manifest.date_range.end;
+  const { requested_start: artifactStart, requested_end: artifactEnd } =
+    latestArtifact.data_manifest;
 
+  // Only compare timeframe when the artifact has the requested dates stamped on it.
+  // Older artifacts lack this field; falling back to date_range (actual data dates) would
+  // produce false positives because trading calendars shift the start by a day or two.
   const tfChanged =
-    session.timeframeStart !== artifactStart || session.timeframeEnd !== artifactEnd;
+    artifactStart !== undefined && artifactEnd !== undefined
+      ? session.timeframeStart !== artifactStart || session.timeframeEnd !== artifactEnd
+      : false;
 
   const sessionIds = session.pendingSources
     .map((s) => s.connector_id)
