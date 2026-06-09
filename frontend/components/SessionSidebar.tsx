@@ -69,7 +69,6 @@ export function SessionSidebar({
 
       <SectionLabel>Data</SectionLabel>
       <NavItem label="Sources" path="data" badge={sourcesBadge} />
-      <NavItem label="Config" path="config" />
 
       <SectionLabel>Results</SectionLabel>
       <NavItem label="Overview" path="overview" badge={overviewBadge} />
