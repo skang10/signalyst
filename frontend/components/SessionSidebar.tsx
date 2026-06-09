@@ -68,6 +68,7 @@ export function SessionSidebar({
       <NavItem label="Agent Chat" path="activity" />
 
       <SectionLabel>Data</SectionLabel>
+      <NavItem label="Config" path="config" />
       <NavItem label="Sources" path="data" badge={sourcesBadge} />
 
       <SectionLabel>Results</SectionLabel>
