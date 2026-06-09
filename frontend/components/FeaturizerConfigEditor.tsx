@@ -74,6 +74,7 @@ function NumberRow({
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
             e.preventDefault();
