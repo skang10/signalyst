@@ -42,6 +42,10 @@ instruction, not when they are merely asking what you would suggest or how somet
 
 For "answer", respond like a normal chatbot with brief context about Signalyst and the current
 USER_REVIEW step. Do not claim analysis is running unless the user explicitly asks to proceed.
+When describing the current config use plain language, e.g. "Windows: 5, 20, 60 days · Lags: 1,
+5, 20 days · Families: Rolling Stats, Momentum, Lag, Regime". Never echo raw field names like
+"feature_families" or "rolling_stats" — translate them: rolling_stats→Rolling Stats,
+momentum→Momentum, lag→Lag, regime→Regime.
 
 For "update_config", the session stays in USER_REVIEW — changing a setting never starts the
 pipeline by itself. Phrase the reply as a confirmation of the new setting plus a reminder that
@@ -52,6 +56,13 @@ about to run analysis for an "update_config" reply.
 Respond ONLY with the JSON object. No other text.
 """
 
+_FAMILY_LABELS = {
+    "rolling_stats": "Rolling Stats",
+    "momentum": "Momentum",
+    "lag": "Lag",
+    "regime": "Regime",
+}
+
 
 class ReviewInterpreter:
     async def interpret(
@@ -60,6 +71,7 @@ class ReviewInterpreter:
         session_stage: str,
         conversation: list[dict[str, Any]],
         data_manifest: dict[str, Any],
+        featurizer_config: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         client = openai.AsyncOpenAI(api_key=settings.openai_api_key)
         # `conversation` includes the current message as its last turn — use the
@@ -67,9 +79,22 @@ class ReviewInterpreter:
         prior_turns = conversation[:-1][-6:]
         history = "\n".join(f"{t.get('role', 'user')}: {t.get('content', '')}" for t in prior_turns)
         history_block = f"Recent conversation:\n{history}\n" if history else ""
+        cfg_block = ""
+        if featurizer_config:
+            families = [
+                _FAMILY_LABELS.get(f, f) for f in featurizer_config.get("feature_families", [])
+            ]
+            cfg_block = (
+                f"Current featurizer config: "
+                f"windows={featurizer_config.get('windows', [])} days, "
+                f"lags={featurizer_config.get('lags', [])} days, "
+                f"families=[{', '.join(families)}], "
+                f"energy_specific={featurizer_config.get('energy_specific', False)}\n"
+            )
         user_content = (
             f"Session stage: {session_stage}\n"
             f"Data manifest tickers: {data_manifest.get('tickers', [])}\n"
+            f"{cfg_block}"
             f"{history_block}"
             f"User message: {message}"
         )

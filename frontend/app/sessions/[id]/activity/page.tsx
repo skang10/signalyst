@@ -435,9 +435,10 @@ export default function ActivityPage() {
                 )}
               </div>
             ))}
-            {showRunAnalysis && featurizerConfig && (
+            {showRunAnalysis && featurizerConfig && sessionId && (
               <UserReviewGate
                 key={JSON.stringify(featurizerConfig)}
+                sessionId={sessionId}
                 serverConfig={featurizerConfig}
                 onProceed={handleProceed}
                 proceeding={proceeding}
