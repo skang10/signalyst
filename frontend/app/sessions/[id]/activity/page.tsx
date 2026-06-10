@@ -412,7 +412,7 @@ export default function ActivityPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Feed */}
-      <div className="flex-1 overflow-auto min-h-0 px-4 py-4 flex flex-col gap-3">
+      <div className="flex-1 overflow-auto min-h-0 px-4 py-4">
         {!hasAny ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
             {status === "running"
@@ -420,7 +420,7 @@ export default function ActivityPage() {
               : "No activity yet — create or upload data to start"}
           </div>
         ) : (
-          <>
+          <div className="min-h-full flex flex-col justify-end gap-3">
             {groups.map((group, idx) => (
               <div key={`${group.stage}-${idx}`} className="flex flex-col gap-3">
                 <StagePill group={group} />
@@ -449,7 +449,7 @@ export default function ActivityPage() {
               <p className="text-xs text-red-500 text-right">{proceedError}</p>
             )}
             {(sending || (stage === "follow_up" && status === "running")) && <AgentThinkingLine />}
-          </>
+          </div>
         )}
       </div>
 
