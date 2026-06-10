@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -64,22 +65,35 @@ class BaseAgent:
         schemas = self._schemas()
         agent_log = log.bind(agent=self.name)
         agent_log.info("agent.started", model=settings.agent_model, tools=list(self._tools))
+        _run_start = time.monotonic()
 
         for iteration in range(self.max_iterations):
             kwargs: dict[str, Any] = {"model": settings.agent_model, "messages": messages}
             if schemas:
                 kwargs["tools"] = schemas
 
-            agent_log.debug("agent.llm_call", iteration=iteration)
+            agent_log.info("agent.llm_call", iteration=iteration, model=settings.agent_model)
+            _llm_start = time.monotonic()
             resp = await client.chat.completions.create(**kwargs)
             msg = resp.choices[0].message
+            agent_log.info(
+                "agent.llm_call_done",
+                iteration=iteration,
+                duration_ms=round((time.monotonic() - _llm_start) * 1000, 2),
+                usage=resp.usage.model_dump() if resp.usage else None,
+            )
 
             if msg.content:
                 agent_log.debug("agent.thought", content=msg.content[:120])
                 await publisher({"type": "thought", "agent": self.name, "content": msg.content})
 
             if not msg.tool_calls:
-                agent_log.info("agent.finished", iterations=iteration + 1, reason="no_tool_calls")
+                agent_log.info(
+                    "agent.finished",
+                    iterations=iteration + 1,
+                    reason="no_tool_calls",
+                    duration_ms=round((time.monotonic() - _run_start) * 1000, 2),
+                )
                 return msg.content or ""
 
             messages.append(msg.model_dump(exclude_unset=True))
@@ -114,9 +128,17 @@ class BaseAgent:
 
                 if entry is not None and entry.is_stop:
                     agent_log.info(
-                        "agent.finished", iterations=iteration + 1, reason="stop_tool", tool=fn_name
+                        "agent.finished",
+                        iterations=iteration + 1,
+                        reason="stop_tool",
+                        tool=fn_name,
+                        duration_ms=round((time.monotonic() - _run_start) * 1000, 2),
                     )
                     return json.dumps(result)
 
-        agent_log.warning("agent.max_iterations_reached", max=self.max_iterations)
+        agent_log.warning(
+            "agent.max_iterations_reached",
+            max=self.max_iterations,
+            duration_ms=round((time.monotonic() - _run_start) * 1000, 2),
+        )
         return "max_iterations_reached"

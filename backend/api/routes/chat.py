@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, Any
@@ -67,6 +68,15 @@ async def chat(
     if s.stage not in _CHAT_ALLOWED_STAGES:
         raise HTTPException(status_code=409, detail=f"chat not available at stage {s.stage}")
 
+    log.info(
+        "chat.received",
+        session_id=session_id,
+        stage=s.stage,
+        message_len=len(req.message),
+        message_preview=req.message[:200],
+        conversation_len=len(s.conversation or []),
+    )
+
     if s.stage == SessionStage.FOLLOW_UP.value:
         now = datetime.now(UTC)
         s.conversation = [
@@ -105,6 +115,7 @@ async def chat(
     data_manifest = latest_artifact.data_manifest if latest_artifact else {}
 
     interpreter = ReviewInterpreter()
+    _interpret_start = time.monotonic()
     try:
         result = await interpreter.interpret(
             message=req.message,
@@ -114,8 +125,20 @@ async def chat(
             featurizer_config=current_featurizer_config,
         )
     except Exception as exc:
-        log.error("chat.interpret_failed", session_id=session_id, error=str(exc))
+        log.error(
+            "chat.interpret_failed",
+            session_id=session_id,
+            error=str(exc),
+            duration_ms=round((time.monotonic() - _interpret_start) * 1000, 2),
+        )
         raise HTTPException(status_code=502, detail=f"Interpreter error: {exc}") from exc
+
+    log.info(
+        "chat.interpret_done",
+        session_id=session_id,
+        duration_ms=round((time.monotonic() - _interpret_start) * 1000, 2),
+        action=result.get("action", "answer"),
+    )
 
     action = result.get("action", "answer")
     reply = result.get("reply", "")
@@ -138,8 +161,10 @@ async def chat(
     s.activity_events = [*current_activity_events, chat_event]
     s.updated_at = now.replace(tzinfo=None)
 
+    new_stage = current_stage
     if action == "advance":
-        s.stage = SessionStage.FEATURIZING.value
+        new_stage = SessionStage.FEATURIZING.value
+        s.stage = new_stage
         transition_ts = (now + timedelta(milliseconds=1)).isoformat()
         s.stage_history = [
             *current_stage_history,
@@ -165,7 +190,8 @@ async def chat(
             *current_pending,
             *[{"connector_id": sid, "params": {}} for sid in sources_to_add],
         ]
-        s.stage = SessionStage.DATA_GATHERING.value
+        new_stage = SessionStage.DATA_GATHERING.value
+        s.stage = new_stage
         refetch_ts = (now + timedelta(milliseconds=1)).isoformat()
         s.stage_history = [
             *current_stage_history,
@@ -190,13 +216,26 @@ async def chat(
         # starts the pipeline. This guarantees changing a setting can never by
         # itself trigger a run, regardless of how the LLM phrases its reply.
         raw_patch = updates.get("featurizer_config_patch", {})
-        s.featurizer_config = apply_config_patch(current_featurizer_config, raw_patch)
+        new_config = apply_config_patch(current_featurizer_config, raw_patch)
+        s.featurizer_config = new_config
         s.stage_history = current_stage_history
         await db.commit()
+        log.info(
+            "chat.config_updated",
+            session_id=session_id,
+            raw_patch=raw_patch,
+            featurizer_config=new_config,
+        )
 
     else:
         s.stage_history = current_stage_history
         await db.commit()
 
-    log.info("chat.handled", session_id=session_id, action=action)
+    log.info(
+        "chat.handled",
+        session_id=session_id,
+        action=action,
+        reply_preview=reply[:200],
+        new_stage=new_stage,
+    )
     return ChatResponse(session_id=session_id)

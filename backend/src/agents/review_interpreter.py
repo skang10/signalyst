@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 
 import openai
+import structlog
 
 from src.config import settings
+
+log = structlog.get_logger()
 
 _SYSTEM_PROMPT = """\
 You are ReviewInterpreter. Classify the user's intent at the data review stage.
@@ -98,6 +102,13 @@ class ReviewInterpreter:
             f"{history_block}"
             f"User message: {message}"
         )
+        log.debug(
+            "review_interpreter.request",
+            model=settings.agent_model_fast,
+            user_content_len=len(user_content),
+            prior_turns=len(prior_turns),
+        )
+        start = time.monotonic()
         resp = await client.chat.completions.create(
             model=settings.agent_model_fast,
             messages=[
@@ -107,4 +118,11 @@ class ReviewInterpreter:
             response_format={"type": "json_object"},
         )
         content = resp.choices[0].message.content or "{}"
+        log.info(
+            "review_interpreter.response",
+            model=settings.agent_model_fast,
+            duration_ms=round((time.monotonic() - start) * 1000, 2),
+            usage=resp.usage.model_dump() if resp.usage else None,
+            content=content,
+        )
         return json.loads(content)  # type: ignore[no-any-return]

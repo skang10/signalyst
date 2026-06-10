@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -182,6 +183,7 @@ async def _run(
         try:
             from src.inference import DirectionClassifier, OilRegimeClassifier
 
+            _inference_start = time.monotonic()
             X_train, X_test = features.iloc[:split], features.iloc[split:]
 
             # Pick WTI proxy column for labeling
@@ -227,6 +229,7 @@ async def _run(
                 session_id=str(session_id),
                 regime=top_regime,
                 direction=top_dir,
+                duration_ms=round((time.monotonic() - _inference_start) * 1000, 2),
             )
         except Exception as exc:
             log.warning("tabpfn.inference_failed", session_id=str(session_id), error=str(exc))
