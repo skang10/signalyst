@@ -184,7 +184,9 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         source_str = json.dumps(
             sorted(pending, key=lambda x: x.get("connector_id", "")), sort_keys=True
         )
-        source_hash = stable_hash(hashlib.sha256(source_str.encode()).hexdigest())
+        source_hash = stable_hash(
+            hashlib.sha256(source_str.encode()).hexdigest(), requested_start, requested_end
+        )
 
         # --- Cache lookup ---
         cached_result = await db.execute(
