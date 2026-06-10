@@ -139,6 +139,8 @@ function ConfigForm({
   const handleRerun = async () => {
     if (!id) return;
     await api.rerun(id, "data_gathering");
+    const updated = await api.getSession(id);
+    setSession(updated);
     router.push(`/sessions/${id}/activity`);
   };
 

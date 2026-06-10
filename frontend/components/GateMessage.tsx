@@ -19,6 +19,18 @@ function configsEqual(a: FeaturizerConfig, b: FeaturizerConfig): boolean {
   );
 }
 
+function summarizeConfig(config: FeaturizerConfig): string {
+  const parts = [
+    `Windows ${config.windows.join(", ")}d`,
+    `Lags ${config.lags.join(", ")}d`,
+    `${config.feature_families.length} feature ${
+      config.feature_families.length === 1 ? "family" : "families"
+    }`,
+  ];
+  if (config.energy_specific) parts.push("energy-specific");
+  return parts.join(" · ");
+}
+
 type UserReviewGateProps = {
   sessionId: string;
   serverConfig: FeaturizerConfig;
@@ -35,6 +47,7 @@ export function UserReviewGate({
   onDirtyChange,
 }: UserReviewGateProps) {
   const [draft, setDraft] = useState(serverConfig);
+  const [expanded, setExpanded] = useState(false);
   const setSession = useSessionStore((s) => s.setSession);
 
   const handleConfigChange = (next: FeaturizerConfig) => {
@@ -64,8 +77,44 @@ export function UserReviewGate({
     onDirtyChange(isDirty);
   }, [isDirty, onDirtyChange]);
 
+  if (!expanded) {
+    return (
+      <div className="w-full flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+        <span className="text-xs text-gray-500 flex-1 truncate">{summarizeConfig(draft)}</span>
+        {isDirty && (
+          <span className="text-xs text-amber-600 flex-shrink-0">edited</span>
+        )}
+        <button
+          onClick={() => setExpanded(true)}
+          className="text-xs text-teal-600 hover:underline flex-shrink-0"
+        >
+          Edit
+        </button>
+        <button
+          onClick={() => onProceed(isDirty ? draft : undefined)}
+          disabled={proceeding}
+          className="px-4 py-1.5 bg-teal-600 border border-teal-700 rounded-full text-white text-xs font-semibold hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+        >
+          {proceeding ? "Starting…" : "→ Run Analysis"}
+        </button>
+      </div>
+    );
+  }
+
   return (
-    <div className="self-end max-w-[85%] flex flex-col gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+    <div className="max-w-[85%] flex flex-col gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase">
+          Featurizer config
+        </span>
+        <button
+          onClick={() => setExpanded(false)}
+          className="text-xs text-gray-400 hover:text-gray-600 hover:underline"
+        >
+          Collapse
+        </button>
+      </div>
+
       <FeaturizerConfigEditor value={draft} onChange={handleConfigChange} />
 
       {isDirty && (

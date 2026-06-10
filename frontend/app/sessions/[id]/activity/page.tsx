@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type { ChatMessage, FeaturizerConfig } from "@/lib/api";
 import { buildGroups } from "@/lib/activity-groups";
@@ -357,6 +357,7 @@ export default function ActivityPage() {
   const [proceedError, setProceedError] = useState<string | null>(null);
   const [reviewConfigDirty, setReviewConfigDirty] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const feedRef = useRef<HTMLDivElement>(null);
 
   // Append optimistic user message so it appears instantly on send
   const effectiveConversation: ChatMessage[] = optimisticMsg
@@ -409,10 +410,15 @@ export default function ActivityPage() {
   const inputDisabled =
     sending || status !== "waiting" || (stage === "user_review" && reviewConfigDirty);
 
+  // Keep the feed pinned to the latest content as new events stream in.
+  useEffect(() => {
+    feedRef.current?.scrollTo({ top: feedRef.current.scrollHeight });
+  }, [activityEvents.length, wsMessages.length, effectiveConversation.length]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Feed */}
-      <div className="flex-1 overflow-auto min-h-0 px-4 py-4 flex flex-col gap-3">
+      <div ref={feedRef} className="flex-1 overflow-auto min-h-0 px-4 py-4">
         {!hasAny ? (
           <div className="flex items-center justify-center h-full text-gray-400 text-sm">
             {status === "running"
@@ -420,7 +426,7 @@ export default function ActivityPage() {
               : "No activity yet — create or upload data to start"}
           </div>
         ) : (
-          <>
+          <div className="flex flex-col gap-3">
             {groups.map((group, idx) => (
               <div key={`${group.stage}-${idx}`} className="flex flex-col gap-3">
                 <StagePill group={group} />
@@ -435,23 +441,27 @@ export default function ActivityPage() {
                 )}
               </div>
             ))}
-            {showRunAnalysis && featurizerConfig && sessionId && (
-              <UserReviewGate
-                key={JSON.stringify(featurizerConfig)}
-                sessionId={sessionId}
-                serverConfig={featurizerConfig}
-                onProceed={handleProceed}
-                proceeding={proceeding}
-                onDirtyChange={setReviewConfigDirty}
-              />
-            )}
-            {proceedError && (
-              <p className="text-xs text-red-500 text-right">{proceedError}</p>
-            )}
             {(sending || (stage === "follow_up" && status === "running")) && <AgentThinkingLine />}
-          </>
+          </div>
         )}
       </div>
+
+      {/* Featurizer config review gate — pinned above the input, separate from the scrolling feed */}
+      {showRunAnalysis && featurizerConfig && sessionId && (
+        <div className="border-t border-gray-200 bg-white px-4 py-3 flex flex-col gap-1.5 flex-shrink-0">
+          <div className="flex justify-end">
+            <UserReviewGate
+              key={JSON.stringify(featurizerConfig)}
+              sessionId={sessionId}
+              serverConfig={featurizerConfig}
+              onProceed={handleProceed}
+              proceeding={proceeding}
+              onDirtyChange={setReviewConfigDirty}
+            />
+          </div>
+          {proceedError && <p className="text-xs text-red-500 text-right">{proceedError}</p>}
+        </div>
+      )}
 
       {/* Input bar */}
       {showInput && (
