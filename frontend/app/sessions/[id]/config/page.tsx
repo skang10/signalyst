@@ -59,9 +59,10 @@ function ConfigForm({
   const [localEnd, setLocalEnd] = useState(session.timeframe_end ?? "");
   const [localSources, setLocalSources] = useState<PendingSource[]>(session.pending_sources ?? []);
 
+  const [localFeatConfig, setLocalFeatConfig] = useState<FeaturizerConfig>(
+    session.featurizer_config as FeaturizerConfig,
+  );
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
-  const [featStatus, setFeatStatus] = useState<SaveStatus>("idle");
-  const [pendingFeatConfig, setPendingFeatConfig] = useState<FeaturizerConfig | null>(null);
 
   useEffect(() => {
     api.getConnectors().then(setConnectors).catch(() => {});
@@ -79,16 +80,11 @@ function ConfigForm({
     return () => clearTimeout(t);
   }, [saveStatus]);
 
-  useEffect(() => {
-    if (featStatus !== "saved") return;
-    const t = setTimeout(() => setFeatStatus("idle"), 2000);
-    return () => clearTimeout(t);
-  }, [featStatus]);
-
   const isDirty =
     localStart !== (session.timeframe_start ?? "") ||
     localEnd !== (session.timeframe_end ?? "") ||
-    JSON.stringify(localSources) !== JSON.stringify(session.pending_sources ?? []);
+    JSON.stringify(localSources) !== JSON.stringify(session.pending_sources ?? []) ||
+    JSON.stringify(localFeatConfig) !== JSON.stringify(session.featurizer_config);
 
   const stale = isSessionStale(
     {
@@ -110,7 +106,7 @@ function ConfigForm({
 
   const isRunning = status === "running";
 
-  const handleSaveConfig = async () => {
+  const handleSave = async () => {
     if (!id) return;
     setSaveStatus("saving");
     try {
@@ -118,33 +114,26 @@ function ConfigForm({
         timeframe_start: localStart,
         timeframe_end: localEnd,
         pending_sources: localSources,
+        featurizer_config_patch: localFeatConfig,
       });
       const updated = await api.getSession(id);
       setSession(updated);
-      // Explicitly reset local state to match what was saved
+      onSessionUpdated(updated);
       setLocalStart(updated.timeframe_start ?? "");
       setLocalEnd(updated.timeframe_end ?? "");
       setLocalSources(updated.pending_sources ?? []);
+      setLocalFeatConfig(updated.featurizer_config as FeaturizerConfig);
       setSaveStatus("saved");
     } catch {
       setSaveStatus("failed");
     }
   };
 
-  const handleFeatChange = async (next: FeaturizerConfig) => {
-    if (!id) return;
-    setFeatStatus("saving");
-    setPendingFeatConfig(next);
-    try {
-      await api.updateConfig(id, { featurizer_config_patch: next });
-      const updated = await api.getSession(id);
-      setSession(updated);
-      onSessionUpdated(updated);
-      setFeatStatus("saved");
-      setPendingFeatConfig(null);
-    } catch {
-      setFeatStatus("failed");
-    }
+  const handleDiscard = () => {
+    setLocalStart(session.timeframe_start ?? "");
+    setLocalEnd(session.timeframe_end ?? "");
+    setLocalSources(session.pending_sources ?? []);
+    setLocalFeatConfig(session.featurizer_config as FeaturizerConfig);
   };
 
   const handleRerun = async () => {
@@ -174,9 +163,18 @@ function ConfigForm({
         <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg flex-shrink-0">
           <span className="text-xs text-gray-500">You have unsaved changes.</span>
           <div className="flex items-center gap-3">
-            <SaveIndicator status={saveStatus} onRetry={handleSaveConfig} />
+            <SaveIndicator status={saveStatus} onRetry={handleSave} />
+            {isDirty && (
+              <button
+                onClick={handleDiscard}
+                disabled={isRunning || saveStatus === "saving"}
+                className="px-3 py-1 text-xs font-medium text-gray-500 rounded hover:bg-gray-100 disabled:opacity-40 transition-colors"
+              >
+                Discard
+              </button>
+            )}
             <button
-              onClick={handleSaveConfig}
+              onClick={handleSave}
               disabled={isRunning || saveStatus === "saving"}
               className="px-3 py-1 text-xs font-medium bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-40 transition-colors"
             >
@@ -232,16 +230,10 @@ function ConfigForm({
 
       {/* FEATURIZER */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <SectionLabel>Featurizer</SectionLabel>
-          <SaveIndicator
-            status={featStatus}
-            onRetry={() => pendingFeatConfig && handleFeatChange(pendingFeatConfig)}
-          />
-        </div>
+        <SectionLabel>Featurizer</SectionLabel>
         <FeaturizerConfigEditor
-          value={session.featurizer_config as FeaturizerConfig}
-          onChange={stage === "user_review" ? handleFeatChange : undefined}
+          value={localFeatConfig}
+          onChange={stage === "user_review" ? setLocalFeatConfig : undefined}
           readOnly={stage !== "user_review"}
         />
         {stage !== "user_review" && (

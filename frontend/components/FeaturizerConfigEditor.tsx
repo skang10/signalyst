@@ -92,7 +92,7 @@ function NumberRow({
             if (e.key === "Escape") { setDraft(""); setEditing(false); }
           }}
           placeholder={`e.g. 90`}
-          className="w-16 bg-transparent border border-teal-400 rounded px-2 py-0.5 text-xs font-mono outline-none"
+          className="w-20 bg-transparent border border-teal-400 rounded px-2 py-0.5 text-xs font-mono outline-none"
         />
       ) : (
         <button
