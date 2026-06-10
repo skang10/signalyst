@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { FeaturizerConfigEditor } from "./FeaturizerConfigEditor";
 import { api } from "@/lib/api";
+import { useSessionStore } from "@/lib/store";
 import type { FeaturizerConfig } from "@/lib/api";
 
 function arraysEqual<T>(a: T[], b: T[]): boolean {
@@ -34,10 +35,15 @@ export function UserReviewGate({
   onDirtyChange,
 }: UserReviewGateProps) {
   const [draft, setDraft] = useState(serverConfig);
+  const setSession = useSessionStore((s) => s.setSession);
 
   const handleConfigChange = (next: FeaturizerConfig) => {
     setDraft(next);
-    api.updateConfig(sessionId, { featurizer_config_patch: next }).catch(() => {});
+    api
+      .updateConfig(sessionId, { featurizer_config_patch: next })
+      .then(() => api.getSession(sessionId))
+      .then(setSession)
+      .catch(() => {});
   };
   const [syncedConfig, setSyncedConfig] = useState(serverConfig);
   const isDirty = !configsEqual(draft, serverConfig);
