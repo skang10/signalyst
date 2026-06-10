@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.15.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.14.0...signalyst-backend-v0.15.0) (2026-06-10)
+
+
+### Features
+
+* add timing and detail logs across chat and analysis pipeline ([#57](https://github.com/skang10/signalyst/issues/57)) ([d493861](https://github.com/skang10/signalyst/commit/d493861767e928c166cc8c1da7d413213d047d07))
+* session config redesign — editable timeframe, data sources, and stale warnings ([#50](https://github.com/skang10/signalyst/issues/50)) ([f3c297a](https://github.com/skang10/signalyst/commit/f3c297a00f2b91155d5275ab38b228619bcd211b))
+
+
+### Bug Fixes
+
+* click-to-reveal add input and read featurizer config from session prop ([#52](https://github.com/skang10/signalyst/issues/52)) ([ed2a027](https://github.com/skang10/signalyst/commit/ed2a027b469e71d62e313f513f0ac0c722c16a52))
+* include requested timeframe in data fetch cache key ([#54](https://github.com/skang10/signalyst/issues/54)) ([9e3d788](https://github.com/skang10/signalyst/commit/9e3d788a091b34fcf6d74c1f357b227ede674020))
+
 ## [0.14.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.13.0...signalyst-backend-v0.14.0) (2026-06-09)
 
 

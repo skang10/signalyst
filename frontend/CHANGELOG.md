@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.11.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.10.0...signalyst-frontend-v0.11.0) (2026-06-10)
+
+
+### Features
+
+* session config redesign — editable timeframe, data sources, and stale warnings ([#50](https://github.com/skang10/signalyst/issues/50)) ([f3c297a](https://github.com/skang10/signalyst/commit/f3c297a00f2b91155d5275ab38b228619bcd211b))
+
+
+### Bug Fixes
+
+* click-to-reveal add input and read featurizer config from session prop ([#52](https://github.com/skang10/signalyst/issues/52)) ([ed2a027](https://github.com/skang10/signalyst/commit/ed2a027b469e71d62e313f513f0ac0c722c16a52))
+* refresh session before navigating to activity on rerun ([#55](https://github.com/skang10/signalyst/issues/55)) ([d7d0666](https://github.com/skang10/signalyst/commit/d7d06668b9efc495ce72a4b937099500c4494562))
+* widen add-input placeholder, unify config save/discard flow ([#53](https://github.com/skang10/signalyst/issues/53)) ([6691fa1](https://github.com/skang10/signalyst/commit/6691fa1b454fc6560a8f66217bf1208e7596f20d))
+
 ## [0.10.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.9.0...signalyst-frontend-v0.10.0) (2026-06-09)
 
 
