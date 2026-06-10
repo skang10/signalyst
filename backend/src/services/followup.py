@@ -48,6 +48,12 @@ async def run_followup_service(session_id: uuid.UUID, engine: AsyncEngine) -> No
                 log.info("followup.wrong_stage", session_id=session_id_str, stage=s.stage)
                 return
 
+            log.info(
+                "followup.started",
+                session_id=session_id_str,
+                conversation_len=len(s.conversation or []),
+            )
+
             try:
                 await _run(s, db, engine, publisher)
             except Exception as exc:

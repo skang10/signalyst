@@ -4,6 +4,7 @@ import hashlib
 import io
 import json
 import pathlib
+import time
 import uuid
 from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
@@ -139,6 +140,7 @@ async def _run(
         feature_families=cfg.get("feature_families"),
         energy_specific=bool(cfg.get("energy_specific", False)),
     )
+    _transform_start = time.monotonic()
     features = featurizer.transform(series_dict)
 
     if features.empty:
@@ -149,6 +151,7 @@ async def _run(
         session_id=str(session_id),
         rows=len(features),
         cols=len(features.columns),
+        duration_ms=round((time.monotonic() - _transform_start) * 1000, 2),
     )
 
     # Write feature matrix to parquet

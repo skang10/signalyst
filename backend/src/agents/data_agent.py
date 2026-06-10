@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
 import structlog
@@ -31,8 +32,14 @@ def make_data_agent() -> BaseAgent:
         if context is None:
             return {"error": "no context"}
         log.info("data_agent.fetch", connector="yfinance", tickers=tickers)
+        start = time.monotonic()
         result = connector_registry.fetch("yfinance", {"tickers": tickers}, context)
-        log.info("data_agent.fetch_done", connector="yfinance", result=result)
+        log.info(
+            "data_agent.fetch_done",
+            connector="yfinance",
+            result=result,
+            duration_ms=round((time.monotonic() - start) * 1000, 2),
+        )
         return result
 
     def fetch_fred(series_ids: list[str], context: AgentContext | None = None) -> dict[str, Any]:
@@ -40,8 +47,14 @@ def make_data_agent() -> BaseAgent:
         if context is None:
             return {"error": "no context"}
         log.info("data_agent.fetch", connector="fred", series_ids=series_ids)
+        start = time.monotonic()
         result = connector_registry.fetch("fred", {"series_ids": series_ids}, context)
-        log.info("data_agent.fetch_done", connector="fred", result=result)
+        log.info(
+            "data_agent.fetch_done",
+            connector="fred",
+            result=result,
+            duration_ms=round((time.monotonic() - start) * 1000, 2),
+        )
         return result
 
     def fetch_eia(context: AgentContext | None = None) -> dict[str, Any]:
@@ -49,8 +62,14 @@ def make_data_agent() -> BaseAgent:
         if context is None:
             return {"error": "no context"}
         log.info("data_agent.fetch", connector="eia")
+        start = time.monotonic()
         result = connector_registry.fetch("eia", {}, context)
-        log.info("data_agent.fetch_done", connector="eia", result=result)
+        log.info(
+            "data_agent.fetch_done",
+            connector="eia",
+            result=result,
+            duration_ms=round((time.monotonic() - start) * 1000, 2),
+        )
         return result
 
     def fetch_gpr(context: AgentContext | None = None) -> dict[str, Any]:
@@ -58,8 +77,14 @@ def make_data_agent() -> BaseAgent:
         if context is None:
             return {"error": "no context"}
         log.info("data_agent.fetch", connector="gpr")
+        start = time.monotonic()
         result = connector_registry.fetch("gpr", {}, context)
-        log.info("data_agent.fetch_done", connector="gpr", result=result)
+        log.info(
+            "data_agent.fetch_done",
+            connector="gpr",
+            result=result,
+            duration_ms=round((time.monotonic() - start) * 1000, 2),
+        )
         return result
 
     def list_available_connectors(context: AgentContext | None = None) -> dict[str, Any]:
