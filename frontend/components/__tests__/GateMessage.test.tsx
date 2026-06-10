@@ -37,6 +37,7 @@ describe("UserReviewGate", () => {
         onDirtyChange={onDirtyChange}
       />,
     );
+    fireEvent.click(screen.getByText("Edit"));
     fireEvent.click(screen.getByText("20d ×"));
     expect(screen.getByText(/Config changed/)).toBeTruthy();
     expect(onDirtyChange).toHaveBeenLastCalledWith(true);
@@ -53,6 +54,7 @@ describe("UserReviewGate", () => {
         onDirtyChange={() => {}}
       />,
     );
+    fireEvent.click(screen.getByText("Edit"));
     fireEvent.click(screen.getByText("20d ×"));
     fireEvent.click(screen.getByText("→ Run Analysis"));
     expect(onProceed).toHaveBeenCalledWith({ ...serverConfig, windows: [5, 60] });
@@ -68,6 +70,7 @@ describe("UserReviewGate", () => {
         onDirtyChange={() => {}}
       />,
     );
+    fireEvent.click(screen.getByText("Edit"));
     expect(screen.getByText("20d ×")).toBeTruthy();
 
     const updatedConfig: FeaturizerConfig = { ...serverConfig, windows: [7, 30, 90] };
@@ -98,6 +101,7 @@ describe("UserReviewGate", () => {
         onDirtyChange={onDirtyChange}
       />,
     );
+    fireEvent.click(screen.getByText("Edit"));
     fireEvent.click(screen.getByText("20d ×"));
     fireEvent.click(screen.getByText("Discard"));
     expect(screen.queryByText(/Config changed/)).toBeNull();
