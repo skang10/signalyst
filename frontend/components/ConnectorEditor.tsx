@@ -65,8 +65,25 @@ export function ConnectorEditor({ available, value, onChange, readOnly }: Props)
           >
             <div className={`flex items-center gap-2 ${isActive ? "" : "opacity-50"}`}>
               <div
-                className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? "bg-teal-500" : "bg-gray-300"}`}
-              />
+                className={[
+                  "w-4 h-4 rounded border flex items-center justify-center flex-shrink-0",
+                  isActive ? "bg-teal-600 border-teal-600 text-white" : "border-gray-300",
+                ].join(" ")}
+              >
+                {isActive && (
+                  <svg
+                    className="w-3 h-3"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </div>
               <span
                 className={`text-sm font-medium ${isActive ? "text-teal-700" : "text-gray-500"}`}
               >
