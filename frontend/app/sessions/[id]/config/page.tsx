@@ -190,13 +190,13 @@ function ConfigForm({
       <div>
         <SectionLabel>Session</SectionLabel>
         <div className="border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Market profile</span>
             <span className="bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded">
               {session.market_profile ?? "—"}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Timeframe</span>
             <div className="flex items-center gap-2">
               <input
