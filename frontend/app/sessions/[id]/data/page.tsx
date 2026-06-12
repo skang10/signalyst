@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { isSessionStale } from "@/lib/stale";
+import { visibleTickers } from "@/lib/sourceTickers";
 import { StaleResultsBanner } from "@/components/StaleResultsBanner";
 import type { DataArtifactDetail, PendingSource } from "@/lib/api";
 
@@ -496,7 +497,16 @@ export default function DataPage() {
   }
 
   const dm = artifact.data_manifest;
-  const missingValues = Object.values(dm.missing_pct);
+  const visible = new Set(
+    visibleTickers(dm.tickers, pendingSources, artifact.sources as PendingSource[]),
+  );
+  const seriesPreview = Object.fromEntries(
+    Object.entries(artifact.series_preview).filter(([t]) => visible.has(t)),
+  );
+  const missingPct = Object.fromEntries(
+    Object.entries(dm.missing_pct).filter(([t]) => visible.has(t)),
+  );
+  const missingValues = Object.values(missingPct);
   const avgMissing =
     missingValues.length > 0
       ? missingValues.reduce((s, v) => s + v, 0) / missingValues.length
@@ -524,12 +534,12 @@ export default function DataPage() {
 
       <div className="flex gap-2">
         <MetricCard label="Rows" value={String(dm.rows)} />
-        <MetricCard label="Signals" value={String(dm.tickers.length)} />
+        <MetricCard label="Signals" value={String(visible.size)} />
         <MetricCard label="Date range" value={`${dm.date_range.start} – ${dm.date_range.end}`} />
         <MetricCard label="Avg missing" value={`${avgMissing.toFixed(1)}%`} warn={avgMissing > 1} />
       </div>
 
-      <DataSnapshotTable seriesPreview={artifact.series_preview} missingPct={dm.missing_pct} />
+      <DataSnapshotTable seriesPreview={seriesPreview} missingPct={missingPct} />
 
       {/* High missing data warning — shown at USER_REVIEW when data quality is poor */}
       {stage === "user_review" && avgMissing > MISSING_PCT_LIMIT && (
@@ -560,7 +570,7 @@ export default function DataPage() {
       ) : null}
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {Object.entries(artifact.series_preview).map(([ticker, points]) => {
+        {Object.entries(seriesPreview).map(([ticker, points]) => {
           const stats = dm.summary_stats[ticker];
           return (
             <div key={ticker} className="bg-white rounded border border-gray-200 p-3 group">
