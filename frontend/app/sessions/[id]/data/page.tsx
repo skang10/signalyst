@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
-import type { DataArtifactDetail } from "@/lib/api";
+import { isSessionStale } from "@/lib/stale";
+import { StaleResultsBanner } from "@/components/StaleResultsBanner";
+import type { DataArtifactDetail, PendingSource } from "@/lib/api";
 
 function MetricCard({
   label,
@@ -426,7 +428,8 @@ const MISSING_PCT_LIMIT = 30;
 
 export default function DataPage() {
   const { id } = useParams<{ id: string }>();
-  const { artifacts, stage, setSession } = useSessionStore();
+  const { artifacts, stage, setSession, timeframeStart, timeframeEnd, pendingSources } =
+    useSessionStore();
   const [artifact, setArtifact] = useState<DataArtifactDetail | null>(null);
   const [fetchedId, setFetchedId] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -499,8 +502,21 @@ export default function DataPage() {
       ? missingValues.reduce((s, v) => s + v, 0) / missingValues.length
       : 0;
 
+  const stale = isSessionStale(
+    { timeframeStart, timeframeEnd, pendingSources },
+    {
+      data_manifest: {
+        date_range: dm.date_range,
+        requested_start: dm.requested_start,
+        requested_end: dm.requested_end,
+      },
+      sources: artifact.sources as PendingSource[],
+    },
+  );
+
   return (
     <div className="flex flex-col gap-4 p-4 overflow-auto">
+      {id && <StaleResultsBanner sessionId={id} isStale={stale} />}
       <div className="flex items-center gap-2">
         <h2 className="text-sm font-semibold text-gray-900">Data Manifest</h2>
         {artifact.cache_hit && <span className="text-xs text-amber-500">⚡ Cached</span>}

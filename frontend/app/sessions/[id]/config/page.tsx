@@ -99,7 +99,7 @@ function ConfigForm({
             requested_start: latestArtifact.data_manifest.requested_start,
             requested_end: latestArtifact.data_manifest.requested_end,
           },
-          sources: latestArtifact.sources as { connector_id: string }[],
+          sources: latestArtifact.sources as PendingSource[],
         }
       : null,
   );
