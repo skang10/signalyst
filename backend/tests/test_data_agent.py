@@ -1,13 +1,19 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch
+from datetime import date
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlmodel import SQLModel, select
 
 from src.agent.tools import AgentContext
 from src.agents.data_agent import make_data_agent
+from src.db.models import DataArtifact, SessionStage, UploadedSource
+from src.db.models import Session as SessionModel
+from src.services.data_agent import _run
 
 
 def _tool_resp(name: str, args: dict, call_id: str = "c1") -> MagicMock:
@@ -89,3 +95,78 @@ async def test_data_agent_complete_stops_loop() -> None:
         await agent.run(context=ctx, publisher=pub)
 
     assert call_count["n"] == 1
+
+
+@pytest.mark.asyncio
+async def test_run_merges_uploaded_source_with_fresh_connector_data() -> None:
+    """An "upload" entry in pending_sources should re-attach its columns to the
+    freshly-fetched connector data, surviving a connector-driven re-run."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    dates = pd.date_range("2023-01-01", periods=60, freq="D")
+    uploaded_series = pd.Series(range(60), index=dates, dtype=float)
+
+    async with AsyncSession(engine) as db:
+        s = SessionModel(
+            market_profile="oil",
+            timeframe_start=date(2023, 1, 1),
+            timeframe_end=date(2023, 6, 30),
+            stage=SessionStage.DATA_GATHERING,
+            pending_sources=[
+                {"connector_id": "yfinance", "params": {"tickers": ["CL=F"]}},
+                {"connector_id": "upload", "source_name": "my_upload", "columns": ["custom_col"]},
+            ],
+        )
+        db.add(s)
+        db.add(
+            UploadedSource(
+                session_id=s.id,
+                source_name="my_upload",
+                columns=["custom_col"],
+                raw_data={
+                    "custom_col": {
+                        "index": [str(d.date()) for d in dates],
+                        "data": [float(v) for v in uploaded_series],
+                    }
+                },
+            )
+        )
+        await db.commit()
+        await db.refresh(s)
+        session_id = s.id
+
+        fake_series = pd.Series(range(60), index=dates, name="CL=F", dtype=float)
+
+        def fake_fetch(name: str, params: dict, context: AgentContext) -> dict:
+            for ticker in params.get("tickers", []):
+                context.signals[ticker] = fake_series
+            return {
+                "fetched": {t: len(fake_series) for t in params.get("tickers", [])},
+                "skipped": [],
+            }
+
+        async def fake_run(*, context, publisher, initial_user_message=None):
+            fake_fetch("yfinance", {"tickers": ["CL=F"]}, context)
+
+        redis_mock = MagicMock()
+        redis_mock.publish = AsyncMock()
+        redis_mock.aclose = AsyncMock()
+
+        with (
+            patch("src.services.data_agent.aioredis.Redis.from_url", return_value=redis_mock),
+            patch("src.services.data_agent.make_data_agent") as make_agent,
+        ):
+            make_agent.return_value.run = fake_run
+            await _run(s, db)
+
+        result = (
+            (await db.execute(select(DataArtifact).where(DataArtifact.session_id == session_id)))
+            .scalars()
+            .first()
+        )
+
+    assert result is not None
+    assert set(result.raw_data.keys()) == {"CL=F", "custom_col"}
+    assert {src["connector_id"] for src in result.sources} == {"yfinance", "upload"}
