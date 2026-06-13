@@ -140,8 +140,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
   }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
       {available.map((connector) => {
         const isActive = activeIds.has(connector.id);
         const source = value.find((s) => s.connector_id === connector.id);
@@ -210,12 +209,11 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
           </div>
         );
       })}
-      </div>
       {uploadSources.length > 0 && (
         <div className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-teal-700">Custom Upload</span>
-            <span className="text-xs text-gray-400 truncate">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-teal-700 whitespace-nowrap">Custom Upload</span>
+            <span className="text-xs text-gray-400">
               Your uploaded data — click to exclude from the next run
             </span>
           </div>
@@ -231,7 +229,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
           </div>
         </div>
       )}
-      {footer && <div className="border border-gray-200 rounded-lg bg-white">{footer}</div>}
+      {footer}
     </div>
   );
 }
