@@ -66,7 +66,12 @@ function ConfigForm({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   useEffect(() => {
-    api.getConnectors().then(setConnectors).catch(() => {});
+    // SPEC-type connectors have no data-fetching implementation yet (see CLAUDE.md) —
+    // hide them so users aren't misled into selecting a source that fetches nothing.
+    api
+      .getConnectors()
+      .then((cs) => setConnectors(cs.filter((c) => c.type !== "spec")))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
