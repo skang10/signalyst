@@ -209,16 +209,16 @@ export function UploadRow({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="px-3 py-2.5">
-      <div className="flex items-baseline gap-2">
-        <span className="text-sm font-medium text-gray-500">Custom Upload</span>
-        <span className="text-xs text-gray-400 truncate">
-          Add your own CSV or Parquet data
-        </span>
+    <div className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white">
+      <div className="flex flex-col gap-0.5">
+        <span className="text-sm font-medium text-gray-500 whitespace-nowrap">Custom Upload</span>
+        <span className="text-xs text-gray-400">Add your own CSV or Parquet data</span>
+      </div>
+      <div className="mt-1.5">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="ml-auto px-2 py-1 rounded-md border border-dashed border-gray-300 text-xs text-gray-400 hover:border-teal-300 hover:text-teal-600 whitespace-nowrap"
+          className="px-2 py-1 rounded-md border border-dashed border-gray-300 text-xs text-gray-400 hover:border-teal-300 hover:text-teal-600 whitespace-nowrap"
         >
           {open ? "− Hide" : "+ Upload file"}
         </button>

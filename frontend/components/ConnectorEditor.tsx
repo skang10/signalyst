@@ -140,10 +140,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
   }
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <div className="text-[10px] text-gray-400 px-3 py-2 border-b border-gray-100 bg-gray-50 font-mono uppercase tracking-widest">
-        Click a chip to toggle · active sources used on next data run
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
       {available.map((connector) => {
         const isActive = activeIds.has(connector.id);
         const source = value.find((s) => s.connector_id === connector.id);
@@ -151,14 +148,14 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
         const tickers = (source?.params?.tickers as string[] | undefined) ?? [];
 
         return (
-          <div key={connector.id} className="px-3 py-2.5 border-b border-gray-100 last:border-0">
-            <div className="flex items-baseline gap-2">
+          <div key={connector.id} className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white">
+            <div className="flex flex-col gap-0.5">
               <span
-                className={`text-sm font-medium ${isActive ? "text-teal-700" : "text-gray-500"}`}
+                className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-teal-700" : "text-gray-500"}`}
               >
                 {connector.name}
               </span>
-              <span className="text-xs text-gray-400 truncate">{connector.description}</span>
+              <span className="text-xs text-gray-400">{connector.description}</span>
             </div>
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {isYfinance ? (
@@ -213,10 +210,10 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
         );
       })}
       {uploadSources.length > 0 && (
-        <div className="px-3 py-2.5 border-b border-gray-100">
-          <div className="flex items-baseline gap-2">
-            <span className="text-sm font-medium text-teal-700">Custom Upload</span>
-            <span className="text-xs text-gray-400 truncate">
+        <div className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-teal-700 whitespace-nowrap">Custom Upload</span>
+            <span className="text-xs text-gray-400">
               Your uploaded data — click to exclude from the next run
             </span>
           </div>
