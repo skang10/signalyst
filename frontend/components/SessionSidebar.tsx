@@ -97,7 +97,7 @@ export function SessionSidebar({
         stage={stage}
       />
       <NavItem
-        label="Sources"
+        label="Data Status"
         path="data"
         badge={sourcesBadge}
         sessionId={sessionId}
