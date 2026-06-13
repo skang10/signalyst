@@ -1,5 +1,20 @@
 import type { PendingSource } from "./api";
 
+// Normalizes a source's params so order differences (e.g. ticker order) don't
+// register as a change, then serializes for comparison.
+function normalizeSource(source: PendingSource): string {
+  const params = source.params ?? {};
+  const tickers = params.tickers;
+  const normalizedParams = Array.isArray(tickers)
+    ? { ...params, tickers: [...tickers].sort() }
+    : params;
+  return JSON.stringify({ connector_id: source.connector_id, params: normalizedParams });
+}
+
+function normalizeSources(sources: PendingSource[]): string {
+  return sources.map(normalizeSource).sort().join("|");
+}
+
 export function isSessionStale(
   session: {
     timeframeStart: string | null;
@@ -12,7 +27,7 @@ export function isSessionStale(
       requested_start?: string;
       requested_end?: string;
     };
-    sources: { connector_id: string }[];
+    sources: PendingSource[];
   } | null,
 ): boolean {
   if (!latestArtifact) return false;
@@ -28,15 +43,8 @@ export function isSessionStale(
       ? session.timeframeStart !== artifactStart || session.timeframeEnd !== artifactEnd
       : false;
 
-  const sessionIds = session.pendingSources
-    .map((s) => s.connector_id)
-    .sort()
-    .join(",");
-  const artifactIds = latestArtifact.sources
-    .map((s) => s.connector_id)
-    .sort()
-    .join(",");
-  const sourcesChanged = sessionIds !== artifactIds;
+  const sourcesChanged =
+    normalizeSources(session.pendingSources) !== normalizeSources(latestArtifact.sources);
 
   return tfChanged || sourcesChanged;
 }

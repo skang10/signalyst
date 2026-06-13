@@ -7,7 +7,7 @@ import { StaleResultsBanner } from "@/components/StaleResultsBanner";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { isSessionStale } from "@/lib/stale";
-import type { DataArtifactDetail } from "@/lib/api";
+import type { DataArtifactDetail, PendingSource } from "@/lib/api";
 
 export default function FeaturesPage() {
   const { id } = useParams<{ id: string }>();
@@ -25,7 +25,7 @@ export default function FeaturesPage() {
     latestArtifact
       ? {
           data_manifest: { date_range: latestArtifact.data_manifest.date_range },
-          sources: latestArtifact.sources as { connector_id: string }[],
+          sources: latestArtifact.sources as PendingSource[],
         }
       : null,
   );

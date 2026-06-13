@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FeaturizerConfigEditor } from "@/components/FeaturizerConfigEditor";
 import { ConnectorEditor } from "@/components/ConnectorEditor";
+import { UploadRow } from "@/components/UploadDataPanel";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { isSessionStale } from "@/lib/stale";
@@ -99,7 +100,7 @@ function ConfigForm({
             requested_start: latestArtifact.data_manifest.requested_start,
             requested_end: latestArtifact.data_manifest.requested_end,
           },
-          sources: latestArtifact.sources as { connector_id: string }[],
+          sources: latestArtifact.sources as PendingSource[],
         }
       : null,
   );
@@ -142,6 +143,17 @@ function ConfigForm({
     const updated = await api.getSession(id);
     setSession(updated);
     router.push(`/sessions/${id}/activity`);
+  };
+
+  const handleUploadSuccess = async (artifactId: string) => {
+    if (!id) return;
+    const [detail, updated] = await Promise.all([
+      api.getArtifact(id, artifactId),
+      api.getSession(id),
+    ]);
+    setSession(updated);
+    setLatestArtifact(detail);
+    onSessionUpdated(updated);
   };
 
   return (
@@ -190,13 +202,13 @@ function ConfigForm({
       <div>
         <SectionLabel>Session</SectionLabel>
         <div className="border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Market profile</span>
             <span className="bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded">
               {session.market_profile ?? "—"}
             </span>
           </div>
-          <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
             <span className="text-xs text-gray-500">Timeframe</span>
             <div className="flex items-center gap-2">
               <input
@@ -227,6 +239,13 @@ function ConfigForm({
           value={localSources}
           onChange={setLocalSources}
           readOnly={isRunning}
+          footer={
+            <UploadRow
+              sessionId={id}
+              onSuccess={handleUploadSuccess}
+              existingDateRange={latestArtifact?.data_manifest.date_range}
+            />
+          }
         />
       </div>
 
