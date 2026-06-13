@@ -8,6 +8,7 @@ type Props = {
   value: PendingSource[];
   onChange: (next: PendingSource[]) => void;
   readOnly?: boolean;
+  footer?: React.ReactNode;
 };
 
 // Static display label for connectors that contribute a single source.
@@ -69,7 +70,7 @@ function Chip({
   );
 }
 
-export function ConnectorEditor({ available, value, onChange, readOnly }: Props) {
+export function ConnectorEditor({ available, value, onChange, readOnly, footer }: Props) {
   const [addingFor, setAddingFor] = useState<string | null>(null);
   const [addValue, setAddValue] = useState("");
   const activeIds = new Set(value.map((s) => s.connector_id));
@@ -205,6 +206,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly }: Props)
           </div>
         );
       })}
+      {footer}
     </div>
   );
 }

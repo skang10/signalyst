@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { FeaturizerConfigEditor } from "@/components/FeaturizerConfigEditor";
 import { ConnectorEditor } from "@/components/ConnectorEditor";
+import { UploadRow } from "@/components/UploadDataPanel";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { isSessionStale } from "@/lib/stale";
@@ -144,6 +145,17 @@ function ConfigForm({
     router.push(`/sessions/${id}/activity`);
   };
 
+  const handleUploadSuccess = async (artifactId: string) => {
+    if (!id) return;
+    const [detail, updated] = await Promise.all([
+      api.getArtifact(id, artifactId),
+      api.getSession(id),
+    ]);
+    setSession(updated);
+    setLatestArtifact(detail);
+    onSessionUpdated(updated);
+  };
+
   return (
     <div className="flex flex-col gap-4 p-4 overflow-y-auto h-full">
       {stale && (
@@ -227,6 +239,13 @@ function ConfigForm({
           value={localSources}
           onChange={setLocalSources}
           readOnly={isRunning}
+          footer={
+            <UploadRow
+              sessionId={id}
+              onSuccess={handleUploadSuccess}
+              existingDateRange={latestArtifact?.data_manifest.date_range}
+            />
+          }
         />
       </div>
 
