@@ -74,6 +74,12 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
   const [addingFor, setAddingFor] = useState<string | null>(null);
   const [addValue, setAddValue] = useState("");
   const activeIds = new Set(value.map((s) => s.connector_id));
+  const uploadSources = value.filter((s) => s.connector_id === "upload");
+
+  function removeUpload(sourceName: string | undefined) {
+    if (readOnly) return;
+    onChange(value.filter((s) => !(s.connector_id === "upload" && s.source_name === sourceName)));
+  }
 
   function toggleConnector(connector: ConnectorOut) {
     if (readOnly) return;
@@ -206,6 +212,26 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
           </div>
         );
       })}
+      {uploadSources.length > 0 && (
+        <div className="px-3 py-2.5 border-b border-gray-100">
+          <div className="flex items-baseline gap-2">
+            <span className="text-sm font-medium text-teal-700">Custom Upload</span>
+            <span className="text-xs text-gray-400 truncate">
+              Your uploaded data — click to exclude from the next run
+            </span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {uploadSources.map((s) => (
+              <Chip
+                key={s.source_name}
+                label={s.source_name ?? "Uploaded data"}
+                active
+                onClick={readOnly ? undefined : () => removeUpload(s.source_name)}
+              />
+            ))}
+          </div>
+        </div>
+      )}
       {footer}
     </div>
   );

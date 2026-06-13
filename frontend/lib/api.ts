@@ -22,6 +22,7 @@ export type FeaturizerConfig = {
 export type PendingSource = {
   connector_id: string;
   params?: Record<string, unknown>;
+  source_name?: string;
 };
 
 export type ConnectorOut = {
