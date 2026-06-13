@@ -18,11 +18,24 @@ import type {
 
 type SaveStatus = "idle" | "saving" | "saved" | "failed";
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function SectionLabel({
+  children,
+  open,
+  onToggle,
+}: {
+  children: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+}) {
   return (
-    <div className="text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-2">
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest text-gray-400 uppercase mb-2 hover:text-gray-600 transition-colors"
+    >
+      <span>{open ? "▾" : "▸"}</span>
       {children}
-    </div>
+    </button>
   );
 }
 
@@ -64,6 +77,10 @@ function ConfigForm({
     session.featurizer_config as FeaturizerConfig,
   );
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+
+  const [sessionOpen, setSessionOpen] = useState(true);
+  const [connectorsOpen, setConnectorsOpen] = useState(true);
+  const [featurizerOpen, setFeaturizerOpen] = useState(true);
 
   useEffect(() => {
     // SPEC-type connectors have no data-fetching implementation yet (see CLAUDE.md) —
@@ -206,65 +223,81 @@ function ConfigForm({
 
       {/* SESSION */}
       <div>
-        <SectionLabel>Session</SectionLabel>
-        <div className="border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Market profile</span>
-            <span className="bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded">
-              {session.market_profile ?? "—"}
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Timeframe</span>
+        <SectionLabel open={sessionOpen} onToggle={() => setSessionOpen((v) => !v)}>
+          Session
+        </SectionLabel>
+        {sessionOpen && (
+          <div className="border border-gray-200 rounded-lg p-3 flex flex-col gap-3">
             <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={localStart}
-                disabled={isRunning}
-                onChange={(e) => setLocalStart(e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
-              />
-              <span className="text-xs text-gray-400">→</span>
-              <input
-                type="date"
-                value={localEnd}
-                disabled={isRunning}
-                onChange={(e) => setLocalEnd(e.target.value)}
-                className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
-              />
+              <span className="text-xs text-gray-500">Market profile</span>
+              <span className="bg-gray-100 text-gray-700 text-xs font-semibold px-2 py-0.5 rounded">
+                {session.market_profile ?? "—"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">Timeframe</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={localStart}
+                  disabled={isRunning}
+                  onChange={(e) => setLocalStart(e.target.value)}
+                  className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
+                />
+                <span className="text-xs text-gray-400">→</span>
+                <input
+                  type="date"
+                  value={localEnd}
+                  disabled={isRunning}
+                  onChange={(e) => setLocalEnd(e.target.value)}
+                  className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* DATA SOURCES */}
+      {/* DATA CONNECTORS */}
       <div>
-        <SectionLabel>Data Sources</SectionLabel>
-        <ConnectorEditor
-          available={connectors}
-          value={localSources}
-          onChange={setLocalSources}
-          readOnly={isRunning}
-          footer={
-            <UploadRow
-              sessionId={id}
-              onSuccess={handleUploadSuccess}
-              existingDateRange={latestArtifact?.data_manifest.date_range}
-            />
-          }
-        />
+        <SectionLabel open={connectorsOpen} onToggle={() => setConnectorsOpen((v) => !v)}>
+          Data Connectors
+        </SectionLabel>
+        {connectorsOpen && (
+          <ConnectorEditor
+            available={connectors}
+            value={localSources}
+            onChange={setLocalSources}
+            readOnly={isRunning}
+            footer={
+              <UploadRow
+                sessionId={id}
+                onSuccess={handleUploadSuccess}
+                existingDateRange={latestArtifact?.data_manifest.date_range}
+              />
+            }
+          />
+        )}
       </div>
 
       {/* FEATURIZER */}
       <div>
-        <SectionLabel>Featurizer</SectionLabel>
-        <FeaturizerConfigEditor
-          value={localFeatConfig}
-          onChange={stage === "user_review" ? setLocalFeatConfig : undefined}
-          readOnly={stage !== "user_review"}
-        />
-        {stage !== "user_review" && (
-          <p className="text-xs text-gray-400 mt-2">Editable only during the review step.</p>
+        <SectionLabel open={featurizerOpen} onToggle={() => setFeaturizerOpen((v) => !v)}>
+          Featurizer
+        </SectionLabel>
+        {featurizerOpen && (
+          <>
+            <div className="border border-gray-200 rounded-lg p-3">
+              <FeaturizerConfigEditor
+                value={localFeatConfig}
+                onChange={stage === "user_review" ? setLocalFeatConfig : undefined}
+                readOnly={stage !== "user_review"}
+              />
+            </div>
+            {stage !== "user_review" && (
+              <p className="text-xs text-gray-400 mt-2">Editable only during the review step.</p>
+            )}
+          </>
         )}
       </div>
     </div>
