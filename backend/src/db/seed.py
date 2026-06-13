@@ -36,7 +36,7 @@ _BUILTIN_CONNECTOR_SPECS = [
     (
         "yfinance",
         "Yahoo Finance",
-        "Daily price series from Yahoo Finance. Supports equities, ETFs, and futures.",
+        "Daily price series from Yahoo Finance.",
     ),
     ("fred", "FRED", "Macro time series from the St. Louis Fed FRED database."),
     ("eia", "EIA", "Weekly US crude oil inventory change from the EIA."),
