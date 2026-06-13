@@ -153,6 +153,7 @@ function ConfigForm({
     ]);
     setSession(updated);
     setLatestArtifact(detail);
+    setLocalSources(updated.pending_sources ?? []);
     onSessionUpdated(updated);
   };
 
