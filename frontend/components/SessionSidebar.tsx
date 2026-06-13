@@ -74,9 +74,6 @@ export function SessionSidebar({
 }) {
   const pathname = usePathname();
 
-  const sourcesBadge = stage !== null && !DATA_LOCKED_STAGES.has(stage) ? " ✓" : "";
-  const overviewBadge = stage === RESULTS_UNLOCKED_STAGE ? " ✦" : "";
-
   return (
     <nav className="w-[170px] flex-shrink-0 flex flex-col p-2.5 border-r border-gray-200">
       <SectionLabel>Navigation</SectionLabel>
@@ -97,9 +94,8 @@ export function SessionSidebar({
         stage={stage}
       />
       <NavItem
-        label="Sources"
+        label="Data Status"
         path="data"
-        badge={sourcesBadge}
         sessionId={sessionId}
         pathname={pathname}
         stage={stage}
@@ -109,7 +105,6 @@ export function SessionSidebar({
       <NavItem
         label="Overview"
         path="overview"
-        badge={overviewBadge}
         sessionId={sessionId}
         pathname={pathname}
         stage={stage}
