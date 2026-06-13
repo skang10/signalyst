@@ -20,7 +20,7 @@ from fastapi import (
     status,
 )
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlmodel import select
+from sqlmodel import delete, select
 
 from api.models import (
     CancelResponse,
@@ -34,7 +34,7 @@ from api.models import (
     SeriesPoint,
     UploadResponse,
 )
-from src.db.models import DataArtifact, SessionStage, SessionStatus
+from src.db.models import DataArtifact, SessionStage, SessionStatus, UploadedSource
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
 from src.services.featurizer_config import apply_config_patch
@@ -187,6 +187,8 @@ async def upload_data(
     if df.empty:
         raise HTTPException(status_code=422, detail="No numeric columns found in uploaded file")
 
+    upload_only_df = df
+
     file_hash = hashlib.sha256(content).hexdigest()[:16]
     source_hash = stable_hash(f"upload:{source_name}:{file_hash}")
     data_manifest = _build_manifest(df)
@@ -290,6 +292,49 @@ async def upload_data(
         raw_data_ref = ref
 
     all_sources = [*prior_sources, {"connector_id": "upload", "source_name": source_name}]
+
+    # Persist the uploaded data on its own (independent of this artifact's lifecycle) so
+    # future data-gathering re-runs can re-merge it even after connector sources change.
+    upload_raw_data: dict[str, Any] | None = None
+    upload_raw_data_ref: str | None = None
+    upload_bytes = upload_only_df.to_json().encode()
+    if len(upload_bytes) <= _RAW_INLINE_THRESHOLD:
+        upload_raw_data = _df_to_raw_data(upload_only_df)
+    else:
+        _ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
+        upload_ref = str(_ARTIFACTS_DIR / f"{artifact_id}_upload.parquet")
+        upload_only_df.to_parquet(upload_ref)
+        upload_raw_data_ref = upload_ref
+
+    await db.execute(
+        delete(UploadedSource)
+        .where(UploadedSource.session_id == uid)  # type: ignore[arg-type]
+        .where(UploadedSource.source_name == source_name)  # type: ignore[arg-type]
+    )
+    db.add(
+        UploadedSource(
+            session_id=uid,
+            source_name=source_name,
+            columns=list(upload_only_df.columns),
+            raw_data=upload_raw_data,
+            raw_data_ref=upload_raw_data_ref,
+        )
+    )
+
+    # Track this upload in pending_sources so it's included (and toggleable) on future runs
+    upload_pending_entry = {
+        "connector_id": "upload",
+        "source_name": source_name,
+        "columns": list(upload_only_df.columns),
+    }
+    s.pending_sources = [
+        *[
+            p
+            for p in (s.pending_sources or [])
+            if not (p.get("connector_id") == "upload" and p.get("source_name") == source_name)
+        ],
+        upload_pending_entry,
+    ]
 
     a = DataArtifact(
         id=artifact_id,

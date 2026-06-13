@@ -56,7 +56,7 @@ Package manager: **uv** (`uv run <cmd>` activates the venv automatically).
 - `src/agent/` — LLM agent, tools, ReAct loop (to be implemented)
 - `src/featurizer/` — `TimeSeriesFeaturizer`: rolling stats, lag features, momentum, regime features; strict temporal ordering to prevent leakage
 - `src/inference/` — `TabPFNClassifier`/`TabPFNRegressor` wrappers; regime classification + WTI direction prediction
-- `src/data/` — connectors for yfinance, fredapi, EIA API
+- `src/data/` — connectors for yfinance, fredapi, EIA API. `connector_registry` only dispatches to builtin connectors (those with a `manifest.yaml`/`connector.py` under `src/data/connectors/`); custom connectors created via `POST /api/connectors` (`ConnectorType.SPEC`, stored with a `spec` blob) are persisted but have **no fetch implementation** — the data agent has no tool to execute them. The Config UI hides SPEC connectors from the picker until this is built.
 - `src/eval/` — walk-forward cross-validation, backtest, Sharpe metrics
 - `src/derivatives/` — GBM/Heston Monte Carlo simulation, European/American options pricing, Greeks
 - `src/db/` — SQLModel + asyncpg database models

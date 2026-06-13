@@ -16,7 +16,7 @@ from sqlmodel import func, select
 from src.agent.tools import AgentContext
 from src.agents.data_agent import make_data_agent
 from src.config import settings
-from src.db.models import DataArtifact, SessionStage, SessionStatus
+from src.db.models import DataArtifact, SessionStage, SessionStatus, UploadedSource
 from src.db.models import Session as SessionModel
 from src.services.hashing import stable_hash
 
@@ -37,6 +37,18 @@ async def run_data_agent_service(session_id: uuid.UUID, engine: AsyncEngine) -> 
             log.info("data_agent.wrong_stage", session_id=str(session_id), stage=s.stage)
             return
         await _run(s, db)
+
+
+def _uploaded_source_to_series(uploaded: UploadedSource) -> dict[str, pd.Series]:
+    if uploaded.raw_data is not None:
+        return {
+            col: pd.Series(v["data"], index=pd.DatetimeIndex(v["index"]), name=col, dtype=float)
+            for col, v in uploaded.raw_data.items()
+        }
+    if uploaded.raw_data_ref:
+        df = pd.read_parquet(uploaded.raw_data_ref)
+        return {col: df[col].rename(col) for col in df.columns}
+    return {}
 
 
 def _series_to_raw_data(signals: dict[str, Any]) -> dict[str, Any]:
@@ -164,6 +176,8 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
     is_auto = s.auto
 
     pending = list(s.pending_sources or [])
+    connector_pending = [p for p in pending if p.get("connector_id") != "upload"]
+    upload_pending = [p for p in pending if p.get("connector_id") == "upload"]
     requested_start = str(s.timeframe_start) if s.timeframe_start else ""
     requested_end = str(s.timeframe_end) if s.timeframe_end else ""
     log.info(
@@ -181,11 +195,33 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         await r.publish(channel, json.dumps(enriched))
 
     try:
+        # Load uploaded source data referenced by pending_sources — these are merged into
+        # the freshly-fetched connector signals below, and their identity feeds the cache
+        # hash so a change in which uploads are included invalidates the cache.
+        uploaded_sources: list[UploadedSource] = []
+        for up in upload_pending:
+            row = await db.execute(
+                select(UploadedSource)
+                .where(
+                    UploadedSource.session_id == session_id,
+                    UploadedSource.source_name == up.get("source_name"),
+                )
+                .order_by(UploadedSource.created_at.desc())  # type: ignore[attr-defined]
+                .limit(1)
+            )
+            uploaded = row.scalars().first()
+            if uploaded is not None:
+                uploaded_sources.append(uploaded)
+
         source_str = json.dumps(
-            sorted(pending, key=lambda x: x.get("connector_id", "")), sort_keys=True
+            sorted(connector_pending, key=lambda x: x.get("connector_id", "")), sort_keys=True
         )
+        upload_ids_str = json.dumps(sorted(str(u.id) for u in uploaded_sources))
         source_hash = stable_hash(
-            hashlib.sha256(source_str.encode()).hexdigest(), requested_start, requested_end
+            hashlib.sha256(source_str.encode()).hexdigest(),
+            upload_ids_str,
+            requested_start,
+            requested_end,
         )
 
         # --- Cache lookup ---
@@ -269,16 +305,25 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
             date_range_start=str(s.timeframe_start),
             date_range_end=str(s.timeframe_end),
         )
-        initial_msg = (
-            f"Fetch the following approved data sources: {json.dumps(pending)}"
-            if pending
-            else (
+        if connector_pending:
+            initial_msg = (
+                f"Fetch the following approved data sources: {json.dumps(connector_pending)}"
+            )
+        elif pending:
+            initial_msg = "No connector data sources requested for this run."
+        else:
+            initial_msg = (
                 "Fetch the default oil data sources: yfinance (CL=F, BZ=F, DX-Y.NYB),"
                 " fred (INDPRO), eia, gpr."
             )
-        )
         agent = make_data_agent()
         await agent.run(context=ctx, publisher=publisher, initial_user_message=initial_msg)
+
+        # Merge in previously uploaded sources still listed in pending_sources — these
+        # aren't re-fetched by the agent, just re-attached to the fresh result.
+        for uploaded in uploaded_sources:
+            for col, series in _uploaded_source_to_series(uploaded).items():
+                ctx.signals[col] = series
 
         # All reads below use snapshots — s is expired after the await above
         raw_data = _series_to_raw_data(ctx.signals)
@@ -312,8 +357,9 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
             raw_data_ref = ref
 
         sources = [
-            {"connector_id": p["connector_id"], "params": p.get("params", {})} for p in pending
-        ]
+            {"connector_id": p["connector_id"], "params": p.get("params", {})}
+            for p in connector_pending
+        ] + upload_pending
         a = DataArtifact(
             id=artifact_id,
             session_id=session_id,

@@ -75,6 +75,16 @@ class DataArtifact(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
 
 
+class UploadedSource(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    session_id: uuid.UUID = Field(foreign_key="session.id")
+    source_name: str
+    columns: list[str] = Field(default_factory=list, sa_column=Column(SAJson, nullable=False))
+    raw_data: dict[str, Any] | None = Field(default=None, sa_column=Column(SAJson, nullable=True))
+    raw_data_ref: str | None = Field(default=None)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
+
+
 class FeatureArtifact(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     session_id: uuid.UUID = Field(foreign_key="session.id")

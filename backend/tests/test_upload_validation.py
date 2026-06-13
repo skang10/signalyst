@@ -85,3 +85,48 @@ def test_upload_no_wti_column_warns_in_manifest(client):
     warnings = detail["data_manifest"].get("warnings")
     assert warnings is not None
     assert any("wti" in w.lower() for w in warnings)
+
+
+def test_upload_adds_pending_source_entry(client):
+    session_id = _create_session(client)
+    dates = pd.date_range("2023-01-01", periods=100, freq="D")
+    csv_bytes = _make_csv(dates, col="custom_price")
+    res = client.post(
+        f"/api/sessions/{session_id}/upload",
+        files={"file": ("data.csv", csv_bytes, "text/csv")},
+        data={"source_name": "my_upload"},
+    )
+    assert res.status_code == 202
+
+    session = client.get(f"/api/sessions/{session_id}").json()
+    uploads = [p for p in session["pending_sources"] if p["connector_id"] == "upload"]
+    assert uploads == [
+        {"connector_id": "upload", "source_name": "my_upload", "columns": ["custom_price"]}
+    ]
+
+
+def test_reupload_same_source_name_replaces_pending_source(client):
+    session_id = _create_session(client)
+    dates = pd.date_range("2023-01-01", periods=100, freq="D")
+
+    csv_bytes = _make_csv(dates, col="custom_price")
+    res = client.post(
+        f"/api/sessions/{session_id}/upload",
+        files={"file": ("data.csv", csv_bytes, "text/csv")},
+        data={"source_name": "my_upload"},
+    )
+    assert res.status_code == 202
+
+    csv_bytes_2 = _make_csv(dates, col="other_price")
+    res = client.post(
+        f"/api/sessions/{session_id}/upload",
+        files={"file": ("data2.csv", csv_bytes_2, "text/csv")},
+        data={"source_name": "my_upload", "mode": "replace"},
+    )
+    assert res.status_code == 202
+
+    session = client.get(f"/api/sessions/{session_id}").json()
+    uploads = [p for p in session["pending_sources"] if p["connector_id"] == "upload"]
+    assert uploads == [
+        {"connector_id": "upload", "source_name": "my_upload", "columns": ["other_price"]}
+    ]
