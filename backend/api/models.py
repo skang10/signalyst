@@ -152,6 +152,19 @@ class DataArtifactDetail(BaseModel):
     cached_from_session_id: str | None
 
 
+class AnalysisResultDetail(BaseModel):
+    kind: str = "analysis"
+    artifact_id: str
+    regime: dict[str, object] | None
+    direction: dict[str, object] | None
+    feature_importance: dict[str, object] | None
+    drift: dict[str, object] | None
+    backtest: dict[str, object] | None
+    summary: str | None
+    cache_hit: bool
+    cached_from_session_id: str | None
+
+
 class ConnectorOut(BaseModel):
     id: str
     name: str

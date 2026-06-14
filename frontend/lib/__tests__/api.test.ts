@@ -148,6 +148,33 @@ describe("api.getArtifact", () => {
   });
 });
 
+describe("api.getAnalysisArtifact", () => {
+  it("fetches analysis result detail", async () => {
+    const { api } = await import("../api");
+    mockOk({
+      kind: "analysis",
+      artifact_id: "ar-1",
+      regime: { regime: "bull_supercycle", confidence: 0.8, distribution: { bull_supercycle: 10 } },
+      direction: { direction: "up", confidence: 0.7, distribution: { up: 8, down: 2 } },
+      feature_importance: {
+        top_features: [{ name: "CL=F_ret_5", importance: 0.42 }],
+        n_features_evaluated: 12,
+        n_samples_explained: 20,
+      },
+      drift: { psi_score: 0.05, drift_detected: false },
+      backtest: { strategy_sharpe: 1.2, benchmark_sharpe: 0.8, regime_accuracy: 0.65, n_windows: 5 },
+      summary: "Markets are in a bull supercycle.",
+      cache_hit: false,
+      cached_from_session_id: null,
+    });
+    const result = await api.getAnalysisArtifact("ses-1", "ar-1");
+    expect(result.kind).toBe("analysis");
+    expect(result.regime?.regime).toBe("bull_supercycle");
+    expect(result.feature_importance?.top_features[0].name).toBe("CL=F_ret_5");
+    expect(result.backtest?.strategy_sharpe).toBe(1.2);
+  });
+});
+
 describe("api.getMarketSnapshot", () => {
   it("fetches /api/market/snapshot", async () => {
     const { api } = await import("../api");

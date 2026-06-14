@@ -23,6 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import delete, select
 
 from api.models import (
+    AnalysisResultDetail,
     CancelResponse,
     ConfigPatchRequest,
     ConfigPatchResponse,
@@ -34,7 +35,7 @@ from api.models import (
     SeriesPoint,
     UploadResponse,
 )
-from src.db.models import DataArtifact, SessionStage, SessionStatus, UploadedSource
+from src.db.models import AnalysisResult, DataArtifact, SessionStage, SessionStatus, UploadedSource
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
 from src.services.featurizer_config import apply_config_patch
@@ -556,6 +557,35 @@ async def get_artifact(session_id: str, artifact_id: str, db: SessionDep) -> Dat
         sources=artifact.sources,
         data_manifest=artifact.data_manifest,
         series_preview=series_preview,
+        cache_hit=artifact.cache_hit,
+        cached_from_session_id=(
+            str(artifact.cached_from_session_id) if artifact.cached_from_session_id else None
+        ),
+    )
+
+
+@router.get("/sessions/{session_id}/analysis/{artifact_id}", response_model=AnalysisResultDetail)
+async def get_analysis_artifact(
+    session_id: str, artifact_id: str, db: SessionDep
+) -> AnalysisResultDetail:
+    try:
+        s_uid = uuid.UUID(session_id)
+        a_uid = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    artifact = await db.get(AnalysisResult, a_uid)
+    if artifact is None or artifact.session_id != s_uid:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    return AnalysisResultDetail(
+        artifact_id=str(artifact.id),
+        regime=artifact.regime,
+        direction=artifact.direction,
+        feature_importance=artifact.feature_importance,
+        drift=artifact.drift,
+        backtest=artifact.backtest,
+        summary=artifact.summary,
         cache_hit=artifact.cache_hit,
         cached_from_session_id=(
             str(artifact.cached_from_session_id) if artifact.cached_from_session_id else None

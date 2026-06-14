@@ -229,3 +229,125 @@ def test_get_artifact_not_found_returns_404(client):
     session_id = _create_session(client)
     res = client.get(f"/api/sessions/{session_id}/artifacts/00000000-0000-0000-0000-000000000000")
     assert res.status_code == 404
+
+
+def test_get_analysis_artifact_returns_analysis_result_detail(client):
+    import asyncio
+    import uuid
+
+    from src.db.models import AnalysisResult
+
+    session_id = _create_session(client)
+    artifact_id = uuid.uuid4()
+
+    async def _seed() -> None:
+        from api.main import app
+        from src.db.session import get_session
+
+        override = app.dependency_overrides[get_session]
+        agen = override()
+        db = await agen.__anext__()
+        try:
+            db.add(
+                AnalysisResult(
+                    id=artifact_id,
+                    session_id=uuid.UUID(session_id),
+                    feature_artifact_id=uuid.uuid4(),
+                    regime={
+                        "regime": "bull_supercycle",
+                        "confidence": 0.8,
+                        "distribution": {"bull_supercycle": 10},
+                    },
+                    direction={
+                        "direction": "up",
+                        "confidence": 0.7,
+                        "distribution": {"up": 8, "down": 2},
+                    },
+                    feature_importance={
+                        "top_features": [{"name": "CL=F_ret_5", "importance": 0.42}],
+                        "n_features_evaluated": 12,
+                        "n_samples_explained": 20,
+                    },
+                    drift={"psi_score": 0.05, "drift_detected": False},
+                    backtest={
+                        "strategy_sharpe": 1.2,
+                        "benchmark_sharpe": 0.8,
+                        "regime_accuracy": 0.65,
+                        "n_windows": 5,
+                    },
+                    summary="Markets are in a bull supercycle.",
+                )
+            )
+            await db.commit()
+        finally:
+            await agen.aclose()
+
+    asyncio.run(_seed())
+
+    res = client.get(f"/api/sessions/{session_id}/analysis/{artifact_id}")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["kind"] == "analysis"
+    assert body["artifact_id"] == str(artifact_id)
+    assert body["regime"]["regime"] == "bull_supercycle"
+    assert body["direction"]["direction"] == "up"
+    assert body["feature_importance"]["top_features"][0]["name"] == "CL=F_ret_5"
+    assert body["drift"]["psi_score"] == 0.05
+    assert body["backtest"]["strategy_sharpe"] == 1.2
+    assert body["summary"] == "Markets are in a bull supercycle."
+    assert body["cache_hit"] is False
+    assert body["cached_from_session_id"] is None
+
+
+def test_get_analysis_artifact_not_found_returns_404(client):
+    session_id = _create_session(client)
+    res = client.get(f"/api/sessions/{session_id}/analysis/00000000-0000-0000-0000-000000000000")
+    assert res.status_code == 404
+
+
+def test_get_analysis_artifact_wrong_session_returns_404(client):
+    import asyncio
+    import uuid
+    from datetime import date
+
+    from src.db.models import AnalysisResult, SessionStage, SessionStatus
+    from src.db.models import Session as SessionModel
+
+    session_id = _create_session(client)
+    other_session_id = uuid.uuid4()
+    artifact_id = uuid.uuid4()
+
+    async def _seed() -> None:
+        from api.main import app
+        from src.db.session import get_session
+
+        override = app.dependency_overrides[get_session]
+        agen = override()
+        db = await agen.__anext__()
+        try:
+            db.add(
+                SessionModel(
+                    id=other_session_id,
+                    market_profile="oil",
+                    timeframe_start=date(2023, 1, 1),
+                    timeframe_end=date(2023, 6, 30),
+                    stage=SessionStage.FOLLOW_UP.value,
+                    status=SessionStatus.WAITING.value,
+                    conversation=[],
+                )
+            )
+            db.add(
+                AnalysisResult(
+                    id=artifact_id,
+                    session_id=other_session_id,
+                    feature_artifact_id=uuid.uuid4(),
+                )
+            )
+            await db.commit()
+        finally:
+            await agen.aclose()
+
+    asyncio.run(_seed())
+
+    res = client.get(f"/api/sessions/{session_id}/analysis/{artifact_id}")
+    assert res.status_code == 404
