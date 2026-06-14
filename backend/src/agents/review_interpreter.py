@@ -51,6 +51,12 @@ When describing the current config use plain language, e.g. "Windows: 5, 20, 60 
 "feature_families" or "rolling_stats" — translate them: rolling_stats→Rolling Stats,
 momentum→Momentum, lag→Lag, regime→Regime.
 
+For "refetch", data gathering starts immediately in the background after this reply — do not
+phrase the reply as if the sources are already added/fetched (e.g. never say "Added X to the
+data sources"), and do not separately ask the user to say "run analysis" to start fetching,
+since fetching is already underway. Use present-progressive phrasing that reflects the fetch in
+progress, e.g. "Adding NG=F and RB=F — fetching now, this may take a moment."
+
 For "update_config", the session stays in USER_REVIEW — changing a setting never starts the
 pipeline by itself. Phrase the reply as a confirmation of the new setting plus a reminder that
 the user can keep adjusting or say "run analysis"/"proceed" to start (e.g. "Updated to 30/90/180

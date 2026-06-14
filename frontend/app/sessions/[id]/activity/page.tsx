@@ -61,6 +61,41 @@ function StagePill({ group }: { group: StageGroup }) {
   );
 }
 
+// --- Inline refetch status (compact, for chat-triggered data gathering) ---
+
+function InlineFetchStatus({ group }: { group: StageGroup }) {
+  const labels = group.fetchRows.map((row) => toolLabel(row.tool, row.input));
+  const rows = group.completionEvent?.rows as number | undefined;
+
+  if (group.errorEvent) {
+    return (
+      <div className="self-start ml-10 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-red-600 bg-red-50 border border-red-200 rounded-md">
+        ✕ {(group.errorEvent.message as string) ?? "Fetch failed"}
+      </div>
+    );
+  }
+
+  if (group.status === "active") {
+    return (
+      <div className="self-start ml-10 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-teal-600 bg-teal-50 border border-teal-200 rounded-md">
+        <span className="animate-spin leading-none">⟳</span>
+        {labels.length > 0 ? `Fetching ${labels.join(", ")}…` : "Fetching new data…"}
+      </div>
+    );
+  }
+
+  if (group.completionEvent) {
+    return (
+      <div className="self-start ml-10 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-green-700 bg-green-50 border border-green-200 rounded-md">
+        ✓ {labels.length > 0 ? labels.join(", ") : "Data updated"}
+        {rows !== undefined && ` · ${rows} rows`}
+      </div>
+    );
+  }
+
+  return null;
+}
+
 // --- Thinking block ---
 
 function ThinkingBlock({ thoughts, active }: { thoughts: ThoughtEntry[]; active: boolean }) {
@@ -427,10 +462,19 @@ export default function ActivityPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {groups.map((group, idx) => (
+            {groups.map((group, idx) => {
+              const isChatRefetch =
+                group.stage === "data_gathering" && group.fromStage === "user_review";
+              return (
               <div key={`${group.stage}-${idx}`} className="flex flex-col gap-3">
-                <StagePill group={group} />
-                <AgentTurn group={group} />
+                {isChatRefetch ? (
+                  <InlineFetchStatus group={group} />
+                ) : (
+                  <>
+                    <StagePill group={group} />
+                    <AgentTurn group={group} />
+                  </>
+                )}
                 {/* Render chat messages in timestamp order, role determines component */}
                 {group.chatMessages.map((msg, i) =>
                   msg.role === "assistant" ? (
@@ -440,7 +484,8 @@ export default function ActivityPage() {
                   )
                 )}
               </div>
-            ))}
+              );
+            })}
             {(sending || (stage === "follow_up" && status === "running")) && <AgentThinkingLine />}
           </div>
         )}

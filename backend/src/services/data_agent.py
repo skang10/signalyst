@@ -51,6 +51,73 @@ def _uploaded_source_to_series(uploaded: UploadedSource) -> dict[str, pd.Series]
     return {}
 
 
+def _raw_data_to_series(raw_data: dict[str, Any]) -> dict[str, pd.Series]:
+    return {
+        col: pd.Series(v["data"], index=pd.DatetimeIndex(v["index"]), name=col, dtype=float)
+        for col, v in raw_data.items()
+    }
+
+
+def _load_artifact_raw_data(artifact: DataArtifact) -> dict[str, Any]:
+    if artifact.raw_data is not None:
+        return artifact.raw_data
+    if artifact.raw_data_ref:
+        df = pd.read_parquet(artifact.raw_data_ref)
+        return {
+            col: {
+                "index": [str(idx.date()) for idx in df.index],
+                "data": [None if pd.isna(v) else float(v) for v in df[col]],
+            }
+            for col in df.columns
+        }
+    return {}
+
+
+def _expected_signal_keys(connector_pending: list[dict[str, Any]]) -> set[str]:
+    keys: set[str] = set()
+    for p in connector_pending:
+        cid = p.get("connector_id")
+        params = p.get("params", {})
+        if cid == "yfinance":
+            keys.update(params.get("tickers", []))
+        elif cid == "fred":
+            keys.update(params.get("series_ids", []))
+        elif cid == "eia":
+            keys.add("eia_inventory_change")
+        elif cid == "gpr":
+            keys.add("GPR")
+    return keys
+
+
+def _diff_sources(
+    connector_pending: list[dict[str, Any]], prev_sources: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return only the connector_pending entries that aren't already covered by
+    prev_sources, so a chat-triggered refetch only fetches newly-added sources."""
+    prev_by_id = {p.get("connector_id"): p for p in prev_sources}
+    to_fetch: list[dict[str, Any]] = []
+    for p in connector_pending:
+        cid = p.get("connector_id")
+        params = p.get("params", {})
+        prev = prev_by_id.get(cid)
+        if cid == "yfinance":
+            prev_tickers = set(prev.get("params", {}).get("tickers", [])) if prev else set()
+            new_tickers = [t for t in params.get("tickers", []) if t not in prev_tickers]
+            if new_tickers:
+                to_fetch.append({"connector_id": cid, "params": {"tickers": new_tickers}})
+        elif cid == "fred":
+            prev_series = set(prev.get("params", {}).get("series_ids", [])) if prev else set()
+            new_series = [s for s in params.get("series_ids", []) if s not in prev_series]
+            if new_series:
+                to_fetch.append({"connector_id": cid, "params": {"series_ids": new_series}})
+        elif cid in ("eia", "gpr"):
+            if prev is None:
+                to_fetch.append(p)
+        else:
+            to_fetch.append(p)
+    return to_fetch
+
+
 def _series_to_raw_data(signals: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, series in signals.items():
@@ -198,6 +265,14 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         # Load uploaded source data referenced by pending_sources — these are merged into
         # the freshly-fetched connector signals below, and their identity feeds the cache
         # hash so a change in which uploads are included invalidates the cache.
+        prev_artifact_result = await db.execute(
+            select(DataArtifact)
+            .where(DataArtifact.session_id == session_id)
+            .order_by(DataArtifact.created_at.desc())  # type: ignore[attr-defined]
+            .limit(1)
+        )
+        prev_artifact = prev_artifact_result.scalar_one_or_none()
+
         uploaded_sources: list[UploadedSource] = []
         for up in upload_pending:
             row = await db.execute(
@@ -305,19 +380,39 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
             date_range_start=str(s.timeframe_start),
             date_range_end=str(s.timeframe_end),
         )
-        if connector_pending:
-            initial_msg = (
-                f"Fetch the following approved data sources: {json.dumps(connector_pending)}"
-            )
-        elif pending:
-            initial_msg = "No connector data sources requested for this run."
+        # If a previous artifact exists for this session, only fetch sources that
+        # weren't already covered by it — a chat-triggered refetch should only hit
+        # the newly-added tickers/series, not re-fetch everything.
+        diffing = prev_artifact is not None and bool(connector_pending)
+        to_fetch = connector_pending
+        carried_signals: dict[str, pd.Series] = {}
+        if diffing and prev_artifact is not None:
+            to_fetch = _diff_sources(connector_pending, prev_artifact.sources or [])
+            expected_keys = _expected_signal_keys(connector_pending)
+            prev_series = _raw_data_to_series(_load_artifact_raw_data(prev_artifact))
+            carried_signals = {k: v for k, v in prev_series.items() if k in expected_keys}
+
+        if diffing and not to_fetch:
+            pass  # nothing new to fetch — skip the agent entirely
         else:
-            initial_msg = (
-                "Fetch the default oil data sources: yfinance (CL=F, BZ=F, DX-Y.NYB),"
-                " fred (INDPRO), eia, gpr."
-            )
-        agent = make_data_agent()
-        await agent.run(context=ctx, publisher=publisher, initial_user_message=initial_msg)
+            if diffing:
+                initial_msg = f"Fetch the following NEW data sources only: {json.dumps(to_fetch)}"
+            elif connector_pending:
+                initial_msg = (
+                    f"Fetch the following approved data sources: {json.dumps(connector_pending)}"
+                )
+            elif pending:
+                initial_msg = "No connector data sources requested for this run."
+            else:
+                initial_msg = (
+                    "Fetch the default oil data sources: yfinance (CL=F, BZ=F, DX-Y.NYB),"
+                    " fred (INDPRO), eia, gpr."
+                )
+            agent = make_data_agent()
+            await agent.run(context=ctx, publisher=publisher, initial_user_message=initial_msg)
+
+        for key, series in carried_signals.items():
+            ctx.signals.setdefault(key, series)
 
         # Merge in previously uploaded sources still listed in pending_sources — these
         # aren't re-fetched by the agent, just re-attached to the fresh result.

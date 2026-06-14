@@ -25,13 +25,14 @@ export type StageGroup = {
   completionEvent: Record<string, unknown> | null;
   errorEvent: Record<string, unknown> | null;
   cacheHitEvent: Record<string, unknown> | null;
+  fromStage: string | null;
 };
 
 type MutableGroup = Omit<StageGroup, "status"> & {
   pendingQueues: Map<string, FetchRow[]>;
 };
 
-function newGroup(stage: string, startTime: string): MutableGroup {
+function newGroup(stage: string, startTime: string, fromStage: string | null = null): MutableGroup {
   return {
     stage,
     startTime,
@@ -42,6 +43,7 @@ function newGroup(stage: string, startTime: string): MutableGroup {
     completionEvent: null,
     errorEvent: null,
     cacheHitEvent: null,
+    fromStage,
   };
 }
 
@@ -86,7 +88,11 @@ export function buildGroups(
     if (type === "stage_transition") {
       flushPending(cur);
       completed.push(cur);
-      cur = newGroup((ev.to as string) ?? "", (ev.created_at as string) ?? "");
+      cur = newGroup(
+        (ev.to as string) ?? "",
+        (ev.created_at as string) ?? "",
+        (ev.from as string | undefined) ?? null,
+      );
     } else if (type === "cache_hit") {
       cur.cacheHitEvent = ev;
     } else if (type === "artifact_ready") {
