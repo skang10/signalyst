@@ -189,7 +189,7 @@ function ConfigForm({
           </span>
           <button
             onClick={handleRerun}
-            className="ml-auto text-teal-600 underline underline-offset-2 whitespace-nowrap"
+            className="ml-auto text-brand underline underline-offset-2 whitespace-nowrap"
           >
             Re-run from data →
           </button>
@@ -213,7 +213,7 @@ function ConfigForm({
             <button
               onClick={handleSave}
               disabled={isRunning || saveStatus === "saving"}
-              className="px-3 py-1 text-xs font-medium bg-teal-600 text-white rounded hover:bg-teal-700 disabled:opacity-40 transition-colors"
+              className="px-3 py-1 text-xs font-medium bg-brand text-white rounded hover:bg-brand-hover disabled:opacity-40 transition-colors"
             >
               {saveStatus === "saving" ? "Saving…" : "Save"}
             </button>
@@ -242,7 +242,7 @@ function ConfigForm({
                   value={localStart}
                   disabled={isRunning}
                   onChange={(e) => setLocalStart(e.target.value)}
-                  className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
+                  className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-brand disabled:opacity-40"
                 />
                 <span className="text-xs text-gray-400">→</span>
                 <input
@@ -250,7 +250,7 @@ function ConfigForm({
                   value={localEnd}
                   disabled={isRunning}
                   onChange={(e) => setLocalEnd(e.target.value)}
-                  className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-teal-400 disabled:opacity-40"
+                  className="border border-gray-200 rounded px-2 py-1 text-xs font-mono outline-none focus:border-brand disabled:opacity-40"
                 />
               </div>
             </div>

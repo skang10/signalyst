@@ -45,7 +45,7 @@ function StagePill({ group }: { group: StageGroup }) {
 
   const styles =
     group.status === "active"
-      ? { wrap: "border-teal-200 bg-teal-50 text-teal-600", dot: "bg-teal-500 animate-pulse" }
+      ? { wrap: "border-brand-soft-border bg-brand-soft text-brand", dot: "bg-brand animate-pulse" }
       : group.status === "failed"
       ? { wrap: "border-red-200 bg-red-50 text-red-600", dot: "bg-red-500" }
       : { wrap: "border-green-200 bg-green-50 text-green-700", dot: "bg-green-500" };
@@ -77,7 +77,7 @@ function InlineFetchStatus({ group }: { group: StageGroup }) {
 
   if (group.status === "active") {
     return (
-      <div className="self-start ml-10 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-teal-600 bg-teal-50 border border-teal-200 rounded-md">
+      <div className="self-start ml-10 inline-flex items-center gap-2 px-3 py-1.5 text-xs text-brand bg-brand-soft border border-brand-soft-border rounded-md">
         <span className="animate-spin leading-none">⟳</span>
         {labels.length > 0 ? `Fetching ${labels.join(", ")}…` : "Fetching new data…"}
       </div>
@@ -102,14 +102,14 @@ function ThinkingBlock({ thoughts, active }: { thoughts: ThoughtEntry[]; active:
   const [open, setOpen] = useState(active);
 
   return (
-    <div className="border border-gray-200 rounded-r-lg overflow-hidden" style={{ borderLeftWidth: 2, borderLeftColor: active ? "#0d9488" : "#9ca3af" }}>
+    <div className="border border-gray-200 rounded-r-lg overflow-hidden" style={{ borderLeftWidth: 2, borderLeftColor: active ? "var(--color-brand)" : "#9ca3af" }}>
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-2 w-full px-3 py-1.5 text-left hover:bg-gray-50 transition-colors"
       >
         <span className="text-xs text-gray-400">💭</span>
         <span className="text-xs text-gray-400 uppercase tracking-wider flex-1">thinking</span>
-        {active && <span className="text-teal-600 text-xs animate-spin leading-none">⟳</span>}
+        {active && <span className="text-brand text-xs animate-spin leading-none">⟳</span>}
         <span className="text-gray-300 text-xs">{open ? "▾" : "▸"}</span>
       </button>
       {open && (
@@ -140,7 +140,7 @@ function ToolChip({ row }: { row: FetchRow }) {
       >
         <span className="text-gray-400 text-xs">⚙</span>
         <span className="text-xs text-gray-500 flex-1 truncate">{label}</span>
-        <span className={`text-xs flex-shrink-0 ${ready ? "text-green-600" : "text-teal-500 animate-pulse"}`}>
+        <span className={`text-xs flex-shrink-0 ${ready ? "text-green-600" : "text-brand animate-pulse"}`}>
           {ready ? "→ ready" : "fetching…"}
         </span>
       </button>
@@ -202,7 +202,7 @@ function CompletionChip({ event }: { event: Record<string, unknown> }) {
   }
   if (event.type === "cache_hit") {
     return (
-      <div className="inline-flex self-start px-3 py-1 bg-teal-50 border border-teal-200 rounded-full text-xs text-teal-600">
+      <div className="inline-flex self-start px-3 py-1 bg-brand-soft border border-brand-soft-border rounded-full text-xs text-brand">
         ⚡ cache hit
       </div>
     );
@@ -216,7 +216,7 @@ function AgentSpeechBubble({ content }: { content: string }) {
   return (
     <div className="flex gap-3">
       <div
-        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-teal-600"
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-brand"
       >
         S
       </div>
@@ -255,7 +255,7 @@ function DataCompletionChip({
       >
         <span>✓ {rows} rows · {tickers.length} signal{tickers.length !== 1 ? "s" : ""}</span>
         {cacheHitEvent && (
-          <span className="px-1.5 py-0.5 bg-teal-50 border border-teal-200 rounded-full text-teal-600">
+          <span className="px-1.5 py-0.5 bg-brand-soft border border-brand-soft-border rounded-full text-brand">
             ⚡ cached
           </span>
         )}
@@ -271,7 +271,7 @@ function DataCompletionChip({
             ))}
           </div>
           {cachedAt && (
-            <p className="text-xs text-teal-600">
+            <p className="text-xs text-brand">
               ⚡ Originally fetched {new Date(cachedAt).toLocaleString()}
             </p>
           )}
@@ -298,7 +298,7 @@ function AgentTurn({ group }: { group: StageGroup }) {
     <div className="flex gap-3">
       {/* Avatar */}
       <div
-        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-teal-600"
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-brand"
       >
         S
       </div>
@@ -341,14 +341,14 @@ function AgentThinkingLine() {
   return (
     <div className="flex gap-3">
       <div
-        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-teal-600"
+        className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-brand"
       >
         S
       </div>
       <div className="flex flex-col gap-1 flex-1 min-w-0">
         <span className="text-xs text-gray-500 font-medium">Signalyst Agent</span>
         <div className="flex items-center gap-2 text-sm text-gray-500">
-          <span className="text-teal-600 animate-spin leading-none">⟳</span>
+          <span className="text-brand animate-spin leading-none">⟳</span>
           <span>Thinking…</span>
         </div>
       </div>
@@ -362,7 +362,7 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className="flex justify-end">
       <div
-        className="bg-teal-600 text-white px-3 py-2 text-sm leading-relaxed max-w-[75%]"
+        className="bg-brand text-white px-3 py-2 text-sm leading-relaxed max-w-[75%]"
         style={{ borderRadius: "12px 12px 4px 12px" }}
       >
         {msg.content}
@@ -535,12 +535,12 @@ export default function ActivityPage() {
                   : "Ask to adjust data, or say \"run analysis\""
               }
               disabled={inputDisabled}
-              className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-teal-400 disabled:opacity-40"
+              className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-brand disabled:opacity-40"
             />
             <button
               onClick={handleSend}
               disabled={!message.trim() || inputDisabled}
-              className="px-4 py-2 rounded-lg bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               ↑
             </button>

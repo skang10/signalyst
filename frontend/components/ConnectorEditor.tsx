@@ -52,7 +52,7 @@ function Chip({
       className={[
         "flex items-center gap-1.5 px-2 py-1 rounded-md border text-xs font-mono font-semibold transition-colors",
         active
-          ? "bg-teal-50 border-teal-200 text-teal-700"
+          ? "bg-brand-soft border-brand-soft-border text-brand"
           : "bg-gray-50 border-gray-200 text-gray-400",
         onClick ? "cursor-pointer" : "cursor-default",
       ].join(" ")}
@@ -60,7 +60,7 @@ function Chip({
       <span
         className={[
           "w-3.5 h-3.5 rounded border flex items-center justify-center flex-shrink-0",
-          active ? "bg-teal-600 border-teal-600 text-white" : "border-gray-300",
+          active ? "bg-brand border-brand text-white" : "border-gray-300",
         ].join(" ")}
       >
         {active && <Checkmark />}
@@ -151,7 +151,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
           <div key={connector.id} className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white">
             <div className="flex flex-col gap-0.5">
               <span
-                className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-teal-700" : "text-gray-500"}`}
+                className={`text-sm font-medium whitespace-nowrap ${isActive ? "text-brand" : "text-gray-500"}`}
               >
                 {connector.name}
               </span>
@@ -183,7 +183,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
                         }}
                         onBlur={() => confirmAdd(connector.id)}
                         placeholder="e.g. XLE"
-                        className="text-xs font-mono border border-teal-200 rounded px-2 py-1 outline-none focus:border-teal-400 w-24"
+                        className="text-xs font-mono border border-brand-soft-border rounded px-2 py-1 outline-none focus:border-brand w-24"
                       />
                     ) : (
                       <button
@@ -192,7 +192,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
                           setAddingFor(connector.id);
                           setAddValue("");
                         }}
-                        className="px-2 py-1 rounded-md border border-dashed border-gray-300 text-xs text-gray-400 hover:border-teal-300 hover:text-teal-600"
+                        className="px-2 py-1 rounded-md border border-dashed border-gray-300 text-xs text-gray-400 hover:border-brand-soft-border hover:text-brand"
                       >
                         + Add
                       </button>
@@ -212,7 +212,7 @@ export function ConnectorEditor({ available, value, onChange, readOnly, footer }
       {uploadSources.length > 0 && (
         <div className="border border-gray-200 rounded-lg px-3 py-2.5 bg-white">
           <div className="flex flex-col gap-0.5">
-            <span className="text-sm font-medium text-teal-700 whitespace-nowrap">Custom Upload</span>
+            <span className="text-sm font-medium text-brand whitespace-nowrap">Custom Upload</span>
             <span className="text-xs text-gray-400">
               Your uploaded data — click to exclude from the next run
             </span>

@@ -12,7 +12,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try {
+              var t = localStorage.getItem("signalyst-theme");
+              if (t === "gold") document.documentElement.setAttribute("data-theme", "gold");
+            } catch (e) {}`,
+          }}
+        />
+      </head>
       <body>{children}</body>
     </html>
   );

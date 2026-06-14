@@ -226,7 +226,7 @@ function Sparkline({ points }: { points: { date: string; value: number | null }[
       </text>
 
       {/* Data line */}
-      <polyline points={pts} fill="none" stroke="#0d9488" strokeWidth="1.5" />
+      <polyline points={pts} fill="none" stroke="var(--color-brand)" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -264,7 +264,7 @@ export default function DataPage() {
         <p className="text-sm text-gray-500">No data yet.</p>
         <p className="text-xs text-gray-400">
           Configure data sources and upload data on the{" "}
-          <Link href={`/sessions/${id}/config`} className="text-teal-600 underline underline-offset-2">
+          <Link href={`/sessions/${id}/config`} className="text-brand underline underline-offset-2">
             Config
           </Link>{" "}
           page.

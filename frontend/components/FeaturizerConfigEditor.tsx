@@ -17,11 +17,11 @@ type Props = {
 };
 
 const TAG_ACTIVE =
-  "px-2 py-0.5 bg-teal-50 border border-teal-300 rounded text-xs text-teal-700 hover:bg-teal-100";
+  "px-2 py-0.5 bg-brand-soft border border-brand-soft-border rounded text-xs text-brand hover:bg-brand-soft";
 const TAG_INACTIVE =
   "px-2 py-0.5 bg-transparent border border-gray-300 rounded text-xs text-gray-400 line-through hover:border-gray-400";
 const TAG_READONLY =
-  "px-2 py-0.5 bg-teal-50 border border-teal-300 rounded text-xs text-teal-700 opacity-60";
+  "px-2 py-0.5 bg-brand-soft border border-brand-soft-border rounded text-xs text-brand opacity-60";
 const ROW_LABEL = "text-[10px] text-gray-500 w-16 flex-shrink-0";
 
 function NumberRow({
@@ -92,12 +92,12 @@ function NumberRow({
             if (e.key === "Escape") { setDraft(""); setEditing(false); }
           }}
           placeholder={`e.g. 90`}
-          className="w-20 bg-transparent border border-teal-400 rounded px-2 py-0.5 text-xs font-mono outline-none"
+          className="w-20 bg-transparent border border-brand rounded px-2 py-0.5 text-xs font-mono outline-none"
         />
       ) : (
         <button
           onClick={startEditing}
-          className="px-2 py-0.5 border border-dashed border-gray-300 rounded text-xs text-gray-400 hover:border-teal-400 hover:text-teal-600 transition-colors"
+          className="px-2 py-0.5 border border-dashed border-gray-300 rounded text-xs text-gray-400 hover:border-brand hover:text-brand transition-colors"
         >
           + add
         </button>
@@ -159,7 +159,7 @@ export function FeaturizerConfigEditor({ value, onChange, readOnly = false }: Pr
           checked={value.energy_specific}
           onChange={(e) => onChange?.({ ...value, energy_specific: e.target.checked })}
           disabled={readOnly}
-          className="accent-teal-600"
+          className="accent-brand"
         />
         Energy-specific features
       </label>

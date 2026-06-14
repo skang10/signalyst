@@ -66,7 +66,7 @@ export function BacktestTab({ backtest }: Props) {
         <MetricTile
           label="Regime Accuracy"
           value={`${(backtest.regime_accuracy * 100).toFixed(1)}%`}
-          accent="text-teal-600"
+          accent="text-brand"
         />
         <MetricTile
           label="Strategy Sharpe"
@@ -106,7 +106,7 @@ export function BacktestTab({ backtest }: Props) {
               }}
             />
             <Legend wrapperStyle={{ fontSize: 10, fontFamily: "monospace" }} />
-            <Bar dataKey="Strategy" fill="#0d9488" radius={[2, 2, 0, 0]} />
+            <Bar dataKey="Strategy" fill="var(--color-brand)" radius={[2, 2, 0, 0]} />
             <Bar dataKey="Benchmark" fill="#9ca3af" radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>

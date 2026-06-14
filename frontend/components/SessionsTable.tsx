@@ -131,7 +131,7 @@ export function SessionsTable({ sessions, onDelete }: Props) {
                 {s.timeframe_start} → {s.timeframe_end}
               </td>
               <td className="px-4 py-3">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 border border-teal-200">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border">
                   {STAGE_LABELS[s.stage] ?? s.stage}
                 </span>
               </td>
@@ -148,7 +148,7 @@ export function SessionsTable({ sessions, onDelete }: Props) {
                 <div className="flex items-center justify-end gap-3">
                   <Link
                     href={`/sessions/${s.session_id}/activity`}
-                    className="text-teal-600 hover:text-teal-700 text-xs transition-colors"
+                    className="text-brand hover:text-brand-hover text-xs transition-colors"
                   >
                     Open →
                   </Link>
