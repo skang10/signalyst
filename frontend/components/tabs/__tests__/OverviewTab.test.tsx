@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { OverviewTab } from "../OverviewTab";
+import type { MarketProfile } from "@/lib/api";
 const result = {
   regime: {
     regime: "range_bound",
@@ -32,6 +33,20 @@ const result = {
   data_manifest: {},
 };
 
+const sp500Profile: MarketProfile = {
+  id: "sp500",
+  name: "S&P 500",
+  description: "US large-cap equity regime analysis using price, volatility, and macro signals.",
+  default_connectors: [],
+  default_featurizer_config: {
+    windows: [],
+    lags: [],
+    feature_families: [],
+    energy_specific: false,
+  },
+  regime_labels: ["bull_market", "range_bound", "bear_market", "high_volatility"],
+};
+
 describe("OverviewTab", () => {
   it("renders regime stat tile with confidence", () => {
     render(<OverviewTab result={result} />);
@@ -59,5 +74,51 @@ describe("OverviewTab", () => {
   it("renders placeholder when regime is null", () => {
     render(<OverviewTab result={{ ...result, regime: null, direction: null }} />);
     expect(screen.getByText(/analysis incomplete/i)).toBeTruthy();
+  });
+
+  it("formats non-oil regime labels generically", () => {
+    const sp500Result = {
+      ...result,
+      regime: { ...result.regime, regime: "bull_market", distribution: { bull_market: 10 } },
+    };
+    render(<OverviewTab result={sp500Result} />);
+    expect(screen.getAllByText(/bull market/i).length).toBeGreaterThan(0);
+  });
+
+  it("colors non-oil bearish/bullish regimes based on profile.regime_labels position", () => {
+    const sp500Result = {
+      ...result,
+      direction: { ...result.direction, distribution: {} },
+      regime: {
+        ...result.regime,
+        regime: "bear_market",
+        distribution: { bear_market: 10, bull_market: 5 },
+      },
+    };
+    const { container } = render(<OverviewTab result={sp500Result} profile={sp500Profile} />);
+    expect(container.querySelector(".bg-red-600")).toBeTruthy();
+    expect(container.querySelector(".bg-emerald-600")).toBeTruthy();
+  });
+
+  it("renders market profile name and description when provided", () => {
+    render(<OverviewTab result={result} profile={sp500Profile} />);
+    expect(screen.getByText("S&P 500")).toBeTruthy();
+    expect(screen.getByText(/large-cap equity regime analysis/i)).toBeTruthy();
+  });
+
+  it("renders without a profile header when profile is not provided", () => {
+    render(<OverviewTab result={result} />);
+    expect(screen.queryByText("S&P 500")).toBeNull();
+  });
+
+  it("renders the summary panel when summary is present", () => {
+    render(<OverviewTab result={{ ...result, summary: "Markets are range-bound." }} />);
+    expect(screen.getByText("Summary")).toBeTruthy();
+    expect(screen.getByText("Markets are range-bound.")).toBeTruthy();
+  });
+
+  it("omits the summary panel when summary is null", () => {
+    render(<OverviewTab result={{ ...result, summary: null }} />);
+    expect(screen.queryByText("Summary")).toBeNull();
   });
 });

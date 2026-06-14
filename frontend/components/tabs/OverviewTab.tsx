@@ -1,4 +1,5 @@
 import { TabPlaceholder } from "./TabPlaceholder";
+import type { MarketProfile } from "@/lib/api";
 
 type RegimeResult = {
   regime: string;
@@ -22,14 +23,27 @@ type AnalysisResult = {
   direction?: DirectionResult | null;
   drift?: DriftSummary | null;
   feature_importance?: FeatureImportanceSummary | null;
+  summary?: string | null;
 };
 
-const REGIME_LABELS: Record<string, string> = {
-  range_bound: "Range-Bound",
-  bull_supercycle: "Bull Supercycle",
-  bust: "Bust",
-  geopolitical_spike: "Geopolitical Spike",
-};
+function formatRegimeLabel(regime: string): string {
+  return regime
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+const REGIME_POSITION_COLORS = [
+  "bg-emerald-600", // index 0: bullish
+  "bg-brand", // index 1: range-bound / neutral
+  "bg-red-600", // index 2: bearish
+  "bg-amber-500", // index 3: volatility spike
+];
+
+function regimeColor(regime: string, profile?: MarketProfile | null): string {
+  const idx = profile?.regime_labels.indexOf(regime) ?? -1;
+  return REGIME_POSITION_COLORS[idx] ?? "bg-brand";
+}
 
 function StatTile({
   label,
@@ -75,9 +89,9 @@ function DistBar({
   );
 }
 
-type Props = { result: AnalysisResult };
+type Props = { result: AnalysisResult; profile?: MarketProfile | null };
 
-export function OverviewTab({ result }: Props) {
+export function OverviewTab({ result, profile }: Props) {
   const { regime, direction, drift, feature_importance } = result;
 
   if (!regime || !direction) {
@@ -107,10 +121,16 @@ export function OverviewTab({ result }: Props) {
 
   return (
     <div className="p-4 flex flex-col gap-4 h-full overflow-y-auto">
+      {profile && (
+        <div className="flex flex-col gap-0.5">
+          <div className="text-sm font-bold text-gray-900">{profile.name}</div>
+          <div className="text-xs text-gray-500">{profile.description}</div>
+        </div>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatTile
           label="Regime"
-          value={REGIME_LABELS[regime.regime] ?? regime.regime}
+          value={formatRegimeLabel(regime.regime)}
           sub={`${(regime.confidence * 100).toFixed(1)}% confidence`}
           accent="text-brand"
         />
@@ -144,17 +164,9 @@ export function OverviewTab({ result }: Props) {
             .map(([r, count]) => (
               <DistBar
                 key={r}
-                label={REGIME_LABELS[r] ?? r}
+                label={formatRegimeLabel(r)}
                 pct={regimeTotal > 0 ? (count / regimeTotal) * 100 : 0}
-                color={
-                  r === "bull_supercycle"
-                    ? "bg-emerald-600"
-                    : r === "bust"
-                    ? "bg-red-600"
-                    : r === "geopolitical_spike"
-                    ? "bg-amber-500"
-                    : "bg-brand"
-                }
+                color={regimeColor(r, profile)}
               />
             ))}
         </div>
@@ -175,6 +187,15 @@ export function OverviewTab({ result }: Props) {
             ))}
         </div>
       </div>
+
+      {result.summary && (
+        <div className="bg-white border border-gray-200 rounded p-3 flex flex-col gap-2">
+          <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
+            Summary
+          </div>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{result.summary}</p>
+        </div>
+      )}
     </div>
   );
 }
