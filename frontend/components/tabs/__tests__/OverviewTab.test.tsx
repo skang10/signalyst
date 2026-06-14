@@ -110,4 +110,15 @@ describe("OverviewTab", () => {
     render(<OverviewTab result={result} />);
     expect(screen.queryByText("S&P 500")).toBeNull();
   });
+
+  it("renders the summary panel when summary is present", () => {
+    render(<OverviewTab result={{ ...result, summary: "Markets are range-bound." }} />);
+    expect(screen.getByText("Summary")).toBeTruthy();
+    expect(screen.getByText("Markets are range-bound.")).toBeTruthy();
+  });
+
+  it("omits the summary panel when summary is null", () => {
+    render(<OverviewTab result={{ ...result, summary: null }} />);
+    expect(screen.queryByText("Summary")).toBeNull();
+  });
 });
