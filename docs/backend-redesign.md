@@ -405,15 +405,13 @@ class MarketProfile(SQLModel, table=True):
 **Tools:**
 ```
 list_available_connectors()                         → built-in + registry
+approve_sources(sources)                            → finalise pending_sources, stop tool
 http_get(url, headers, params)                      → explore novel APIs
-http_post(url, headers, body)
-parse_response(content, format)                     → JSON | CSV | XML
-save_connector_spec(id, name, spec)                 → write to Connector table
 ```
 
-**Writes to session:** recommends data sources, appends recommendation to `conversation`
+**Writes to session:** `pending_sources` (via `approve_sources`), appends recommendation to `conversation`
 
-**Escalates to:** ConnectorBuilderAgent if HTTP primitives cannot handle the source
+**Escalates to:** ConnectorBuilderAgent if HTTP primitives cannot handle the source — *not yet implemented (PR 7)*; `http_post`, `parse_response`, and `save_connector_spec` tools from the original design are not implemented either.
 
 ---
 
@@ -425,15 +423,17 @@ save_connector_spec(id, name, spec)                 → write to Connector table
 
 **Tools:**
 ```
-fetch_yfinance(tickers, start, end)
-fetch_fred(series_ids, start, end)
-fetch_eia(dataset, start, end)
-fetch_gpr(start, end)
-fetch_custom_connector(connector_id, params)        → dispatches to registry
+fetch_yfinance(tickers)                             → start/end taken from session timeframe
+fetch_fred(series_ids)                              → start/end taken from session timeframe
+fetch_eia()                                         → weekly crude inventory change, no params
+fetch_gpr()                                         → geopolitical risk index, no params
 list_available_connectors()
+complete(summary)                                   → signals data gathering is done
 ```
 
 **Writes to session:** new `DataArtifact` (round incremented if refetch). Updates `source_hash` for cache lookup.
+
+Note: `fetch_custom_connector(connector_id, params)` from the original design is not implemented — SPEC-type connectors have no fetch path yet (see CLAUDE.md).
 
 ---
 
@@ -448,7 +448,7 @@ list_available_connectors()
 **Output:**
 ```json
 {
-  "action": "advance" | "refetch" | "update_config",
+  "action": "advance" | "refetch" | "update_config" | "answer",
   "updates": {
     "sources_to_add": ["baker_hughes_rig_count"],
     "featurizer_config_patch": { "windows": [5, 30, 90] }
@@ -459,7 +459,8 @@ list_available_connectors()
 
 - `advance` → stage transitions to FEATURIZING
 - `refetch` → stage transitions back to DATA_GATHERING with updated source list
-- `update_config` → `featurizer_config` patched on session → stage transitions to FEATURIZING
+- `update_config` → `featurizer_config` patched on session; **stays in USER_REVIEW** — only an explicit `advance` proceeds to FEATURIZING
+- `answer` → answers the user's question from session context; no stage change (not in the original design — added for general Q&A at USER_REVIEW)
 
 ---
 
@@ -518,17 +519,19 @@ No LLM involved.
 
 **Tools:**
 ```
-explain_feature(feature_name)                       → detailed SHAP explanation
-rerun_featurizer(featurizer_config_patch)           → patches config + triggers FEATURIZING
-rerun_data_gathering(sources_to_add)                → triggers DATA_GATHERING
-compare_sessions(session_id)                        → pulls prior session artifacts
+rerun_featurizer(featurizer_config_patch, reply)    → patches config + triggers FEATURIZING
+rerun_data_gathering(sources_to_add, reply)         → triggers DATA_GATHERING
 ```
+
+Both tools require a `reply` — the only text shown to the user for that turn. A comparable prior session for the same market profile (regime, direction, summary, timeframe) is passed into the agent's context automatically, not via a tool call.
 
 **Writes to session:** appends to `conversation`. Can trigger stage regression by updating `session.stage` and enqueuing a background task.
 
+Note: `explain_feature(feature_name)` and `compare_sessions(session_id)` from the original design are not implemented as tools — direct Q&A (including comparisons) is answered from context without a tool call.
+
 ---
 
-### ConnectorBuilderAgent — LLM + sandboxed execution
+### ConnectorBuilderAgent — LLM + sandboxed execution *(not yet implemented — PR 7)*
 
 **Stage:** invoked by `POST /api/connectors/build`, or escalated from DataSourceDiscoveryAgent
 
@@ -986,12 +989,21 @@ The user can still influence this flow by calling `POST /cancel` during DATA_GAT
 // Request — multipart/form-data
 // Field: file (CSV or Parquet)
 // Field: source_name (string, e.g. "My Custom OPEC Data")
+// Field: mode ("merge" | "replace", default "merge")
 
 // Response — 202 Accepted
 { "artifact_id": "uuid-new-data-artifact" }
 ```
 
-Supported upload formats: **CSV** and **Parquet**. Max file size: **50MB**. The backend parses the file, builds the `data_manifest`, and writes a `DataArtifact` with `source_type: "upload"`. This bypasses DataAgent entirely.
+Supported upload formats: **CSV** and **Parquet**. Max file size: **50MB** (`413` if exceeded). The backend parses the file, builds the `data_manifest`, and writes a new `DataArtifact` (round incremented). This bypasses DataAgent entirely.
+
+Validation:
+1. **Parseable date index** — `422` if no valid date column is found.
+2. **Minimum row count** — `422` if fewer than `_MIN_ROWS = 70` rows (`max(windows=60) + max(lags=20) + 10` for the default oil config).
+3. **Date range overlap** — non-blocking warning in `data_manifest.warnings` if the uploaded range doesn't overlap `session.timeframe_start/end`.
+4. **Oil WTI column hint** — non-blocking warning if no column matches `CL=F`/`wti` for the oil profile.
+
+In `merge` mode, the uploaded columns are outer-joined onto the most recent `DataArtifact`'s raw data (uploaded columns win on overlap); in `replace` mode the upload stands alone. `data_manifest` and warnings are rebuilt from the resulting frame.
 
 **Spec gap (PR 3):** The current implementation only validates file size and presence of numeric columns. The following constraints are missing and should be added before the USER_REVIEW gate is fully built:
 
@@ -1120,10 +1132,10 @@ Market Profiles
 
 Connectors
   GET    /api/connectors                             list built-in + user-registered
-  GET    /api/connectors/{id}                        connector details
   POST   /api/connectors                             register connector spec manually
-  DELETE /api/connectors/{id}                        remove user-registered connector
-  POST   /api/connectors/build                       trigger ConnectorBuilderAgent
+  GET    /api/connectors/{id}                        connector details — not yet implemented (PR 7)
+  DELETE /api/connectors/{id}                        remove user-registered connector — not yet implemented (PR 7)
+  POST   /api/connectors/build                       trigger ConnectorBuilderAgent — not yet implemented (PR 7)
 
 Market
   GET    /api/market/snapshot                        live indicator snapshot for home page — no session needed
@@ -1185,7 +1197,9 @@ A market profile drives: which data connectors are recommended, the default feat
 
 ## PR Breakdown
 
-### PR 1 — Cleanup + Session Data Model
+PRs 1–5 and the oil portion of PR 6 are done. Remaining: stub market profiles (`sp500`, `eurusd`) and PR 7 (`ConnectorBuilderAgent`).
+
+### PR 1 — Cleanup + Session Data Model ✅ done
 - Remove old `Run` model, old `run_agent_loop`, old `/api/analyze` and `/api/runs` routes
 - Remove old chat window code (PR1/PR2 plans) from `docs/`
 - New `Session`, `DataArtifact`, `FeatureArtifact`, `AnalysisResult`, `Connector`, `MarketProfile` SQLModel models
@@ -1195,7 +1209,7 @@ A market profile drives: which data connectors are recommended, the default feat
 - `GET /api/market/snapshot` (thin yfinance + FRED fetch — no session dependency)
 - WebSocket stub (connects, echoes events, no agents yet)
 
-### PR 2 — Deterministic Pipeline Stages
+### PR 2 — Deterministic Pipeline Stages ✅ done
 - Extend `TimeSeriesFeaturizer` to honor `feature_families` and `energy_specific` in addition to `windows` and `lags`
 - `FeaturizerService` wrapping existing `TimeSeriesFeaturizer`
 - `TabPFNService` wrapping existing `OilRegimeClassifier` + `DirectionClassifier`
@@ -1205,7 +1219,7 @@ A market profile drives: which data connectors are recommended, the default feat
 - Background task pattern wired for both services
 - Deterministic pipeline: uploaded/seeded DataArtifact → FEATURIZING → ANALYZING runs end-to-end
 
-### PR 3 — DataSourceDiscoveryAgent + DataAgent
+### PR 3 — DataSourceDiscoveryAgent + DataAgent ✅ done
 - Built-in connector registry seeded (yfinance, FRED, EIA, GPR)
 - `DataSourceDiscoveryAgent` with HTTP primitive tools
 - `DataAgent` with full tool set + connector dispatch
@@ -1224,26 +1238,23 @@ A market profile drives: which data connectors are recommended, the default feat
 - See `docs/superpowers/specs/2026-06-07-explanation-agent-design.md` and
   `docs/superpowers/plans/2026-06-07-explanation-agent.md`
 
-### PR 4b — FollowUpAgent (next up — separate branch)
+### PR 4b — FollowUpAgent ✅ done
 - `FollowUpAgent` (LLM + tools) with stage regression tools
 - `POST /api/sessions/{id}/chat` extended to FOLLOW_UP stage — routes to FollowUpAgent
   (USER_REVIEW path from PR 3 unchanged)
 - Full end-to-end pipeline working (CONFIGURING → ... → FOLLOW_UP, with chat-driven regression)
-- Needs its own design spec + implementation plan — split out of the original "PR 4" scope
-  because it's substantially larger than ExplanationAgent (4 tools, stage regression, chat
-  routing changes) and deserves independent design review
 
-### PR 5 — Cross-Session Artifact Cache
+### PR 5 — Cross-Session Artifact Cache ✅ done
 - Global artifact cache lookup across sessions
 - Provenance copying (`cached_from_session_id`, `cached_from_artifact_id`)
 - `cache_hit` WebSocket event
 - Cache indicators surfaced in session state
 
-### PR 6 — Market Profiles
-- Market profile system fully wired (profile drives connectors, featurizer config, regime labels)
-- Oil profile fully built out with all connectors
-- Stub profiles for `sp500`, `eurusd`
-- Profile selection drives DataSourceDiscoveryAgent recommendations
+### PR 6 — Market Profiles (oil done, other profiles pending)
+- Market profile system fully wired (profile drives connectors, featurizer config, regime labels) ✅
+- Oil profile fully built out with all connectors ✅
+- Stub profiles for `sp500`, `eurusd` — not yet seeded
+- Profile selection drives DataSourceDiscoveryAgent recommendations ✅
 
 ### PR 7 — ConnectorBuilderAgent *(standalone, last)*
 - Sandbox infrastructure (restricted subprocess or Docker)
