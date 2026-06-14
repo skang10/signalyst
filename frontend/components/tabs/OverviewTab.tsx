@@ -120,6 +120,12 @@ export function OverviewTab({ result, profile }: Props) {
 
   return (
     <div className="p-4 flex flex-col gap-4 h-full overflow-y-auto">
+      {profile && (
+        <div className="flex flex-col gap-0.5">
+          <div className="text-sm font-bold text-gray-900">{profile.name}</div>
+          <div className="text-xs text-gray-500">{profile.description}</div>
+        </div>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatTile
           label="Regime"

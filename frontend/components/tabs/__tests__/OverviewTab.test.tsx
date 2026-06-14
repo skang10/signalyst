@@ -99,4 +99,15 @@ describe("OverviewTab", () => {
     expect(container.querySelector(".bg-red-600")).toBeTruthy();
     expect(container.querySelector(".bg-emerald-600")).toBeTruthy();
   });
+
+  it("renders market profile name and description when provided", () => {
+    render(<OverviewTab result={result} profile={sp500Profile} />);
+    expect(screen.getByText("S&P 500")).toBeTruthy();
+    expect(screen.getByText(/large-cap equity regime analysis/i)).toBeTruthy();
+  });
+
+  it("renders without a profile header when profile is not provided", () => {
+    render(<OverviewTab result={result} />);
+    expect(screen.queryByText("S&P 500")).toBeNull();
+  });
 });
