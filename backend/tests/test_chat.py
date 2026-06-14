@@ -215,6 +215,64 @@ def test_chat_refetch_action_triggers_data_gathering(client):
     mock_bg.assert_called_once()
 
 
+def test_chat_refetch_action_merges_yfinance_tickers(client):
+    session_id = _setup_session_at_user_review(client)
+
+    fake_result = {
+        "action": "refetch",
+        "updates": {"sources_to_add": ["NG=F", "RB=F"]},
+        "reply": "Added NG=F and RB=F.",
+    }
+    with (
+        patch("api.routes.chat.ReviewInterpreter") as mock_cls,
+        patch("api.routes.chat._run_data_agent_background", new_callable=AsyncMock) as mock_bg,
+    ):
+        mock_cls.return_value.interpret = AsyncMock(return_value=fake_result)
+        client.post(f"/api/sessions/{session_id}/chat", json={"message": "add NG=F and RB=F"})
+
+    mock_bg.assert_called_once()
+
+    session = client.get(f"/api/sessions/{session_id}").json()
+    yfinance_sources = [
+        p for p in session["pending_sources"] if p.get("connector_id") == "yfinance"
+    ]
+    assert len(yfinance_sources) == 1
+    assert yfinance_sources[0]["params"]["tickers"] == ["NG=F", "RB=F"]
+
+
+def test_chat_refetch_action_appends_to_existing_yfinance_tickers(client):
+    session_id = _setup_session_at_user_review(client)
+    client.patch(
+        f"/api/sessions/{session_id}/config",
+        json={
+            "pending_sources": [
+                {"connector_id": "yfinance", "params": {"tickers": ["CL=F"]}},
+            ]
+        },
+    )
+
+    fake_result = {
+        "action": "refetch",
+        "updates": {"sources_to_add": ["NG=F"]},
+        "reply": "Added NG=F.",
+    }
+    with (
+        patch("api.routes.chat.ReviewInterpreter") as mock_cls,
+        patch("api.routes.chat._run_data_agent_background", new_callable=AsyncMock) as mock_bg,
+    ):
+        mock_cls.return_value.interpret = AsyncMock(return_value=fake_result)
+        client.post(f"/api/sessions/{session_id}/chat", json={"message": "add NG=F"})
+
+    mock_bg.assert_called_once()
+
+    session = client.get(f"/api/sessions/{session_id}").json()
+    yfinance_sources = [
+        p for p in session["pending_sources"] if p.get("connector_id") == "yfinance"
+    ]
+    assert len(yfinance_sources) == 1
+    assert yfinance_sources[0]["params"]["tickers"] == ["CL=F", "NG=F"]
+
+
 def test_chat_answer_action_keeps_user_review_and_does_not_start_background_work(client):
     session_id = _setup_session_at_user_review(client)
 

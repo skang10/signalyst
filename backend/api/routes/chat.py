@@ -13,6 +13,7 @@ from starlette import status
 
 from api.models import ChatRequest, ChatResponse
 from src.agents.review_interpreter import ReviewInterpreter
+from src.data import connector_registry
 from src.db.models import DataArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
@@ -186,10 +187,36 @@ async def chat(
 
     elif action == "refetch":
         sources_to_add = updates.get("sources_to_add", [])
-        s.pending_sources = [
-            *current_pending,
-            *[{"connector_id": sid, "params": {}} for sid in sources_to_add],
-        ]
+        new_pending = list(current_pending)
+        ticker_additions = []
+        for sid in sources_to_add:
+            if sid in connector_registry._connectors:
+                new_pending.append({"connector_id": sid, "params": {}})
+            else:
+                # Not a connector ID — treat as a yfinance ticker symbol (e.g. "NG=F"),
+                # which the LLM commonly returns when the user asks to add a ticker
+                # it suggested earlier.
+                ticker_additions.append(sid)
+        if ticker_additions:
+            yf_idx = next(
+                (i for i, p in enumerate(new_pending) if p.get("connector_id") == "yfinance"),
+                None,
+            )
+            if yf_idx is not None:
+                existing = new_pending[yf_idx]
+                existing_tickers = list(existing.get("params", {}).get("tickers", []))
+                new_pending[yf_idx] = {
+                    **existing,
+                    "params": {
+                        **existing.get("params", {}),
+                        "tickers": [*existing_tickers, *ticker_additions],
+                    },
+                }
+            else:
+                new_pending.append(
+                    {"connector_id": "yfinance", "params": {"tickers": ticker_additions}}
+                )
+        s.pending_sources = new_pending
         new_stage = SessionStage.DATA_GATHERING.value
         s.stage = new_stage
         refetch_ts = (now + timedelta(milliseconds=1)).isoformat()
