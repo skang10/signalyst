@@ -1,4 +1,5 @@
 import { TabPlaceholder } from "./TabPlaceholder";
+import type { MarketProfile } from "@/lib/api";
 
 type RegimeResult = {
   regime: string;
@@ -29,6 +30,18 @@ function formatRegimeLabel(regime: string): string {
     .split("_")
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+const REGIME_POSITION_COLORS = [
+  "bg-emerald-600", // index 0: bullish
+  "bg-brand", // index 1: range-bound / neutral
+  "bg-red-600", // index 2: bearish
+  "bg-amber-500", // index 3: volatility spike
+];
+
+function regimeColor(regime: string, profile?: MarketProfile | null): string {
+  const idx = profile?.regime_labels.indexOf(regime) ?? -1;
+  return REGIME_POSITION_COLORS[idx] ?? "bg-brand";
 }
 
 function StatTile({
@@ -75,9 +88,9 @@ function DistBar({
   );
 }
 
-type Props = { result: AnalysisResult };
+type Props = { result: AnalysisResult; profile?: MarketProfile | null };
 
-export function OverviewTab({ result }: Props) {
+export function OverviewTab({ result, profile }: Props) {
   const { regime, direction, drift, feature_importance } = result;
 
   if (!regime || !direction) {
@@ -146,15 +159,7 @@ export function OverviewTab({ result }: Props) {
                 key={r}
                 label={formatRegimeLabel(r)}
                 pct={regimeTotal > 0 ? (count / regimeTotal) * 100 : 0}
-                color={
-                  r === "bull_supercycle"
-                    ? "bg-emerald-600"
-                    : r === "bust"
-                    ? "bg-red-600"
-                    : r === "geopolitical_spike"
-                    ? "bg-amber-500"
-                    : "bg-brand"
-                }
+                color={regimeColor(r, profile)}
               />
             ))}
         </div>
