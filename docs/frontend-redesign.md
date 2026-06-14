@@ -1,357 +1,165 @@
-# Frontend Redesign — Design Spec
+# Signalyst Frontend — Current Architecture
 
-**Date:** 2026-05-31
-**Branch:** feat/agent-redesign
-**Status:** Design approved — ready for implementation planning
+**Status:** Implemented. This document describes the frontend as it exists today (session-based UI on `app/sessions/[id]/*`). For the history of how it got here, see the dated specs/plans under `docs/superpowers/specs/` and `docs/superpowers/plans/`.
 
 ---
 
-## Overview
+## Visual style
 
-Complete frontend rebuild aligned with the backend session-based redesign (`docs/backend-redesign.md`). The current frontend is built against the old run-based API and will be replaced. The new frontend models the full session lifecycle: creation → data gathering → user review → analysis → results → follow-up.
+Light theme: white backgrounds, `gray-900` text, `gray-200` borders. A single `--color-brand` CSS variable drives the primary accent (buttons, active tab, links, chart lines), set in `app/globals.css`:
 
-**Visual style:** Bloomberg-style dark — navy/charcoal backgrounds (`#060b14`, `#111827`, `#1f2937`), blue accents (`#1d4ed8`, `#3b82f6`), tight typography, data-dense metric cards, professional financial tool aesthetic throughout.
+- Default (`:root`): green — `--color-brand: #059669`, hover `#047857`, soft bg `#ecfdf5`, soft border `#a7f3d0`
+- `[data-theme="gold"]`: amber — `--color-brand: #d97706`, hover `#b45309`, soft bg `#fffbeb`, soft border `#fde68a`
 
----
+Theme choice is toggled via `components/ThemeToggle.tsx`, persisted to `localStorage` (`signalyst-theme`), and applied via a `data-theme` attribute on `<html>` (set early by an inline script in `app/layout.tsx` to avoid a flash of the wrong theme).
 
-## Architecture Approach
-
-**Selective salvage** — the existing tab component shells (`BacktestTab`, `DriftTab`, `FeaturesTab`, `OverviewTab`, `SummaryTab`) map well to the new Results sub-page and are worth keeping as starting points. Everything else is replaced:
-
-| File | Action |
-|---|---|
-| `lib/api.ts` | Rewrite — replace run-based types/endpoints with session API |
-| `lib/store.ts` | Rewrite — replace `useRunStore` with `useSessionStore` |
-| `lib/websocket.ts` | Rewrite — replace `useRunStream` with `useSessionStream` |
-| `app/page.tsx` | Rewrite — home page |
-| `components/TopBar.tsx` | Adapt → becomes the top nav in `sessions/[id]/layout.tsx` and `app/page.tsx` |
-| `components/AgentStream.tsx` | Replace with activity feed entries |
-| `components/ChatPanel.tsx` | Replace with inline chat in Activity sub-page |
-| `components/ResultsPanel.tsx` | Replace with Results sub-page |
-| `components/ResultsTabs.tsx` | Replace — tabs are now sub-pages |
-| `components/tabs/*.tsx` | Keep shells, adapt to new data shapes |
-| `components/AgentDrawer.tsx` | Delete |
-| `components/AgentProgressTimeline.tsx` | Delete |
-| `components/ThoughtStream.tsx` | Delete |
+Status colors are plain Tailwind: `green-*` (done/bullish), `amber-*` (warnings/drift), `red-*` (failed/bearish), `gray-*` (neutral/disabled).
 
 ---
 
 ## Routing
 
-Two top-level pages. Session detail uses Next.js App Router nested routes with a shared layout.
-
 ```
-/                              → Home (session list + indicators)
-/sessions/[id]/                → redirect → /sessions/[id]/activity
-/sessions/[id]/layout.tsx      → shared: nav, session header, stage strip, tab bar, WS + store
-/sessions/[id]/activity/       → Activity sub-page (default)
-/sessions/[id]/data/           → Data sub-page
-/sessions/[id]/results/        → Results sub-page
+/                              → Home (sessions table + live indicators + new analysis modal)
+/sessions/[id]/layout.tsx      → shared chrome: header, session status bar, sidebar nav, stage strip, WS + store
+/sessions/[id]/activity/       → Activity feed (default landing after creating a session)
+/sessions/[id]/config/         → Data Connectors — editable session config (timeframe, sources, featurizer)
+/sessions/[id]/data/           → Data Status — read-only data manifest / series preview
+/sessions/[id]/overview/       → Results: regime, direction, Sharpe, drift summary cards
+/sessions/[id]/features/       → Results: SHAP feature importance
+/sessions/[id]/backtest/        → Results: walk-forward backtest chart
 ```
 
 ---
 
 ## Home Page — `/`
 
-### Layout
-1. **Live indicators strip** — 4 metric cards fetched from `GET /api/market/snapshot` on page load:
-   - WTI Crude (CL=F) — price + % change
-   - GPR Index — value + % change (amber warning if elevated)
-   - EIA Inventory Change — weekly build/draw in Mbbl
-   - US Dollar Index (DXY) — price + % change
-2. **Latest session banner** — shown only if at least one session with `stage = FOLLOW_UP` exists. Displays the most recent such session (first row by `created_at DESC`). Blue border card with: profile + timeframe, regime badge, direction badge, Sharpe badge, drift badge, one-line agent summary. "Open session →" link.
-3. **Sessions table** — columns: Profile, Timeframe, Regime, Stage badge, Status dot, Last Updated, "Open →" link, delete button (✕). Rows sorted by `created_at DESC`. Failed/old rows shown at reduced opacity. Delete calls `DELETE /api/sessions/{id}` with a confirmation prompt and refreshes the list on success.
-4. **"+ NEW ANALYSIS" button** — top-right in nav bar, opens New Analysis modal.
-
-### New Analysis Modal
-Fields: Market Profile (dropdown from `GET /api/profiles`), Start Date, End Date, Auto Mode toggle (skip USER_REVIEW gate).
-
-On submit: `POST /api/sessions` → `{ session_id }` → navigate to `/sessions/[id]/activity`.
+- Header: "■ Signalyst" wordmark + "+ New Analysis" button (`bg-brand`)
+- `SessionIndicators` — live market snapshot strip from `GET /api/market/snapshot` (WTI, Brent, DXY, GPR, EIA inventory change)
+- `SessionsTable` — sessions list from `GET /api/sessions`, supports multi-select + bulk delete (`DELETE /api/sessions/{id}`)
+- `NewAnalysisModal` — Market Profile (from `GET /api/profiles`), Start/End Date, Auto Mode toggle → `POST /api/sessions` → navigate to `/sessions/[id]/activity`
 
 ---
 
 ## Shared Session Layout — `app/sessions/[id]/layout.tsx`
 
-Rendered on all three sub-pages. Owns:
-- WebSocket connection to `WS /ws/sessions/{id}/stream`
-- Session state (`useSessionStore`) — fetched via `GET /api/sessions/{id}` on mount, live-updated via WS
-- All navigation chrome
+Rendered on all session sub-pages. Owns:
+- `useSessionStream(id)` — WebSocket connection to `/ws/sessions/{id}/stream`
+- Session state (`useSessionStore`), fetched via `GET /api/sessions/{id}` on mount and polled every 3s while `status = running`
+- Header bar: wordmark + "+ New Analysis" link
+- Status bar: "← Sessions" link, session id (short), stage badge (`bg-brand-soft`/`text-brand`), status indicator (running/waiting/failed/canceled), Cancel button when `status = running`
+- `SessionSidebar` — left nav (see below)
+- `StageStrip` — horizontal progress strip across the 7 stages
 
-### Chrome elements (top to bottom)
-1. **Top nav** — SIGNALYST logo (blue square dot + wordmark) + "+ NEW ANALYSIS" button
-2. **Session header** — "← Sessions" back link, profile name, timeframe, stage+status badge. Cancel button visible only when `status = RUNNING`.
-3. **Stage progress strip** — 7 segments (CONFIG → DATA → REVIEW → FEATURES → ANALYZE → EXPLAIN → FOLLOW-UP). Green = done, blue + pulse = active, gray = pending. Stage labels below each segment.
-4. **Tab bar** — Activity · Data · Results. Lock/unlock rules:
+### `SessionSidebar` nav and lock rules
 
-| Stage | Activity | Data | Results |
-|---|---|---|---|
-| CONFIGURING | active | locked | locked |
-| DATA_GATHERING | active | locked | locked |
-| USER_REVIEW | waiting (chat on) | unlocked | locked |
-| FEATURIZING | active | unlocked | locked |
-| ANALYZING | active | unlocked | locked |
-| EXPLAINING | active | unlocked | locked |
-| FOLLOW_UP | waiting (chat on) | unlocked | **unlocked ✦** |
+```
+Navigation
+  Activity        — always available
+  Config          — always available
+  Data Status     — locked while stage ∈ {configuring, data_gathering}
 
-Results tab shows a `✦` marker when it first unlocks. Data tab shows `✓` once DATA_GATHERING completes.
+Results
+  Overview        — locked unless stage = follow_up
+  Features        — locked unless stage = follow_up
+  Backtest        — locked unless stage = follow_up
+```
+
+Locked items render as disabled text with a 🔒 icon and a tooltip.
 
 ---
 
 ## Activity Sub-page — `/sessions/[id]/activity`
 
-### Concept
-A **single continuous feed** that accumulates across all stages. Stage dividers separate phases. Stream entries log agent thoughts and tool calls in real time. Gate messages appear at the bottom when the pipeline reaches an interactive stage. The user always has the full history visible — nothing is lost when transitioning from running to review.
+Continuous feed grouped by stage (`lib/activity-groups.ts` → `buildGroups`), reconstructed from `session.activity_events` + `session.conversation` on load and updated live via WS messages (`wsMessages`).
 
-**Feed data source:** on page load, the feed is reconstructed from `session.activity_events` (the append-only activity log stored in the DB, returned by `GET /api/sessions/{id}`). Chat bubbles are derived from `session.conversation`; operational entries are derived from `activity_events`. Live WS messages (`wsMessages` from `useSessionStore`) are appended as they arrive, then reconciled by event ID / timestamp after refetch. On reconnect, the feed is re-hydrated from `activity_events`, so completed stage entries remain visible.
-
-### Feed entry types
-
-```
-Stage divider:   ── DATA GATHERING · completed in 18s ──
-Done entry:      ✓  Fetched CL=F [fetch_yfinance pill] — 126 rows · 0% missing
-Active entry:    ⚙  Computing lag features (63 features)...
-Pending entry:   ◦  TabPFN classification
-Warning entry:   ⚠  Drift detected — CL=F_roc_20d (PSI 0.23)
-Tool pill:       [fetch_yfinance] (inline in entry text, monospace blue border)
-```
-
-### USER_REVIEW gate message
-Appears at the bottom of the feed when stage = USER_REVIEW. Contains:
-- "Data ready — N rows × N series" heading
-- Brief agent description of what was fetched
-- **Inline featurizer config editor** (Option B — editable tags):
-  - Windows row: removable tags (e.g. `5d ×`, `20d ×`, `60d ×`) + `+ add` input
-  - Lags row: removable tags + `+ add` input
-  - Feature families row: toggleable tags (active = blue, disabled = strikethrough grey)
-  - Feature count estimate updates live (e.g. `≈ 187 features planned`)
-  - "View full data manifest →" link to Data sub-page
-- Chat input enabled (placeholder: "Add a source, adjust config, or ask a question…")
-- "Run Analysis →" primary button — calls `POST /api/sessions/{id}/proceed`
-- Config changes sent via `POST /api/sessions/{id}/chat` → ReviewInterpreter patches `featurizer_config`
-
-Backend requirement: `TimeSeriesFeaturizer` must support the controls exposed here: `windows`, `lags`, `feature_families`, and `energy_specific`. Until that backend support lands, the editor should only show controls that are actually honored by the API.
-
-### FOLLOW_UP gate message
-Appears at the bottom of the feed when stage = FOLLOW_UP. Contains:
-- "Analysis complete" heading
-- Regime, direction, Sharpe, drift result badges
-- One-line agent summary
-- "View full results →" link to Results sub-page
-- Chat input enabled (placeholder: "Ask a follow-up question…")
-- Responses from FollowUpAgent appear as chat bubbles in the feed
-
-### Chat input state
-| Stage | Chat input |
-|---|---|
-| Active stages | Disabled, placeholder: "Chat available at data review and follow-up…" |
-| USER_REVIEW | Enabled + "Run Analysis →" button visible |
-| FOLLOW_UP | Enabled, no action button |
+- **Stage pills** — one per stage, status-colored: active (`bg-brand-soft`/`text-brand`, pulsing dot), failed (red), done (green)
+- **Tool pills** — inline labels for tool calls (`fetch_yfinance`, `fetch_fred`, `fetch_eia`, `fetch_gpr`, `fetch_custom_connector`, `http_get`/`http_post`, `save_connector_spec`, `approve_sources`, etc.), formatted by `TOOL_DISPLAY` in the page
+- **User review gate** (`components/GateMessage.tsx` → `UserReviewGate`) — appears when `stage = user_review`: inline `FeaturizerConfigEditor`, config changes saved via `PATCH /api/sessions/{id}/config`, "Run Analysis →" calls `POST /api/sessions/{id}/proceed`
+- **Chat input** — enabled at `user_review` and `follow_up`; sends via `POST /api/sessions/{id}/chat` (90s timeout — LLM calls can be slow)
 
 ---
 
-## Data Sub-page — `/sessions/[id]/data`
+## Config (Data Connectors) Sub-page — `/sessions/[id]/config`
 
-Unlocks after DATA_GATHERING completes. Read-only reference view.
+Foldable card sections, all editable except where noted:
 
-### Layout
-1. **Header row** — "Data Manifest" title + optional cache badge (`⚡ Cached from session #N`) if `cache_hit = true`
-2. **4 metric cards** — Rows, Series, Missing % (green if < 1%, amber if > 1%), Features (count after featurizing, once available)
-3. **Sources grid** — one chip per data source: connector name (bold), missing % (green/amber), source label (yfinance / EIA API / Federal Reserve / FRED API)
-4. **Time series sparklines** — one per key series from `DataArtifact.series_preview`, WTI (CL=F) always shown first. Filled area chart, blue stroke, min/mean/max/σ labels below. `raw_data` is not exposed to the browser.
+1. **Session** — market profile (read-only badge), timeframe start/end date inputs (disabled while running)
+2. **Data Connectors** — `ConnectorEditor` showing available connectors (`GET /api/connectors`, SPEC-type connectors filtered out — see CLAUDE.md), grouped chip grid of `pending_sources`, plus `UploadRow` for CSV/Parquet upload (`POST /api/sessions/{id}/upload`, merge or replace mode)
+3. **Featurizer** — `FeaturizerConfigEditor` (windows/lags/feature_families/energy_specific), editable only while `stage = user_review`
 
-No chat input on this page — all interaction happens in Activity.
+Dirty-state bar (Save/Discard) appears when local edits differ from the session; Save calls `PATCH /api/sessions/{id}/config` then refetches the session. A staleness banner (`lib/stale.ts` → `isSessionStale`) appears if the timeframe or sources have changed since the last data fetch, with a "Re-run from data →" button (`POST /api/sessions/{id}/rerun` with `stage: "data_gathering"`).
 
 ---
 
-## Results Sub-page — `/sessions/[id]/results`
+## Data Status Sub-page — `/sessions/[id]/data`
 
-Unlocks after EXPLAINING completes. Full analysis output in one scrollable page.
-
-### Layout (top to bottom)
-
-**Row 1 — 4 metric cards** (left accent border color indicates signal)
-- Regime — amber border. Regime label + confidence bar
-- WTI Direction (4w) — green border. ↑/↓ + confidence bar
-- Strategy Sharpe — blue border. Value + "vs SPY N.NN · N% accuracy"
-- Drift — amber border if detected, green if clean. PSI and feature name
-
-**Row 2 — 2-column**
-- Left (wider): WTI price chart with regime overlay. Shaded amber rectangle for geo-spike region, dashed vertical line at regime start, region label. Price sparkline in blue. Min/mean/max labels.
-- Right: SHAP top signals horizontal bar chart. Feature name + bar (blue, indigo for lower-ranked) + value. Up to 8 features shown.
-
-**Row 3 — 2-column**
-- Left: Walk-forward backtest chart. Headline metrics (Strategy Sharpe, SPY Sharpe, Accuracy) above a cumulative returns line chart (strategy = green solid, SPY = gray dashed). Legend below.
-- Right: Drift detection table. Each row: feature name + PSI score + ✓ or ⚠. Flagged features (PSI > 0.20) at top, bold amber.
-
-**Row 4 — Agent summary**
-Full-width card. Agent narrative prose (1-4 paragraphs). Regime, direction, and key signals styled inline (amber/blue emphasis). Generated by ExplanationAgent during EXPLAINING stage; streams in when first available.
+Read-only. Metric cards (rows, series, missing %, features), `visibleTickers` source chips, time-series sparklines from `DataArtifactDetail.series_preview` (via `GET /api/sessions/{id}/artifacts/{artifact_id}`). Shows `StaleResultsBanner` if the config has drifted from the artifact that produced the current results.
 
 ---
 
-## State Management
+## Results Sub-pages — Overview / Features / Backtest
 
-### `useSessionStore` (replaces `useRunStore`)
+Unlocked at `stage = follow_up`. Each is a thin page wrapping the corresponding tab component:
+- `overview` → `components/tabs/OverviewTab.tsx` — regime, direction, Sharpe, drift metric cards + WTI price/regime chart
+- `features` → `components/tabs/FeaturesTab.tsx` — SHAP feature importance bar chart
+- `backtest` → `components/tabs/BacktestTab.tsx` — walk-forward cumulative returns chart vs SPY
+
+`components/tabs/DriftTab.tsx` and `components/tabs/SummaryTab.tsx` exist as additional tab shells (drift table, agent narrative summary); `TabPlaceholder.tsx` is the fallback for locked/empty states.
+
+---
+
+## State Management — `lib/store.ts`
 
 ```typescript
 type SessionStore = {
   sessionId: string | null
   stage: SessionStage | null
   status: SessionStatus | null
+  marketProfile: string | null
+  timeframeStart: string | null
+  timeframeEnd: string | null
+  pendingSources: PendingSource[]
   featurizerConfig: FeaturizerConfig | null
-  conversation: ChatMessage[]        // full conversation history
-  activityEvents: ActivityEvent[]     // persisted feed replay log
-  wsMessages: WsMessage[]            // live stream entries (capped at 500)
-  artifacts: {
-    data: DataArtifactRef[]
-    features: FeatureArtifactRef[]
-    analysis: AnalysisResultRef[]
-  }
+  conversation: ChatMessage[]
+  activityEvents: ActivityEvent[]
+  wsMessages: WsMessage[]            // live stream entries, capped at 500
+  artifacts: SessionArtifacts        // { data, features, analysis }
   error: string | null
+
+  setSession: (session: Session) => void
+  appendWsMessage: (msg: WsMessage) => void
+  clearSession: () => void
 }
 ```
 
-### `useSessionStream(sessionId)` (replaces `useRunStream`)
+## WebSocket — `lib/websocket.ts` → `useSessionStream(sessionId)`
 
-Connects to `WS /ws/sessions/{id}/stream`. On each message:
-- `stage_transition` → update `stage`, `status`, navigate if needed
-- `thought` / `tool_call` / `tool_result` → append to `wsMessages`
-- `artifact_ready` → update `artifacts`, refresh artifact data
-- `cache_hit` → update artifact with provenance
-- `done` → update `status = WAITING`
-- `error` → update `error`
-
-On mount: fetch `GET /api/sessions/{id}` to populate initial state, then connect WS.
-On disconnect: reconnect with exponential backoff; re-fetch session state on reconnect.
+Connects to `WS /ws/sessions/{id}/stream` with exponential backoff reconnect (1s → 30s). On `stage_transition`, `artifact_ready`, or `error` messages, refetches `GET /api/sessions/{id}` to resync store state; all messages are appended to `wsMessages`.
 
 ---
 
 ## API Client — `lib/api.ts`
 
-Replace all existing types and endpoints. Key new types:
+Key types: `Session`, `SessionListItem`, `SessionStage`, `SessionStatus`, `FeaturizerConfig`, `PendingSource`, `ConnectorOut`, `SessionArtifacts` (`DataArtifactRef` / `FeatureArtifactRef` / `AnalysisResultRef`), `ChatMessage`, `ActivityEvent`, `StageHistoryEntry`, `MarketProfile`, `MarketSnapshot`, `DataArtifactDetail`.
 
-```typescript
-type MarketSnapshot = { wti, brent, dxy, gpr, eia_inventory_change_mmbbl, fetched_at }
-type Session = { session_id, market_profile, timeframe_start, timeframe_end, stage, status, error, auto, featurizer_config, conversation, activity_events, artifacts, stage_history }
-type DataArtifact = { kind: 'data', artifact_id, round, sources, data_manifest, series_preview, cache_hit, cached_from_session_id }
-type AnalysisResult = { kind: 'analysis', artifact_id, regime, direction, feature_importance, drift, backtest, summary, cache_hit }
+Endpoints wired:
 ```
-
-New endpoints wired:
+GET    /api/market/snapshot
+GET    /api/profiles
+GET    /api/connectors
+POST   /api/sessions
+GET    /api/sessions
+GET    /api/sessions/{id}
+DELETE /api/sessions/{id}
+POST   /api/sessions/{id}/proceed
+POST   /api/sessions/{id}/chat
+POST   /api/sessions/{id}/rerun
+POST   /api/sessions/{id}/cancel
+PATCH  /api/sessions/{id}/config
+POST   /api/sessions/{id}/upload
+GET    /api/sessions/{id}/artifacts/{artifact_id}
 ```
-GET  /api/market/snapshot
-POST /api/sessions
-GET  /api/sessions
-GET  /api/sessions/{id}
-POST /api/sessions/{id}/proceed
-POST /api/sessions/{id}/chat
-POST /api/sessions/{id}/rerun
-POST /api/sessions/{id}/cancel
-GET  /api/sessions/{id}/artifacts/{artifact_id}
-GET  /api/profiles
-```
-
----
-
-## Component Map
-
-### New files
-| File | Purpose |
-|---|---|
-| `app/page.tsx` | Home page |
-| `app/sessions/[id]/layout.tsx` | Shared session chrome + store + WS |
-| `app/sessions/[id]/activity/page.tsx` | Activity feed |
-| `app/sessions/[id]/data/page.tsx` | Data manifest |
-| `app/sessions/[id]/results/page.tsx` | Results dashboard |
-| `components/SessionIndicators.tsx` | Live market indicators strip |
-| `components/LatestSessionBanner.tsx` | Latest session result banner |
-| `components/SessionsTable.tsx` | Sessions list table |
-| `components/NewAnalysisModal.tsx` | New analysis form modal |
-| `components/StageStrip.tsx` | 7-segment progress strip |
-| `components/ActivityFeed.tsx` | Continuous feed with entries + gate messages |
-| `components/FeedEntry.tsx` | Single feed entry (done/active/pending/warn) |
-| `components/GateMessage.tsx` | USER_REVIEW and FOLLOW_UP gate cards |
-| `components/FeaturizerConfigEditor.tsx` | Inline editable tags for windows/lags/families |
-| `components/ChatInput.tsx` | Chat input row (disabled/enabled states) |
-| `lib/store.ts` | `useSessionStore` |
-| `lib/websocket.ts` | `useSessionStream` |
-| `lib/api.ts` | Session-based API client |
-
-### Adapted files (keep, update types + data)
-| File | Adapts to |
-|---|---|
-| `components/tabs/BacktestTab.tsx` | Results backtest section |
-| `components/tabs/DriftTab.tsx` | Results drift section |
-| `components/tabs/FeaturesTab.tsx` | Results SHAP section |
-| `components/tabs/OverviewTab.tsx` | Results metric cards |
-| `components/tabs/SummaryTab.tsx` | Results agent summary |
-
----
-
-## Design Tokens (Bloomberg-style)
-
-```
-bg-base:       #060b14   page background
-bg-surface:    #111827   nav, cards at rest
-bg-elevated:   #1f2937   card interiors, inputs
-bg-deep:       #111827   code/stream background
-
-border:        #21262d   nav borders
-border-subtle: #1f2937   card borders, dividers
-border-muted:  #374151   input borders, inactive strips
-
-accent-blue:   #1d4ed8   buttons, active tab, tool pills
-accent-light:  #3b82f6   charts, SHAP bars, links
-accent-muted:  #60a5fa   active stage labels, agent messages
-
-text-primary:  #f9fafb
-text-secondary:#9ca3af
-text-muted:    #6b7280
-text-disabled: #4b5563
-
-green:         #22c55e   done, bullish, ok
-amber:         #f59e0b   regime spike, drift, warnings
-red:           #ef4444   failed, bearish
-indigo:        #6366f1   lower-ranked SHAP bars
-```
-
----
-
-## New Backend Endpoint Required
-
-`GET /api/market/snapshot` — documented in `docs/backend-redesign.md`. Thin yfinance + FRED fetch, no session dependency. Used exclusively by the home page indicators strip.
-
----
-
-## PR Breakdown
-
-Frontend PRs are sequenced to match backend PRs — the frontend is only built once the API it depends on exists. Where the frontend scope is small enough, it is folded into the same PR as the backend work. Where it is large enough to deserve its own review, it ships as a separate PR immediately after the backend PR it depends on.
-
-### Merge order
-
-| Merge order | PR label | Backend PR | Frontend work | Strategy |
-|---|---|---|---|---|
-| 1 | **PR 1** | Backend PR 1 — Session data model, CRUD, `GET /api/profiles`, `GET /api/market/snapshot` | Routing skeleton, shared layout shell, home page (sessions table + new analysis modal with profile dropdown wired to `GET /api/profiles` + live indicators strip from `GET /api/market/snapshot`), `lib/api.ts` + `lib/store.ts` + `lib/websocket.ts` rewrites | **Combined** |
-| 2 | **PR 2** | Backend PR 2 — FeaturizerService, TabPFNService, stage machine, upload | Stage progress strip, passive activity feed (stage transitions only), Data sub-page, session header | **Combined** |
-| 3 | **PR 3-backend** | Backend PR 3 — DataSourceDiscoveryAgent, DataAgent, ReviewInterpreter, `POST /chat` (USER_REVIEW only) | — | Backend only |
-| 4 | **PR 3-frontend** | *(depends on PR 3-backend)* | Live activity feed with WebSocket streaming (thoughts, tool calls, tool results), USER_REVIEW gate message, FeaturizerConfigEditor, chat input wired to `POST /chat` (USER_REVIEW path) | **Separate** |
-| 5 | **PR 4-backend** | Backend PR 4 — ExplanationAgent, FollowUpAgent, `POST /chat` extended to FOLLOW_UP | — | Backend only |
-| 6 | **PR 4-frontend** | *(depends on PR 4-backend)* | Results sub-page (regime card, direction card, SHAP chart, backtest chart, drift table, agent summary), FOLLOW_UP gate message, follow-up chat wired to `POST /chat` (FOLLOW_UP path) | **Separate** |
-| 7 | **PR 5** | Backend PR 5 — Cross-session artifact cache | Cache badges on Data and Results sub-pages (`⚡ Cached from session #N`), `cache_hit` event in activity feed | **Combined** |
-| 8 | **PR 6** | Backend PR 6 — Market profiles fully wired (connectors, featurizer config, regime labels per profile) | Multi-profile behavior: profile selection drives DataSourceDiscoveryAgent recommendations and regime labels — dropdown already wired from PR 1, no new UI | **Combined** |
-| 9 | **PR 7-backend** | Backend PR 7 — ConnectorBuilderAgent | — | Backend only |
-| 10 | **PR 7-frontend** | *(depends on PR 7-backend, deferred)* | Connector builder UI — out of scope until backend quality gate is proven | **Deferred** |
-
-### Why separate for PR 3-frontend and PR 4-frontend?
-
-**PR 3-frontend:** live WebSocket streaming — the activity feed needs to handle `thought`, `tool_call`, `tool_result`, and `artifact_ready` events reliably, with reconnect and replay from `activity_events`. Enough surface area to deserve its own review. Merges only after PR 3-backend is in main.
-
-**PR 4-frontend:** the Results sub-page is the most data-dense part of the UI with five distinct chart/table components. Combining with backend PR 4 would make the PR too large to review effectively. Merges only after PR 4-backend is in main.
-
-### Why combined for PR 1, 2, 5, 6?
-
-The frontend changes are small relative to the backend work and share the same reviewable context — splitting them would produce frontend-only PRs with almost no substance.
-
-Note on PR 6: `GET /api/profiles` and the dropdown UI land in PR 1 (seeded oil profile only). PR 6 is not about the dropdown API first becoming available — it is about the full multi-profile abstraction working end-to-end (profile drives connector recommendations, featurizer config defaults, and regime labels). The only frontend touch in PR 6 is confirming the dropdown behaves correctly with new profiles.
 
 ---
 
@@ -362,3 +170,4 @@ Note on PR 6: `GET /api/profiles` and the dropdown UI land in PR 1 (seeded oil p
 - Satellite imagery signals (Phase 2)
 - Mobile/responsive layout — desktop-only for now
 - Save & export (PDF, CSV, shareable link)
+- Connector builder UI — backend `ConnectorBuilderAgent` quality gate not yet proven (see `CLAUDE.md`)

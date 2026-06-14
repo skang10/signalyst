@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-31
 **Branch:** feat/agent-redesign
-**Status:** Design only — no implementation on this branch
+**Status:** Implemented. See `docs/architecture.md` for current-state diagrams derived from this spec.
 
 ---
 
