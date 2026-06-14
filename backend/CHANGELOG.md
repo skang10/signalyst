@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.16.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.15.0...signalyst-backend-v0.16.0) (2026-06-14)
+
+
+### Features
+
+* connector chip grouping, staleness detection, and upload UI on Config page ([#59](https://github.com/skang10/signalyst/issues/59)) ([54d5076](https://github.com/skang10/signalyst/commit/54d50762c5f542d26e984947fff237e24ac153eb))
+* surface and persist uploaded data sources across re-runs ([#63](https://github.com/skang10/signalyst/issues/63)) ([bcc8e08](https://github.com/skang10/signalyst/commit/bcc8e0898482c23bf087d3e6462cf446e4f79ba5))
+
+
+### Bug Fixes
+
+* **ci:** retry docker build on transient registry timeouts ([#58](https://github.com/skang10/signalyst/issues/58)) ([86a5690](https://github.com/skang10/signalyst/commit/86a56908e075164deda4a839ac2bb6e3e73d7e4d))
+* improve chat-triggered data refetch UX ([71f8510](https://github.com/skang10/signalyst/commit/71f8510e875474c64b78b4ee3273edaed1d9cd70))
+* improve chat-triggered data refetch UX ([154a5f3](https://github.com/skang10/signalyst/commit/154a5f32a2fd7b15abb279439dcf6238b9742a97))
+* route refetch ticker symbols into yfinance params, not bogus connector IDs ([#65](https://github.com/skang10/signalyst/issues/65)) ([1b761d5](https://github.com/skang10/signalyst/commit/1b761d5b7c8967747d6458c9b0da75624847b95d))
+
 ## [0.15.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.14.0...signalyst-backend-v0.15.0) (2026-06-10)
 
 

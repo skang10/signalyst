@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.12.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.11.0...signalyst-frontend-v0.12.0) (2026-06-14)
+
+
+### Features
+
+* connector chip grouping, staleness detection, and upload UI on Config page ([#59](https://github.com/skang10/signalyst/issues/59)) ([54d5076](https://github.com/skang10/signalyst/commit/54d50762c5f542d26e984947fff237e24ac153eb))
+* support multi-select and bulk delete on home page sessions table ([#61](https://github.com/skang10/signalyst/issues/61)) ([f08e120](https://github.com/skang10/signalyst/commit/f08e120a85047406e75ddb683534af0f62296885))
+* surface and persist uploaded data sources across re-runs ([#63](https://github.com/skang10/signalyst/issues/63)) ([bcc8e08](https://github.com/skang10/signalyst/commit/bcc8e0898482c23bf087d3e6462cf446e4f79ba5))
+
+
+### Bug Fixes
+
+* improve chat-triggered data refetch UX ([71f8510](https://github.com/skang10/signalyst/commit/71f8510e875474c64b78b4ee3273edaed1d9cd70))
+* improve chat-triggered data refetch UX ([154a5f3](https://github.com/skang10/signalyst/commit/154a5f32a2fd7b15abb279439dcf6238b9742a97))
+
 ## [0.11.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.10.0...signalyst-frontend-v0.11.0) (2026-06-10)
 
 
