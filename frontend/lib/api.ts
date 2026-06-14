@@ -161,6 +161,49 @@ export type DataArtifactDetail = {
   cached_from_session_id: string | null;
 };
 
+export type RegimeResult = {
+  regime: string;
+  confidence: number;
+  distribution: Record<string, number>;
+};
+
+export type DirectionResult = {
+  direction: string;
+  confidence: number;
+  distribution: Record<string, number>;
+};
+
+export type DriftSummary = {
+  psi_score: number;
+  drift_detected: boolean;
+};
+
+export type FeatureImportanceResult = {
+  top_features: { name: string; importance: number }[];
+  n_features_evaluated: number;
+  n_samples_explained: number;
+};
+
+export type BacktestResult = {
+  strategy_sharpe: number;
+  benchmark_sharpe: number;
+  regime_accuracy: number;
+  n_windows: number;
+};
+
+export type AnalysisResultDetail = {
+  kind: "analysis";
+  artifact_id: string;
+  regime: RegimeResult | null;
+  direction: DirectionResult | null;
+  feature_importance: FeatureImportanceResult | null;
+  drift: DriftSummary | null;
+  backtest: BacktestResult | null;
+  summary: string | null;
+  cache_hit: boolean;
+  cached_from_session_id: string | null;
+};
+
 export const api = {
   getMarketSnapshot: () => request<MarketSnapshot>("/api/market/snapshot"),
 
@@ -274,4 +317,7 @@ export const api = {
 
   getArtifact: (sessionId: string, artifactId: string) =>
     request<DataArtifactDetail>(`/api/sessions/${sessionId}/artifacts/${artifactId}`),
+
+  getAnalysisArtifact: (sessionId: string, artifactId: string) =>
+    request<AnalysisResultDetail>(`/api/sessions/${sessionId}/analysis/${artifactId}`),
 };
