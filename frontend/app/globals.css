@@ -1,5 +1,19 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand: #059669;
+  --color-brand-hover: #047857;
+  --color-brand-soft: #ecfdf5;
+  --color-brand-soft-border: #a7f3d0;
+}
+
+[data-theme="gold"] {
+  --color-brand: #d97706;
+  --color-brand-hover: #b45309;
+  --color-brand-soft: #fffbeb;
+  --color-brand-soft-border: #fde68a;
+}
+
 body {
   @apply bg-white text-gray-900;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", sans-serif;

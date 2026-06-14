@@ -32,7 +32,7 @@ export function StageStrip({ currentStage }: Props) {
               className={[
                 "h-1 w-full rounded-full",
                 isDone ? "bg-green-500" : "",
-                isActive ? "bg-teal-500 animate-pulse" : "",
+                isActive ? "bg-brand animate-pulse" : "",
                 isPending ? "bg-gray-200" : "",
               ].join(" ")}
             />
@@ -40,7 +40,7 @@ export function StageStrip({ currentStage }: Props) {
               className={[
                 "text-[10px] mt-1 font-mono tracking-wider",
                 isDone ? "text-green-600" : "",
-                isActive ? "text-teal-600" : "",
+                isActive ? "text-brand" : "",
                 isPending ? "text-gray-400" : "",
               ].join(" ")}
             >

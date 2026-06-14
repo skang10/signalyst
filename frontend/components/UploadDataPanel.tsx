@@ -93,7 +93,7 @@ export function UploadPanel({
         <button
           type="button"
           onClick={() => fileRef.current?.click()}
-          className="w-full border-2 border-dashed border-gray-200 hover:border-teal-400 rounded-lg p-8 flex flex-col items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
+          className="w-full border-2 border-dashed border-gray-200 hover:border-brand rounded-lg p-8 flex flex-col items-center gap-2 text-gray-500 hover:text-gray-700 transition-colors"
         >
           <span className="text-3xl">↑</span>
           <span className="text-sm">{file ? file.name : "Click to choose file"}</span>
@@ -135,7 +135,7 @@ export function UploadPanel({
           value={sourceName}
           onChange={(e) => setSourceName(e.target.value)}
           placeholder="Source name (optional)"
-          className="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-teal-400"
+          className="w-full bg-white border border-gray-200 rounded px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-brand"
         />
 
         {error && <p className="text-xs text-red-500">{error}</p>}
@@ -147,7 +147,7 @@ export function UploadPanel({
             <button
               onClick={() => handleUpload("replace")}
               disabled={!file || uploading}
-              className="w-full py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {uploading ? "Uploading…" : "Replace existing data with this file"}
             </button>
@@ -165,7 +165,7 @@ export function UploadPanel({
             <button
               onClick={() => handleUpload("merge")}
               disabled={!file || uploading}
-              className="w-full py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full py-2 rounded bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {uploading ? "Uploading…" : "Merge with existing data"}
             </button>
@@ -182,7 +182,7 @@ export function UploadPanel({
           <button
             onClick={() => handleUpload("replace")}
             disabled={!file || uploading}
-            className="w-full py-2 rounded bg-teal-600 hover:bg-teal-700 text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full py-2 rounded bg-brand hover:bg-brand-hover text-white text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {uploading ? "Uploading…" : "Upload"}
           </button>
@@ -218,7 +218,7 @@ export function UploadRow({
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
-          className="px-2 py-1 rounded-md border border-dashed border-gray-300 text-xs text-gray-400 hover:border-teal-300 hover:text-teal-600 whitespace-nowrap"
+          className="px-2 py-1 rounded-md border border-dashed border-gray-300 text-xs text-gray-400 hover:border-brand-soft-border hover:text-brand whitespace-nowrap"
         >
           {open ? "− Hide" : "+ Upload file"}
         </button>

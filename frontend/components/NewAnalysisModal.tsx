@@ -58,7 +58,7 @@ export function NewAnalysisModal({ onClose }: Props) {
             <select
               value={profileId}
               onChange={(e) => setProfileId(e.target.value)}
-              className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-teal-500"
+              className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-brand"
             >
               {profiles.map((p) => (
                 <option key={p.id} value={p.id}>
@@ -76,7 +76,7 @@ export function NewAnalysisModal({ onClose }: Props) {
                 type="date"
                 value={start}
                 onChange={(e) => setStart(e.target.value)}
-                className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-teal-500"
+                className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-brand"
               />
             </label>
             <label className="flex flex-col gap-1 flex-1">
@@ -85,7 +85,7 @@ export function NewAnalysisModal({ onClose }: Props) {
                 type="date"
                 value={end}
                 onChange={(e) => setEnd(e.target.value)}
-                className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-teal-500"
+                className="bg-white border border-gray-300 rounded px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-brand"
               />
             </label>
           </div>
@@ -95,7 +95,7 @@ export function NewAnalysisModal({ onClose }: Props) {
               type="checkbox"
               checked={autoMode}
               onChange={(e) => setAutoMode(e.target.checked)}
-              className="w-4 h-4 accent-teal-600"
+              className="w-4 h-4 accent-brand"
             />
             <span className="text-sm text-gray-500">Auto mode (skip user review gate)</span>
           </label>
@@ -105,7 +105,7 @@ export function NewAnalysisModal({ onClose }: Props) {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 py-2 rounded bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-sm font-semibold text-white transition-colors"
+            className="mt-1 py-2 rounded bg-brand hover:bg-brand-hover disabled:opacity-50 text-sm font-semibold text-white transition-colors"
           >
             {loading ? "Starting…" : "Start Analysis"}
           </button>

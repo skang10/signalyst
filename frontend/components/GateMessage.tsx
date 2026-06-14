@@ -86,14 +86,14 @@ export function UserReviewGate({
         )}
         <button
           onClick={() => setExpanded(true)}
-          className="text-xs text-teal-600 hover:underline flex-shrink-0"
+          className="text-xs text-brand hover:underline flex-shrink-0"
         >
           Edit
         </button>
         <button
           onClick={() => onProceed(isDirty ? draft : undefined)}
           disabled={proceeding}
-          className="px-4 py-1.5 bg-teal-600 border border-teal-700 rounded-full text-white text-xs font-semibold hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+          className="px-4 py-1.5 bg-brand border border-brand-hover rounded-full text-white text-xs font-semibold hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
         >
           {proceeding ? "Starting…" : "→ Run Analysis"}
         </button>
@@ -130,7 +130,7 @@ export function UserReviewGate({
         <button
           onClick={() => onProceed(isDirty ? draft : undefined)}
           disabled={proceeding}
-          className="px-4 py-2 bg-teal-600 border border-teal-700 rounded-full text-white text-sm font-semibold hover:bg-teal-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-4 py-2 bg-brand border border-brand-hover rounded-full text-white text-sm font-semibold hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           {proceeding ? "Starting…" : "→ Run Analysis"}
         </button>

@@ -38,7 +38,7 @@ export function FeaturesTab({ features }: Props) {
                   className="h-full rounded"
                   style={{
                     width: `${(f.importance / max) * 100}%`,
-                    background: `#0d9488`,
+                    background: "var(--color-brand)",
                     opacity: 1 - i * 0.06,
                   }}
                 />

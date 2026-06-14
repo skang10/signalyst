@@ -23,12 +23,14 @@ export default function Home() {
     <div className="flex flex-col min-h-screen bg-white text-gray-900">
       <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 bg-white">
         <span className="font-bold text-gray-900 text-base tracking-tight">■ Signalyst</span>
-        <button
-          onClick={() => setShowModal(true)}
-          className="text-sm px-3 py-1 rounded bg-teal-600 hover:bg-teal-700 text-white font-semibold transition-colors"
-        >
-          + New Analysis
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-sm px-3 py-1 rounded bg-brand hover:bg-brand-hover text-white font-semibold transition-colors"
+          >
+            + New Analysis
+          </button>
+        </div>
       </header>
 
       <SessionIndicators />

@@ -112,7 +112,7 @@ export function OverviewTab({ result }: Props) {
           label="Regime"
           value={REGIME_LABELS[regime.regime] ?? regime.regime}
           sub={`${(regime.confidence * 100).toFixed(1)}% confidence`}
-          accent="text-teal-600"
+          accent="text-brand"
         />
         <StatTile
           label="WTI Direction"
@@ -130,7 +130,7 @@ export function OverviewTab({ result }: Props) {
           label="Top Signal"
           value={topSignalName}
           sub={topSignalScore != null ? `SHAP ${topSignalScore.toFixed(2)}` : undefined}
-          accent="text-teal-600"
+          accent="text-brand"
         />
       </div>
 
@@ -153,7 +153,7 @@ export function OverviewTab({ result }: Props) {
                     ? "bg-red-600"
                     : r === "geopolitical_spike"
                     ? "bg-amber-500"
-                    : "bg-teal-600"
+                    : "bg-brand"
                 }
               />
             ))}

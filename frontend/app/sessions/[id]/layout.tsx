@@ -2,46 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useParams, usePathname, useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { SessionSidebar } from "@/components/SessionSidebar";
 import { StageStrip } from "@/components/StageStrip";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { useSessionStream } from "@/lib/websocket";
-
-function ReviewBanner({ sessionId }: { sessionId: string }) {
-  const { conversation, status } = useSessionStore();
-  const pathname = usePathname();
-  const activityHref = `/sessions/${sessionId}/activity`;
-
-  if (pathname === activityHref) return null;
-
-  const lastMsg = conversation[conversation.length - 1];
-  const hasAgentReply = lastMsg?.role === "assistant";
-
-  let hint: string;
-  let linkText: string;
-  if (status === "running") {
-    hint = "· Agent is thinking…";
-    linkText = "view in Activity →";
-  } else if (hasAgentReply) {
-    hint = "· Agent replied —";
-    linkText = "go to Activity to respond →";
-  } else {
-    hint = "· Satisfied with the data?";
-    linkText = "Go to Activity to proceed →";
-  }
-
-  return (
-    <div className="flex items-center gap-2 px-4 py-1.5 bg-blue-50 border-b border-blue-200 text-xs flex-shrink-0">
-      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse flex-shrink-0" />
-      <span className="text-blue-700">{hint}</span>
-      <Link href={activityHref} className="text-blue-600 underline underline-offset-2">
-        {linkText}
-      </Link>
-    </div>
-  );
-}
 
 export default function SessionLayout({ children }: { children: React.ReactNode }) {
   const { id } = useParams<{ id: string }>();
@@ -102,7 +68,7 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
             <span className="text-gray-300 text-xs">·</span>
             <span className="text-sm text-gray-500 font-mono">{id?.slice(0, 8)}</span>
             {stage && (
-              <span className="text-xs px-2 py-0.5 rounded-full bg-teal-50 text-teal-600 border border-teal-200">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border">
                 {stage}
               </span>
             )}
@@ -137,7 +103,6 @@ export default function SessionLayout({ children }: { children: React.ReactNode 
         {id && <SessionSidebar sessionId={id} stage={stage} />}
         <div className="flex-1 flex flex-col min-h-0">
           <StageStrip currentStage={stage} />
-          {stage === "user_review" && id && <ReviewBanner sessionId={id} />}
           <main className="flex-1 overflow-auto min-h-0">{children}</main>
         </div>
       </div>
