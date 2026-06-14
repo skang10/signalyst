@@ -23,6 +23,7 @@ type AnalysisResult = {
   direction?: DirectionResult | null;
   drift?: DriftSummary | null;
   feature_importance?: FeatureImportanceSummary | null;
+  summary?: string | null;
 };
 
 function formatRegimeLabel(regime: string): string {
@@ -186,6 +187,15 @@ export function OverviewTab({ result, profile }: Props) {
             ))}
         </div>
       </div>
+
+      {result.summary && (
+        <div className="bg-white border border-gray-200 rounded p-3 flex flex-col gap-2">
+          <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
+            Summary
+          </div>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{result.summary}</p>
+        </div>
+      )}
     </div>
   );
 }
