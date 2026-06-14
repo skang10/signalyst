@@ -5,12 +5,20 @@ import uuid
 from datetime import date
 from unittest.mock import AsyncMock, patch
 
+import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlmodel import SQLModel
 
 import src.db.models  # noqa: F401 — registers all tables
-from src.db.models import AnalysisResult, DataArtifact, FeatureArtifact, SessionStage, SessionStatus
+from src.db.models import (
+    AnalysisResult,
+    DataArtifact,
+    FeatureArtifact,
+    MarketProfile,
+    SessionStage,
+    SessionStatus,
+)
 from src.db.models import Session as SessionModel
 from src.services.hashing import canonical_json, stable_hash
 from src.services.tabpfn import run_tabpfn_service
@@ -90,6 +98,21 @@ async def test_tabpfn_cache_hit_transitions_to_explaining_and_chains_explanation
                 feature_hash=feature_hash,
             )
         )
+        db.add(
+            MarketProfile(
+                id="oil",
+                name="Oil Markets",
+                default_connectors=["yfinance", "fred", "eia", "gpr"],
+                default_connector_params={
+                    "yfinance": {"tickers": ["CL=F", "BZ=F", "DX-Y.NYB"]},
+                    "fred": {"series_ids": ["INDPRO"]},
+                },
+                default_featurizer_config={},
+                regime_labels=["bull_supercycle", "range_bound", "bust", "geopolitical_spike"],
+                regime_thresholds={"trend_up": 0.15, "trend_down": -0.15, "spike": 0.08},
+                primary_ticker="CL=F",
+            )
+        )
         await db.commit()
 
     fake_redis = _FakeRedis()
@@ -111,3 +134,38 @@ async def test_tabpfn_cache_hit_transitions_to_explaining_and_chains_explanation
     assert any(
         m["type"] == "stage_transition" and m["to"] == "explaining" for m in fake_redis.published
     )
+
+
+def test_make_regime_labels_generic_thresholds_and_symmetric_spike() -> None:
+    from src.services.tabpfn import _make_regime_labels
+
+    index = pd.date_range("2024-01-01", periods=70, freq="D")
+    # Flat at 100 for 65 days, then a sharp 10% drop that holds for 5 days.
+    prices = [100.0] * 65 + [90.0] * 5
+    proxy = pd.Series(prices, index=index)
+
+    regime_labels = ["trend_up", "range_bound", "trend_down", "spike"]
+    thresholds = {"trend_up": 0.15, "trend_down": -0.15, "spike": 0.05}
+
+    labels = _make_regime_labels(proxy, index, regime_labels, thresholds, known_regimes=[])
+
+    # Day 66 (iloc 65): 5-day return = (90-100)/100 = -0.10, abs(-0.10) > 0.05 -> spike
+    assert labels.iloc[65] == "spike"
+    # Flat region (iloc 10): no threshold crossed -> range_bound
+    assert labels.iloc[10] == "range_bound"
+
+
+def test_make_regime_labels_known_regimes_override() -> None:
+    from src.services.tabpfn import _make_regime_labels
+
+    index = pd.date_range("2024-01-01", periods=20, freq="D")
+    proxy = pd.Series([100.0] * 20, index=index)
+
+    regime_labels = ["trend_up", "range_bound", "trend_down", "spike"]
+    thresholds = {"trend_up": 0.15, "trend_down": -0.15, "spike": 0.05}
+    known_regimes = [("2024-01-05", "2024-01-10", "trend_down")]
+
+    labels = _make_regime_labels(proxy, index, regime_labels, thresholds, known_regimes)
+
+    assert (labels.loc["2024-01-05":"2024-01-10"] == "trend_down").all()
+    assert labels.iloc[0] == "range_bound"

@@ -151,8 +151,15 @@ class MarketProfile(SQLModel, table=True):
     default_connectors: list[str] = Field(
         default_factory=list, sa_column=Column(SAJson, nullable=False)
     )
+    default_connector_params: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, sa_column=Column(SAJson, nullable=False)
+    )
     default_featurizer_config: dict[str, Any] = Field(
         default_factory=dict, sa_column=Column(SAJson, nullable=False)
     )
     regime_labels: list[str] = Field(default_factory=list, sa_column=Column(SAJson, nullable=False))
+    regime_thresholds: dict[str, float] = Field(
+        default_factory=dict, sa_column=Column(SAJson, nullable=False)
+    )
+    primary_ticker: str = Field(default="")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None))
