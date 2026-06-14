@@ -15,7 +15,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlmodel import select
 
 from src.config import settings
-from src.db.models import AnalysisResult, FeatureArtifact, SessionStage, SessionStatus
+from src.db.models import (
+    AnalysisResult,
+    FeatureArtifact,
+    MarketProfile,
+    SessionStage,
+    SessionStatus,
+)
 from src.db.models import Session as SessionModel
 from src.services.explanation import run_explanation_service
 from src.services.hashing import canonical_json, stable_hash
@@ -25,25 +31,35 @@ log = structlog.get_logger()
 
 Publisher = Callable[[dict[str, Any]], Awaitable[None]]
 
-# Heuristic regime labels (same as demo.py — source of truth)
-_KNOWN_REGIMES: list[tuple[str, str, str]] = [
-    ("2014-07-01", "2016-12-31", "bust"),
-    ("2020-02-01", "2020-10-31", "bust"),
-    ("2021-01-01", "2022-06-30", "bull_supercycle"),
-    ("2022-02-01", "2022-04-30", "geopolitical_spike"),
-    ("2023-10-01", "2023-12-31", "geopolitical_spike"),
-]
+# Hand-labeled historical regime windows, by market profile id.
+# Only "oil" has researched windows; other profiles get no historical overrides.
+_KNOWN_REGIMES_BY_PROFILE: dict[str, list[tuple[str, str, str]]] = {
+    "oil": [
+        ("2014-07-01", "2016-12-31", "bust"),
+        ("2020-02-01", "2020-10-31", "bust"),
+        ("2021-01-01", "2022-06-30", "bull_supercycle"),
+        ("2022-02-01", "2022-04-30", "geopolitical_spike"),
+        ("2023-10-01", "2023-12-31", "geopolitical_spike"),
+    ],
+}
 
 
-def _make_regime_labels(wti: pd.Series, index: pd.DatetimeIndex) -> pd.Series:
-    wti_daily = wti.reindex(index, method="ffill")
-    ret5 = wti_daily.pct_change(5)
-    ret60 = wti_daily.pct_change(60)
-    labels = pd.Series("range_bound", index=index, name="regime")
-    labels[ret60 > 0.15] = "bull_supercycle"
-    labels[ret60 < -0.15] = "bust"
-    labels[ret5 > 0.08] = "geopolitical_spike"
-    for start, end, regime in _KNOWN_REGIMES:
+def _make_regime_labels(
+    proxy: pd.Series,
+    index: pd.DatetimeIndex,
+    regime_labels: list[str],
+    thresholds: dict[str, float],
+    known_regimes: list[tuple[str, str, str]],
+) -> pd.Series:
+    trend_up, range_bound, trend_down, spike = regime_labels
+    proxy_daily = proxy.reindex(index, method="ffill")
+    ret5 = proxy_daily.pct_change(5)
+    ret60 = proxy_daily.pct_change(60)
+    labels = pd.Series(range_bound, index=index, name="regime")
+    labels[ret60 > thresholds["trend_up"]] = trend_up
+    labels[ret60 < thresholds["trend_down"]] = trend_down
+    labels[ret5.abs() > thresholds["spike"]] = spike
+    for start, end, regime in known_regimes:
         mask = (index >= start) & (index <= end)
         labels[mask] = regime
     return labels
@@ -141,11 +157,14 @@ async def _run(
     if fa is None:
         raise ValueError("no FeatureArtifact found for session")
 
-    regime_labels = ["bull_supercycle", "range_bound", "bust", "geopolitical_spike"]
+    market_profile = await db.get(MarketProfile, s.market_profile)
+    if market_profile is None:
+        raise ValueError(f"unknown market profile: {s.market_profile}")
+
     analysis_config: dict[str, Any] = {}
     feature_hash = stable_hash(
         fa.matrix_hash,
-        canonical_json(regime_labels),
+        canonical_json(market_profile.regime_labels),
         canonical_json(analysis_config),
     )
 
@@ -186,15 +205,21 @@ async def _run(
             _inference_start = time.monotonic()
             X_train, X_test = features.iloc[:split], features.iloc[split:]
 
-            # Pick WTI proxy column for labeling
-            wti_col = next(
-                (c for c in features.columns if "CL=F" in c or "wti" in c.lower()),
+            # Pick the profile's primary-ticker column for labeling
+            proxy_col = next(
+                (c for c in features.columns if c.startswith(market_profile.primary_ticker)),
                 features.columns[0],
             )
-            wti_proxy = features[wti_col]
+            proxy = features[proxy_col]
 
-            regime_labels_series = _make_regime_labels(wti_proxy, features.index)
-            direction_labels_series = _make_direction_labels(wti_proxy, features.index)
+            regime_labels_series = _make_regime_labels(
+                proxy,
+                features.index,
+                market_profile.regime_labels,
+                market_profile.regime_thresholds,
+                _KNOWN_REGIMES_BY_PROFILE.get(market_profile.id, []),
+            )
+            direction_labels_series = _make_direction_labels(proxy, features.index)
             common_idx = features.index.intersection(direction_labels_series.index)
             X_train_dir = features.loc[common_idx[: len(common_idx) * 4 // 5]]
             y_dir_train = direction_labels_series.loc[common_idx[: len(common_idx) * 4 // 5]]

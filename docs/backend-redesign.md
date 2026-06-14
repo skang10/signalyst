@@ -386,9 +386,13 @@ class MarketProfile(SQLModel, table=True):
     name:                     str    # "Oil Markets"
     description:              str
     default_connectors:       JSON   # ["yfinance", "fred", "eia", "gpr"]
+    default_connector_params: JSON   # {"yfinance": {"tickers": [...]}, "fred": {"series_ids": [...]}}
     default_featurizer_config: JSON
-    regime_labels:            JSON   # ["bull_supercycle", "range_bound", "bust",
-                                     #  "geopolitical_spike"]
+    regime_labels:            JSON   # ordered [trend_up, range_bound, trend_down, spike] labels,
+                                     #  e.g. ["bull_supercycle", "range_bound", "bust",
+                                     #  "geopolitical_spike"] for oil
+    regime_thresholds:        JSON   # {"trend_up": 0.15, "trend_down": -0.15, "spike": 0.08}
+    primary_ticker:           str    # feature column used for regime/direction labeling, e.g. "CL=F"
     created_at:               datetime
 ```
 
@@ -412,6 +416,8 @@ http_get(url, headers, params)                      → explore novel APIs
 **Writes to session:** `pending_sources` (via `approve_sources`), appends recommendation to `conversation`
 
 **Escalates to:** ConnectorBuilderAgent if HTTP primitives cannot handle the source — *not yet implemented (PR 7)*; `http_post`, `parse_response`, and `save_connector_spec` tools from the original design are not implemented either.
+
+**Note:** `services/discovery.py` populates `pending_sources` directly from `MarketProfile.default_connectors` + `default_connector_params` for every seeded profile (`oil`, `sp500`, `eurusd`), so this agent's LLM loop — including the oil-specific recommendation step in its system prompt — only runs as a fallback for a profile seeded with empty `default_connectors`, which none currently are.
 
 ---
 
@@ -1172,32 +1178,41 @@ Before publishing any message, the backend appends the same payload plus `event_
 
 A market profile drives: which data connectors are recommended, the default featurizer config, and the regime labels passed to TabPFN.
 
-### Oil (fully built out)
+### Seeded profiles
 
 ```json
 {
   "id": "oil",
   "name": "Oil Markets",
   "default_connectors": ["yfinance", "fred", "eia", "gpr"],
+  "default_connector_params": {
+    "yfinance": {"tickers": ["CL=F", "BZ=F", "DX-Y.NYB"]},
+    "fred": {"series_ids": ["INDPRO"]}
+  },
   "default_featurizer_config": {
     "windows": [5, 20, 60],
     "lags": [1, 5, 20],
     "feature_families": ["rolling_stats", "momentum", "regime", "lag"],
     "energy_specific": true
   },
-  "regime_labels": ["bull_supercycle", "range_bound", "bust", "geopolitical_spike"]
+  "regime_labels": ["bull_supercycle", "range_bound", "bust", "geopolitical_spike"],
+  "regime_thresholds": {"trend_up": 0.15, "trend_down": -0.15, "spike": 0.08},
+  "primary_ticker": "CL=F"
 }
 ```
 
-### Other profiles (stub — later PRs)
-
-`sp500`, `eurusd`, `custom` — same structure, connectors and regime labels TBD.
+`sp500` and `eurusd` follow the same structure with their own connectors, regime label sets
+(`bull_market`/`range_bound`/`bear_market`/`high_volatility` and
+`uptrend`/`range_bound`/`downtrend`/`volatility_spike`), thresholds scaled to each asset's typical
+volatility, and `primary_ticker` set to `^GSPC` / `EURUSD=X` respectively. Neither has researched
+historical regime-window overrides (oil's `_KNOWN_REGIMES_BY_PROFILE["oil"]` only) — this can be
+added later without further schema changes. A `custom` profile is not yet seeded.
 
 ---
 
 ## PR Breakdown
 
-PRs 1–5 and the oil portion of PR 6 are done. Remaining: stub market profiles (`sp500`, `eurusd`) and PR 7 (`ConnectorBuilderAgent`).
+PRs 1–6 are done. Remaining: PR 7 (`ConnectorBuilderAgent`).
 
 ### PR 1 — Cleanup + Session Data Model ✅ done
 - Remove old `Run` model, old `run_agent_loop`, old `/api/analyze` and `/api/runs` routes
@@ -1250,10 +1265,13 @@ PRs 1–5 and the oil portion of PR 6 are done. Remaining: stub market profiles 
 - `cache_hit` WebSocket event
 - Cache indicators surfaced in session state
 
-### PR 6 — Market Profiles (oil done, other profiles pending)
-- Market profile system fully wired (profile drives connectors, featurizer config, regime labels) ✅
+### PR 6 — Market Profiles ✅ done
+- Market profile system fully wired (profile drives connectors, connector params, featurizer config,
+  regime labels/thresholds, and proxy ticker for TabPFN labeling) ✅
 - Oil profile fully built out with all connectors ✅
-- Stub profiles for `sp500`, `eurusd` — not yet seeded
+- `sp500` and `eurusd` profiles seeded with their own connectors, regime label sets
+  (`bull_market`/`range_bound`/`bear_market`/`high_volatility` and
+  `uptrend`/`range_bound`/`downtrend`/`volatility_spike`), and thresholds ✅
 - Profile selection drives DataSourceDiscoveryAgent recommendations ✅
 
 ### PR 7 — ConnectorBuilderAgent *(standalone, last)*

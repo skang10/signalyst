@@ -16,13 +16,6 @@ from src.db.models import Session as SessionModel
 
 log = structlog.get_logger()
 
-_DEFAULT_CONNECTOR_PARAMS: dict[str, dict[str, Any]] = {
-    "yfinance": {"tickers": ["CL=F", "BZ=F", "DX-Y.NYB"]},
-    "fred": {"series_ids": ["INDPRO"]},
-    "eia": {},
-    "gpr": {},
-}
-
 
 async def run_discovery_service(session_id: uuid.UUID, engine: AsyncEngine) -> None:
     async with AsyncSession(engine) as db:
@@ -69,7 +62,7 @@ async def _run(s: SessionModel, db: AsyncSession) -> None:
         default_connectors = list(profile.default_connectors) if profile else []
         pending_sources = []
         for connector_id in default_connectors:
-            params = _DEFAULT_CONNECTOR_PARAMS.get(connector_id, {})
+            params = profile.default_connector_params.get(connector_id, {}) if profile else {}
             pending_sources.append({"connector_id": connector_id, "params": params})
         if not pending_sources:
             agent = make_discovery_agent()
