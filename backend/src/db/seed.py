@@ -11,8 +11,7 @@ def _build_profiles() -> list[MarketProfile]:
             id="oil",
             name="Oil Markets",
             description=(
-                "WTI/Brent crude oil regime analysis using macro, geopolitical, "
-                "and energy signals."
+                "WTI/Brent crude oil regime analysis using macro, geopolitical, and energy signals."
             ),
             default_connectors=["yfinance", "fred", "eia", "gpr"],
             default_connector_params={
