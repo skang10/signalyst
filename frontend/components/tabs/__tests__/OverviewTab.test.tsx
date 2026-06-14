@@ -60,4 +60,13 @@ describe("OverviewTab", () => {
     render(<OverviewTab result={{ ...result, regime: null, direction: null }} />);
     expect(screen.getByText(/analysis incomplete/i)).toBeTruthy();
   });
+
+  it("formats non-oil regime labels generically", () => {
+    const sp500Result = {
+      ...result,
+      regime: { ...result.regime, regime: "bull_market", distribution: { bull_market: 10 } },
+    };
+    render(<OverviewTab result={sp500Result} />);
+    expect(screen.getAllByText(/bull market/i).length).toBeGreaterThan(0);
+  });
 });

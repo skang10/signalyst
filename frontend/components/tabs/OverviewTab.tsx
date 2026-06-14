@@ -24,12 +24,12 @@ type AnalysisResult = {
   feature_importance?: FeatureImportanceSummary | null;
 };
 
-const REGIME_LABELS: Record<string, string> = {
-  range_bound: "Range-Bound",
-  bull_supercycle: "Bull Supercycle",
-  bust: "Bust",
-  geopolitical_spike: "Geopolitical Spike",
-};
+function formatRegimeLabel(regime: string): string {
+  return regime
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 function StatTile({
   label,
@@ -110,7 +110,7 @@ export function OverviewTab({ result }: Props) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <StatTile
           label="Regime"
-          value={REGIME_LABELS[regime.regime] ?? regime.regime}
+          value={formatRegimeLabel(regime.regime)}
           sub={`${(regime.confidence * 100).toFixed(1)}% confidence`}
           accent="text-brand"
         />
@@ -144,7 +144,7 @@ export function OverviewTab({ result }: Props) {
             .map(([r, count]) => (
               <DistBar
                 key={r}
-                label={REGIME_LABELS[r] ?? r}
+                label={formatRegimeLabel(r)}
                 pct={regimeTotal > 0 ? (count / regimeTotal) * 100 : 0}
                 color={
                   r === "bull_supercycle"
