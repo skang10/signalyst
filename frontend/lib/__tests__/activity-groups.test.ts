@@ -79,6 +79,26 @@ describe("buildGroups — chat interleaving", () => {
     ]);
   });
 
+  it("a stage_transition's 'from' is recorded as fromStage on the new group", () => {
+    const events: ActivityEvent[] = [
+      makeEvent({
+        type: "stage_transition",
+        from: "user_review",
+        to: "data_gathering",
+        created_at: "2024-01-01T00:01:00Z",
+      }),
+    ];
+    const groups = buildGroups(events, [], [], "data_gathering", "running");
+    const refetchGroup = groups.find((g) => g.stage === "data_gathering");
+    expect(refetchGroup).toBeDefined();
+    expect(refetchGroup!.fromStage).toBe("user_review");
+  });
+
+  it("a group with no preceding stage_transition has a null fromStage", () => {
+    const groups = buildGroups([], [], [], null, "waiting");
+    expect(groups[0].fromStage).toBeNull();
+  });
+
   it("existing tool_call/result and thought behavior is unchanged", () => {
     const wsMessages = [
       { type: "thought", content: "thinking", created_at: "2024-01-01T00:01:30Z" },

@@ -170,3 +170,151 @@ async def test_run_merges_uploaded_source_with_fresh_connector_data() -> None:
     assert result is not None
     assert set(result.raw_data.keys()) == {"CL=F", "custom_col"}
     assert {src["connector_id"] for src in result.sources} == {"yfinance", "upload"}
+
+
+@pytest.mark.asyncio
+async def test_run_skips_agent_when_no_new_sources() -> None:
+    """A chat-triggered refetch with no actual new tickers should not call the
+    agent at all — the previous artifact's data is carried over as-is."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    dates = pd.date_range("2023-01-01", periods=60, freq="D")
+    cl_series = pd.Series(range(60), index=dates, name="CL=F", dtype=float)
+
+    async with AsyncSession(engine) as db:
+        s = SessionModel(
+            market_profile="oil",
+            timeframe_start=date(2023, 1, 1),
+            timeframe_end=date(2023, 6, 30),
+            stage=SessionStage.DATA_GATHERING,
+            pending_sources=[{"connector_id": "yfinance", "params": {"tickers": ["CL=F"]}}],
+        )
+        db.add(s)
+        await db.commit()
+        await db.refresh(s)
+        session_id = s.id
+
+        prev_artifact = DataArtifact(
+            session_id=session_id,
+            round=1,
+            sources=[{"connector_id": "yfinance", "params": {"tickers": ["CL=F"]}}],
+            data_manifest={"tickers": ["CL=F"], "rows": 60},
+            raw_data={
+                "CL=F": {
+                    "index": [str(d.date()) for d in dates],
+                    "data": [float(v) for v in cl_series],
+                }
+            },
+            source_hash="old-hash",
+        )
+        db.add(prev_artifact)
+        await db.commit()
+        await db.refresh(s)
+
+        redis_mock = MagicMock()
+        redis_mock.publish = AsyncMock()
+        redis_mock.aclose = AsyncMock()
+
+        with (
+            patch("src.services.data_agent.aioredis.Redis.from_url", return_value=redis_mock),
+            patch("src.services.data_agent.make_data_agent") as make_agent,
+        ):
+            await _run(s, db)
+
+        make_agent.assert_not_called()
+
+        result = (
+            (
+                await db.execute(
+                    select(DataArtifact)
+                    .where(DataArtifact.session_id == session_id)
+                    .order_by(DataArtifact.round.desc())  # type: ignore[attr-defined]
+                )
+            )
+            .scalars()
+            .first()
+        )
+
+    assert result is not None
+    assert result.round == 2
+    assert set(result.raw_data.keys()) == {"CL=F"}
+    assert result.data_manifest["rows"] == 60
+
+
+@pytest.mark.asyncio
+async def test_run_diff_fetches_only_new_tickers() -> None:
+    """A chat-triggered refetch that adds a new ticker should only ask the agent
+    to fetch the new ticker, and merge it with the carried-over previous data."""
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(SQLModel.metadata.create_all)
+
+    dates = pd.date_range("2023-01-01", periods=60, freq="D")
+    cl_series = pd.Series(range(60), index=dates, name="CL=F", dtype=float)
+    ng_series = pd.Series(range(60), index=dates, name="NG=F", dtype=float)
+
+    async with AsyncSession(engine) as db:
+        s = SessionModel(
+            market_profile="oil",
+            timeframe_start=date(2023, 1, 1),
+            timeframe_end=date(2023, 6, 30),
+            stage=SessionStage.DATA_GATHERING,
+            pending_sources=[{"connector_id": "yfinance", "params": {"tickers": ["CL=F", "NG=F"]}}],
+        )
+        db.add(s)
+        await db.commit()
+        await db.refresh(s)
+        session_id = s.id
+
+        prev_artifact = DataArtifact(
+            session_id=session_id,
+            round=1,
+            sources=[{"connector_id": "yfinance", "params": {"tickers": ["CL=F"]}}],
+            data_manifest={"tickers": ["CL=F"], "rows": 60},
+            raw_data={
+                "CL=F": {
+                    "index": [str(d.date()) for d in dates],
+                    "data": [float(v) for v in cl_series],
+                }
+            },
+            source_hash="old-hash",
+        )
+        db.add(prev_artifact)
+        await db.commit()
+        await db.refresh(s)
+
+        captured_msg = {}
+
+        async def fake_run(*, context, publisher, initial_user_message=None):
+            captured_msg["msg"] = initial_user_message
+            context.signals["NG=F"] = ng_series
+
+        redis_mock = MagicMock()
+        redis_mock.publish = AsyncMock()
+        redis_mock.aclose = AsyncMock()
+
+        with (
+            patch("src.services.data_agent.aioredis.Redis.from_url", return_value=redis_mock),
+            patch("src.services.data_agent.make_data_agent") as make_agent,
+        ):
+            make_agent.return_value.run = fake_run
+            await _run(s, db)
+
+        result = (
+            (
+                await db.execute(
+                    select(DataArtifact)
+                    .where(DataArtifact.session_id == session_id)
+                    .order_by(DataArtifact.round.desc())  # type: ignore[attr-defined]
+                )
+            )
+            .scalars()
+            .first()
+        )
+
+    assert "NG=F" in captured_msg["msg"]
+    assert "CL=F" not in captured_msg["msg"]
+    assert result is not None
+    assert set(result.raw_data.keys()) == {"CL=F", "NG=F"}
