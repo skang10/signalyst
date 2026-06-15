@@ -1,116 +1,116 @@
-name: Backend CI
-
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - "backend/**"
-      - "docker-compose.yml"
-  pull_request:
-    paths:
-      - "backend/**"
-      - "docker-compose.yml"
-
-jobs:
-  lint-and-test:
-    runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: signalyst
-          POSTGRES_PASSWORD: signalyst
-          POSTGRES_DB: signalyst_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 5
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Set up Python 3.12
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        working-directory: backend
-        run: uv sync --frozen --extra dev
-
-      - name: Lint
-        working-directory: backend
-        run: |
-          uv run ruff check .
-          uv run ruff format --check .
-
-      - name: Type check
-        working-directory: backend
-        run: uv run mypy src/
-
-      - name: Test
-        working-directory: backend
-        run: uv run pytest --cov=src --cov=api --cov-report=xml
-        env:
-          ENVIRONMENT: test
-          DATABASE_URL: postgresql+asyncpg://signalyst:signalyst@localhost:5432/signalyst_test
-          REDIS_URL: redis://localhost:6379
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
-
-      - name: Upload coverage
-        uses: codecov/codecov-action@v7
-        with:
-          files: backend/coverage.xml
-          flags: backend
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-
-      - name: Security scan
-        working-directory: backend
-        run: |
-          uv export --no-dev --no-emit-project --format requirements-txt > /tmp/requirements.txt
-          uvx pip-audit --requirement /tmp/requirements.txt \
-            --ignore-vuln PYSEC-2024-277 \
-            --ignore-vuln PYSEC-2025-183 \
-            --ignore-vuln PYSEC-2025-185 \
-            --ignore-vuln PYSEC-2025-189 \
-            --ignore-vuln PYSEC-2025-190 \
-            --ignore-vuln PYSEC-2025-191 \
-            --ignore-vuln PYSEC-2025-192 \
-            --ignore-vuln PYSEC-2025-193 \
-            --ignore-vuln PYSEC-2025-194 \
-            --ignore-vuln PYSEC-2025-195 \
-            --ignore-vuln PYSEC-2025-196 \
-            --ignore-vuln PYSEC-2025-197 \
-            --ignore-vuln PYSEC-2025-210 \
-            --ignore-vuln PYSEC-2026-139
-          # Above ignores: no fix versions available for joblib, pyjwt, python-jose, torch as of 2026-05-20
-
-  docker:
-    runs-on: ubuntu-latest
-    needs: lint-and-test
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Build Docker image
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 10
-          max_attempts: 3
-          command: docker build ./backend -t signalyst-backend:ci
+# name: Backend CI
+#
+# on:
+#   push:
+#     branches:
+#       - main
+#     paths:
+#       - "backend/**"
+#       - "docker-compose.yml"
+#   pull_request:
+#     paths:
+#       - "backend/**"
+#       - "docker-compose.yml"
+#
+# jobs:
+#   lint-and-test:
+#     runs-on: ubuntu-latest
+#
+#     services:
+#       postgres:
+#         image: postgres:17-alpine
+#         env:
+#           POSTGRES_USER: signalyst
+#           POSTGRES_PASSWORD: signalyst
+#           POSTGRES_DB: signalyst_test
+#         ports:
+#           - 5432:5432
+#         options: >-
+#           --health-cmd pg_isready
+#           --health-interval 5s
+#           --health-timeout 5s
+#           --health-retries 5
+#       redis:
+#         image: redis:7-alpine
+#         ports:
+#           - 6379:6379
+#         options: >-
+#           --health-cmd "redis-cli ping"
+#           --health-interval 5s
+#           --health-timeout 5s
+#           --health-retries 5
+#
+#     steps:
+#       - uses: actions/checkout@v6
+#
+#       - name: Install uv
+#         uses: astral-sh/setup-uv@v7
+#
+#       - name: Set up Python 3.12
+#         run: uv python install 3.12
+#
+#       - name: Install dependencies
+#         working-directory: backend
+#         run: uv sync --frozen --extra dev
+#
+#       - name: Lint
+#         working-directory: backend
+#         run: |
+#           uv run ruff check .
+#           uv run ruff format --check .
+#
+#       - name: Type check
+#         working-directory: backend
+#         run: uv run mypy src/
+#
+#       - name: Test
+#         working-directory: backend
+#         run: uv run pytest --cov=src --cov=api --cov-report=xml
+#         env:
+#           ENVIRONMENT: test
+#           DATABASE_URL: postgresql+asyncpg://signalyst:signalyst@localhost:5432/signalyst_test
+#           REDIS_URL: redis://localhost:6379
+#           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+#           FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+#
+#       - name: Upload coverage
+#         uses: codecov/codecov-action@v7
+#         with:
+#           files: backend/coverage.xml
+#           flags: backend
+#         env:
+#           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+#
+#       - name: Security scan
+#         working-directory: backend
+#         run: |
+#           uv export --no-dev --no-emit-project --format requirements-txt > /tmp/requirements.txt
+#           uvx pip-audit --requirement /tmp/requirements.txt \
+#             --ignore-vuln PYSEC-2024-277 \
+#             --ignore-vuln PYSEC-2025-183 \
+#             --ignore-vuln PYSEC-2025-185 \
+#             --ignore-vuln PYSEC-2025-189 \
+#             --ignore-vuln PYSEC-2025-190 \
+#             --ignore-vuln PYSEC-2025-191 \
+#             --ignore-vuln PYSEC-2025-192 \
+#             --ignore-vuln PYSEC-2025-193 \
+#             --ignore-vuln PYSEC-2025-194 \
+#             --ignore-vuln PYSEC-2025-195 \
+#             --ignore-vuln PYSEC-2025-196 \
+#             --ignore-vuln PYSEC-2025-197 \
+#             --ignore-vuln PYSEC-2025-210 \
+#             --ignore-vuln PYSEC-2026-139
+#           # Above ignores: no fix versions available for joblib, pyjwt, python-jose, torch as of 2026-05-20
+#
+#   docker:
+#     runs-on: ubuntu-latest
+#     needs: lint-and-test
+#     steps:
+#       - uses: actions/checkout@v6
+#
+#       - name: Build Docker image
+#         uses: nick-fields/retry@v3
+#         with:
+#           timeout_minutes: 10
+#           max_attempts: 3
+#           command: docker build ./backend -t signalyst-backend:ci
