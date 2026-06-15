@@ -1,3 +1,4 @@
+import ReactMarkdown from "react-markdown";
 import { TabPlaceholder } from "./TabPlaceholder";
 import type { MarketProfile } from "@/lib/api";
 
@@ -193,7 +194,18 @@ export function OverviewTab({ result, profile }: Props) {
           <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
             Summary
           </div>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{result.summary}</p>
+          <ReactMarkdown
+            components={{
+              h2: ({ children }) => (
+                <h2 className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
+                  {children}
+                </h2>
+              ),
+              p: ({ children }) => <p className="text-sm text-gray-700">{children}</p>,
+            }}
+          >
+            {result.summary}
+          </ReactMarkdown>
         </div>
       )}
     </div>
