@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.17.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.16.0...signalyst-backend-v0.17.0) (2026-06-14)
+
+
+### Features
+
+* **backend:** generalize market profiles for sp500/eurusd ([#70](https://github.com/skang10/signalyst/issues/70)) ([cf205f1](https://github.com/skang10/signalyst/commit/cf205f129bb93cd2436107851fbb3e5c2755c1ad))
+* wire results dashboard to real analysis data ([#71](https://github.com/skang10/signalyst/issues/71)) ([e83d9f8](https://github.com/skang10/signalyst/commit/e83d9f8364ae8eede95f65076a4737cc0118f525))
+
 ## [0.16.0](https://github.com/skang10/signalyst/compare/signalyst-backend-v0.15.0...signalyst-backend-v0.16.0) (2026-06-14)
 
 

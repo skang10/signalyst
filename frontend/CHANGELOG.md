@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.13.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.12.0...signalyst-frontend-v0.13.0) (2026-06-14)
+
+
+### Features
+
+* add market context header and summary panel to overview tab ([#75](https://github.com/skang10/signalyst/issues/75)) ([25af907](https://github.com/skang10/signalyst/commit/25af907abc928f44a5357f7073be0f1b9e2da58f))
+* **frontend:** switch primary accent from teal to a green/gold theme token ([55dbcdf](https://github.com/skang10/signalyst/commit/55dbcdff0ef7aac0ff8bb0946fffe4672d8f155f))
+* **frontend:** switch primary accent to green/gold theme token ([fb00a01](https://github.com/skang10/signalyst/commit/fb00a0181d565fba610b8a5977cde2b6a3aad0b2))
+* wire results dashboard to real analysis data ([#71](https://github.com/skang10/signalyst/issues/71)) ([e83d9f8](https://github.com/skang10/signalyst/commit/e83d9f8364ae8eede95f65076a4737cc0118f525))
+
 ## [0.12.0](https://github.com/skang10/signalyst/compare/signalyst-frontend-v0.11.0...signalyst-frontend-v0.12.0) (2026-06-14)
 
 
