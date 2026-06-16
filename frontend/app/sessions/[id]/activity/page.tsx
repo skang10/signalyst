@@ -383,6 +383,7 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
 export default function ActivityPage() {
   const {
     activityEvents,
+    stageHistory,
     wsMessages,
     conversation,
     stage,
@@ -406,7 +407,7 @@ export default function ActivityPage() {
     ? [...conversation, optimisticMsg]
     : conversation;
 
-  const groups = buildGroups(activityEvents, wsMessages, effectiveConversation, stage, status);
+  const groups = buildGroups(activityEvents, wsMessages, effectiveConversation, stage, status, stageHistory);
   const hasAny =
     activityEvents.length > 0 ||
     effectiveConversation.length > 0 ||

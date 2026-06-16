@@ -8,6 +8,7 @@ import type {
   SessionArtifacts,
   SessionStage,
   SessionStatus,
+  StageHistoryEntry,
 } from "./api";
 
 type WsMessage = Record<string, unknown> & { type: string };
@@ -26,6 +27,7 @@ type SessionStore = {
   featurizerConfig: FeaturizerConfig | null;
   conversation: ChatMessage[];
   activityEvents: ActivityEvent[];
+  stageHistory: StageHistoryEntry[];
   wsMessages: WsMessage[];
   artifacts: SessionArtifacts;
   error: string | null;
@@ -46,6 +48,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
   featurizerConfig: null,
   conversation: [],
   activityEvents: [],
+  stageHistory: [],
   wsMessages: [],
   artifacts: EMPTY_ARTIFACTS,
   error: null,
@@ -62,6 +65,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
       featurizerConfig: session.featurizer_config,
       conversation: session.conversation,
       activityEvents: session.activity_events,
+      stageHistory: session.stage_history,
       artifacts: session.artifacts,
       error: session.error,
       wsMessages: state.sessionId !== session.session_id ? [] : state.wsMessages,
@@ -87,6 +91,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
       featurizerConfig: null,
       conversation: [],
       activityEvents: [],
+      stageHistory: [],
       wsMessages: [],
       artifacts: EMPTY_ARTIFACTS,
       error: null,
