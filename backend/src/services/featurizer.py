@@ -22,6 +22,7 @@ from src.db.models import Session as SessionModel
 from src.featurizer import TimeSeriesFeaturizer
 from src.services.hashing import canonical_json, stable_hash
 from src.services.stage import append_activity_event, set_status, transition_stage
+from src.services.stage_comment import generate_stage_comment
 
 log = structlog.get_logger()
 
@@ -207,7 +208,18 @@ async def _run(
         "artifact_id": str(artifact_id),
         "n_features": len(features.columns),
         "n_rows": len(features),
+        "feature_families": list(families.keys()),
     }
+    comment = await generate_stage_comment(
+        {
+            "stage": "featurizing",
+            "n_features": len(features.columns),
+            "n_rows": len(features),
+            "feature_families": list(families.keys()),
+        }
+    )
+    if comment:
+        feat_event["agent_comment"] = comment
     transition_event: dict[str, Any] = {
         "type": "stage_transition",
         "from": "featurizing",

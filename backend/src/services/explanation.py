@@ -16,6 +16,7 @@ from src.config import settings
 from src.db.models import AnalysisResult, DataArtifact, SessionStage, SessionStatus
 from src.db.models import Session as SessionModel
 from src.services.stage import append_activity_event, set_status, transition_stage
+from src.services.stage_comment import generate_stage_comment
 
 log = structlog.get_logger()
 
@@ -165,6 +166,9 @@ async def _run(
             "kind": "analysis_summary",
             "artifact_id": str(fresh_ar.id),
         }
+        comment = await generate_stage_comment({"stage": "explaining"})
+        if comment:
+            summary_event["agent_comment"] = comment
         append_activity_event(fresh_s, summary_event)
         append_activity_event(
             fresh_s, {"type": "stage_transition", "from": "explaining", "to": "follow_up"}
