@@ -166,6 +166,9 @@ async def _run(
             "artifact_id": str(fresh_ar.id),
         }
         append_activity_event(fresh_s, summary_event)
+        append_activity_event(
+            fresh_s, {"type": "stage_transition", "from": "explaining", "to": "follow_up"}
+        )
         transition_stage(fresh_s, SessionStage.FOLLOW_UP)
         set_status(fresh_s, SessionStatus.WAITING)
 

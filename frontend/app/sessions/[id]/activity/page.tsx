@@ -199,6 +199,13 @@ function CompletionChip({ event }: { event: Record<string, unknown> }) {
         </div>
       );
     }
+    if (kind === "analysis_summary") {
+      return (
+        <div className="inline-flex self-start px-3 py-1 bg-green-50 border border-green-200 rounded-full text-xs text-green-700">
+          ✓ Summary ready
+        </div>
+      );
+    }
   }
   if (event.type === "cache_hit") {
     return (
