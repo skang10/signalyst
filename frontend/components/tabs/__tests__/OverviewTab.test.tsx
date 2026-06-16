@@ -111,10 +111,21 @@ describe("OverviewTab", () => {
     expect(screen.queryByText("S&P 500")).toBeNull();
   });
 
-  it("renders the summary panel when summary is present", () => {
-    render(<OverviewTab result={{ ...result, summary: "Markets are range-bound." }} />);
+  it("renders the summary panel with markdown sections when summary is present", () => {
+    render(
+      <OverviewTab
+        result={{
+          ...result,
+          summary:
+            "## Suggestion\nHold steady.\n\n## Analysis & Evidence\nDriven by **rsi_14**.",
+        }}
+      />,
+    );
     expect(screen.getByText("Summary")).toBeTruthy();
-    expect(screen.getByText("Markets are range-bound.")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Suggestion" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Analysis & Evidence" })).toBeTruthy();
+    expect(screen.getByText("Hold steady.")).toBeTruthy();
+    expect(screen.getAllByText("rsi_14").length).toBeGreaterThan(0);
   });
 
   it("omits the summary panel when summary is null", () => {
