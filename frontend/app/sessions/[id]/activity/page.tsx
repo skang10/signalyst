@@ -288,34 +288,62 @@ function DataCompletionChip({
   );
 }
 
-// --- Stage comment (short prose summary generated from event data) ---
+// --- Stage comment (conversational prose generated from event data) ---
 
 function stageComment(group: StageGroup): string | null {
   const ev = group.completionEvent;
+
   if (ev) {
     const kind = ev.kind as string;
+
     if (kind === "features") {
       const n = ev.n_features as number;
       const rows = ev.n_rows as number;
-      return `Engineered ${n} features from ${rows} rows.`;
+      const families = (ev.feature_families as string[] | undefined) ?? [];
+      const familyLabels: Record<string, string> = {
+        rolling_stats: "rolling statistics",
+        lag: "lag features",
+        momentum: "momentum indicators",
+      };
+      const familyText =
+        families.length > 0
+          ? ` using ${families.map((f) => familyLabels[f] ?? f).join(", ")}`
+          : "";
+      return `I've engineered ${n} features from ${rows} rows${familyText}. Check the Features tab to explore the matrix.`;
     }
+
     if (kind === "analysis") {
-      const regime = ev.regime as string | undefined;
-      const label = regime ? regime.replace(/_/g, " ") : null;
-      return label
-        ? `TabPFN classified the regime as ${label}.`
-        : "TabPFN regime classification complete.";
+      const regime = (ev.regime as string | undefined)?.replace(/_/g, " ");
+      const regimeConf = ev.regime_confidence as number | undefined;
+      const direction = ev.direction as string | undefined;
+      const dirConf = ev.direction_confidence as number | undefined;
+
+      if (!regime) return "Analysis complete. See the Analyze tab for results.";
+
+      const confPct = regimeConf ? ` (${Math.round(regimeConf * 100)}% confidence)` : "";
+      let msg = `TabPFN classified the market regime as ${regime}${confPct}.`;
+      if (direction) {
+        const dirPct = dirConf ? ` at ${Math.round(dirConf * 100)}% confidence` : "";
+        msg += ` The model also sees a ${direction}ward directional bias${dirPct}.`;
+      }
+      msg += " See the Analyze tab for the full breakdown.";
+      return msg;
     }
+
     if (kind === "analysis_summary") {
-      return "Claude generated market analysis and strategy recommendations.";
+      return "I've written up a market analysis and strategy summary based on the results. Head to the Overview tab to read it.";
     }
   }
+
   // cache-hit stages that emit no artifact_ready (featurizing / analyzing)
   if (group.cacheHitEvent && !ev) {
     const stage = group.cacheHitEvent.stage as string | undefined;
-    if (stage === "featurizing") return "Using cached feature matrix from this session.";
-    if (stage === "analyzing") return "Using cached analysis results from this session.";
+    if (stage === "featurizing")
+      return "Using the cached feature matrix from this session — no need to recompute.";
+    if (stage === "analyzing")
+      return "Using cached analysis results from this session.";
   }
+
   return null;
 }
 
@@ -373,7 +401,12 @@ function AgentTurn({ group }: { group: StageGroup }) {
         )}
 
         {comment && (
-          <p className="text-xs text-gray-400 leading-relaxed">{comment}</p>
+          <div
+            className="bg-gray-50 border border-gray-200 px-3 py-2 text-sm text-gray-900 leading-relaxed shadow-sm"
+            style={{ borderRadius: "2px 12px 12px 12px" }}
+          >
+            {comment}
+          </div>
         )}
 
         {group.errorEvent && (

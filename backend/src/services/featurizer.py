@@ -207,6 +207,7 @@ async def _run(
         "artifact_id": str(artifact_id),
         "n_features": len(features.columns),
         "n_rows": len(features),
+        "feature_families": list(families.keys()),
     }
     transition_event: dict[str, Any] = {
         "type": "stage_transition",

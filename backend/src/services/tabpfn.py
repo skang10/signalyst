@@ -288,6 +288,9 @@ async def _run(
         "kind": "analysis",
         "artifact_id": str(artifact_id),
         "regime": regime_result.get("regime") if regime_result else None,
+        "regime_confidence": regime_result.get("confidence") if regime_result else None,
+        "direction": direction_result.get("direction") if direction_result else None,
+        "direction_confidence": direction_result.get("confidence") if direction_result else None,
     }
     transition_event: dict[str, Any] = {
         "type": "stage_transition",
