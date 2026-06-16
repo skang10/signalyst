@@ -74,10 +74,27 @@ def _build_profiles() -> list[MarketProfile]:
     ]
 
 
+_PROFILE_UPSERT_FIELDS = (
+    "name",
+    "description",
+    "default_connectors",
+    "default_connector_params",
+    "default_featurizer_config",
+    "regime_labels",
+    "regime_thresholds",
+    "primary_ticker",
+)
+
+
 async def seed_profiles(db: AsyncSession) -> None:
     for profile in _build_profiles():
-        if await db.get(MarketProfile, profile.id) is None:
+        existing = await db.get(MarketProfile, profile.id)
+        if existing is None:
             db.add(profile)
+        else:
+            for field in _PROFILE_UPSERT_FIELDS:
+                setattr(existing, field, getattr(profile, field))
+            db.add(existing)
     await db.commit()
 
 
@@ -95,10 +112,16 @@ _BUILTIN_CONNECTOR_SPECS = [
 
 async def seed_connectors(db: AsyncSession) -> None:
     for connector_id, name, description in _BUILTIN_CONNECTOR_SPECS:
-        if await db.get(Connector, connector_id) is None:
+        existing = await db.get(Connector, connector_id)
+        if existing is None:
             db.add(
                 Connector(
                     id=connector_id, name=name, description=description, type=ConnectorType.BUILTIN
                 )
             )
+        else:
+            existing.name = name
+            existing.description = description
+            existing.type = ConnectorType.BUILTIN
+            db.add(existing)
     await db.commit()
