@@ -318,7 +318,7 @@ function stageComment(group: StageGroup): string | null {
       const direction = ev.direction as string | undefined;
       const dirConf = ev.direction_confidence as number | undefined;
 
-      if (!regime) return "Analysis complete. See the Analyze tab for results.";
+      if (!regime) return "Analysis complete. Head to the Overview tab for results.";
 
       const confPct = regimeConf ? ` (${Math.round(regimeConf * 100)}% confidence)` : "";
       let msg = `TabPFN classified the market regime as ${regime}${confPct}.`;
@@ -326,7 +326,7 @@ function stageComment(group: StageGroup): string | null {
         const dirPct = dirConf ? ` at ${Math.round(dirConf * 100)}% confidence` : "";
         msg += ` The model also sees a ${direction}ward directional bias${dirPct}.`;
       }
-      msg += " See the Analyze tab for the full breakdown.";
+      msg += " Head to the Overview tab for the full breakdown.";
       return msg;
     }
 
