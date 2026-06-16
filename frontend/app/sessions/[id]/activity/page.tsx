@@ -288,6 +288,37 @@ function DataCompletionChip({
   );
 }
 
+// --- Stage comment (short prose summary generated from event data) ---
+
+function stageComment(group: StageGroup): string | null {
+  const ev = group.completionEvent;
+  if (ev) {
+    const kind = ev.kind as string;
+    if (kind === "features") {
+      const n = ev.n_features as number;
+      const rows = ev.n_rows as number;
+      return `Engineered ${n} features from ${rows} rows.`;
+    }
+    if (kind === "analysis") {
+      const regime = ev.regime as string | undefined;
+      const label = regime ? regime.replace(/_/g, " ") : null;
+      return label
+        ? `TabPFN classified the regime as ${label}.`
+        : "TabPFN regime classification complete.";
+    }
+    if (kind === "analysis_summary") {
+      return "Claude generated market analysis and strategy recommendations.";
+    }
+  }
+  // cache-hit stages that emit no artifact_ready (featurizing / analyzing)
+  if (group.cacheHitEvent && !ev) {
+    const stage = group.cacheHitEvent.stage as string | undefined;
+    if (stage === "featurizing") return "Using cached feature matrix from this session.";
+    if (stage === "analyzing") return "Using cached analysis results from this session.";
+  }
+  return null;
+}
+
 // --- Agent turn (tools + thinking + completion only, no chat messages) ---
 
 function AgentTurn({ group }: { group: StageGroup }) {
@@ -295,11 +326,13 @@ function AgentTurn({ group }: { group: StageGroup }) {
     group.thoughts.length > 0 ||
     group.fetchRows.length > 0 ||
     group.completionEvent !== null ||
+    group.cacheHitEvent !== null ||
     group.errorEvent !== null;
 
   if (!hasContent) return null;
 
   const isActive = group.status === "active";
+  const comment = stageComment(group);
 
   return (
     <div className="flex gap-3">
@@ -330,6 +363,17 @@ function AgentTurn({ group }: { group: StageGroup }) {
           group.completionEvent.kind === "data"
             ? <DataCompletionChip event={group.completionEvent} cacheHitEvent={group.cacheHitEvent} />
             : <CompletionChip event={group.completionEvent} />
+        )}
+
+        {/* Cache chip for stages that have no artifact_ready (featurizing / analyzing cache hits) */}
+        {group.cacheHitEvent && !group.completionEvent && (
+          <div className="inline-flex self-start px-3 py-1 bg-brand-soft border border-brand-soft-border rounded-full text-xs text-brand">
+            ⚡ cached
+          </div>
+        )}
+
+        {comment && (
+          <p className="text-xs text-gray-400 leading-relaxed">{comment}</p>
         )}
 
         {group.errorEvent && (
