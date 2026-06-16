@@ -288,14 +288,17 @@ function DataCompletionChip({
   );
 }
 
-// --- Stage comment (conversational prose generated from event data) ---
+// --- Stage comment (LLM-generated from backend; templates as fallback for old events) ---
 
 function stageComment(group: StageGroup): string | null {
   const ev = group.completionEvent;
 
   if (ev) {
-    const kind = ev.kind as string;
+    // Use LLM-generated comment if available (new sessions)
+    if (ev.agent_comment) return ev.agent_comment as string;
 
+    // Fallback templates for cached/old events without agent_comment
+    const kind = ev.kind as string;
     if (kind === "features") {
       const n = ev.n_features as number;
       const rows = ev.n_rows as number;
@@ -311,15 +314,12 @@ function stageComment(group: StageGroup): string | null {
           : "";
       return `I've engineered ${n} features from ${rows} rows${familyText}. Check the Features tab to explore the matrix.`;
     }
-
     if (kind === "analysis") {
       const regime = (ev.regime as string | undefined)?.replace(/_/g, " ");
       const regimeConf = ev.regime_confidence as number | undefined;
       const direction = ev.direction as string | undefined;
       const dirConf = ev.direction_confidence as number | undefined;
-
       if (!regime) return "Analysis complete. Head to the Overview tab for results.";
-
       const confPct = regimeConf ? ` (${Math.round(regimeConf * 100)}% confidence)` : "";
       let msg = `TabPFN classified the market regime as ${regime}${confPct}.`;
       if (direction) {
@@ -329,13 +329,12 @@ function stageComment(group: StageGroup): string | null {
       msg += " Head to the Overview tab for the full breakdown.";
       return msg;
     }
-
     if (kind === "analysis_summary") {
       return "I've written up a market analysis and strategy summary based on the results. Head to the Overview tab to read it.";
     }
   }
 
-  // cache-hit stages that emit no artifact_ready (featurizing / analyzing)
+  // Cache-hit stages (featurizing / analyzing) — no LLM comment, keep these simple
   if (group.cacheHitEvent && !ev) {
     const stage = group.cacheHitEvent.stage as string | undefined;
     if (stage === "featurizing")
