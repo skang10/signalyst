@@ -346,10 +346,22 @@ function stageComment(group: StageGroup): string | null {
   return null;
 }
 
+// --- Stage initiative (shown while a stage is active, before any content arrives) ---
+
+const STAGE_INITIATIVES: Record<string, string> = {
+  configuring: "Discovering available data sources…",
+  data_gathering: "Fetching data from configured sources…",
+  featurizing: "Generating features from the collected data…",
+  analyzing: "Running TabPFN to classify the market regime…",
+  explaining: "Writing market analysis and strategy summary…",
+};
+
 // --- Agent turn (tools + thinking + completion only, no chat messages) ---
 
 function AgentTurn({ group }: { group: StageGroup }) {
+  const isActive = group.status === "active";
   const hasContent =
+    isActive ||
     group.thoughts.length > 0 ||
     group.fetchRows.length > 0 ||
     group.completionEvent !== null ||
@@ -358,8 +370,14 @@ function AgentTurn({ group }: { group: StageGroup }) {
 
   if (!hasContent) return null;
 
-  const isActive = group.status === "active";
   const comment = stageComment(group);
+  const showInitiative =
+    isActive &&
+    group.thoughts.length === 0 &&
+    group.fetchRows.length === 0 &&
+    !group.completionEvent &&
+    !group.cacheHitEvent &&
+    !group.errorEvent;
 
   return (
     <div className="flex gap-3">
@@ -373,6 +391,13 @@ function AgentTurn({ group }: { group: StageGroup }) {
       {/* Content */}
       <div className="flex flex-col gap-2 flex-1 min-w-0">
         <span className="text-xs text-gray-500 font-medium">Signalyst Agent</span>
+
+        {showInitiative && (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span className="text-brand animate-spin leading-none">⟳</span>
+            <span>{STAGE_INITIATIVES[group.stage] ?? "Working…"}</span>
+          </div>
+        )}
 
         {group.thoughts.length > 0 && (
           <ThinkingBlock thoughts={group.thoughts} active={isActive} />
