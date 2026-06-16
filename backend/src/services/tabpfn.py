@@ -184,6 +184,9 @@ async def _run(
     if existing is not None:
         log.info("tabpfn.cache_hit", session_id=str(session_id))
         append_activity_event(s, {"type": "cache_hit", "stage": "analyzing"})
+        append_activity_event(
+            s, {"type": "stage_transition", "from": "analyzing", "to": "explaining"}
+        )
         transition_stage(s, SessionStage.EXPLAINING)
         set_status(s, SessionStatus.RUNNING)
         await db.commit()
@@ -286,9 +289,16 @@ async def _run(
         "artifact_id": str(artifact_id),
         "regime": regime_result.get("regime") if regime_result else None,
     }
+    transition_event: dict[str, Any] = {
+        "type": "stage_transition",
+        "from": "analyzing",
+        "to": "explaining",
+    }
     append_activity_event(s, analysis_event)
+    append_activity_event(s, transition_event)
     transition_stage(s, SessionStage.EXPLAINING)
     set_status(s, SessionStatus.RUNNING)
     await db.commit()
     await publisher(analysis_event)
+    await publisher(transition_event)
     await run_explanation_service(session_id, engine)

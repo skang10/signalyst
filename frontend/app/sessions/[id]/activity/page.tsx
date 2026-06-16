@@ -199,6 +199,13 @@ function CompletionChip({ event }: { event: Record<string, unknown> }) {
         </div>
       );
     }
+    if (kind === "analysis_summary") {
+      return (
+        <div className="inline-flex self-start px-3 py-1 bg-green-50 border border-green-200 rounded-full text-xs text-green-700">
+          ✓ Summary ready
+        </div>
+      );
+    }
   }
   if (event.type === "cache_hit") {
     return (
@@ -376,6 +383,7 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
 export default function ActivityPage() {
   const {
     activityEvents,
+    stageHistory,
     wsMessages,
     conversation,
     stage,
@@ -399,7 +407,7 @@ export default function ActivityPage() {
     ? [...conversation, optimisticMsg]
     : conversation;
 
-  const groups = buildGroups(activityEvents, wsMessages, effectiveConversation, stage, status);
+  const groups = buildGroups(activityEvents, wsMessages, effectiveConversation, stage, status, stageHistory);
   const hasAny =
     activityEvents.length > 0 ||
     effectiveConversation.length > 0 ||

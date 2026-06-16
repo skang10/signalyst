@@ -120,6 +120,9 @@ async def _run(
     if existing is not None:
         log.info("featurizer.cache_hit", session_id=str(session_id), config_hash=config_hash)
         append_activity_event(s, {"type": "cache_hit", "stage": "featurizing"})
+        append_activity_event(
+            s, {"type": "stage_transition", "from": "featurizing", "to": "analyzing"}
+        )
         transition_stage(s, SessionStage.ANALYZING)
         set_status(s, SessionStatus.RUNNING)
         await db.commit()
@@ -205,8 +208,15 @@ async def _run(
         "n_features": len(features.columns),
         "n_rows": len(features),
     }
+    transition_event: dict[str, Any] = {
+        "type": "stage_transition",
+        "from": "featurizing",
+        "to": "analyzing",
+    }
     append_activity_event(s, feat_event)
+    append_activity_event(s, transition_event)
     transition_stage(s, SessionStage.ANALYZING)
     set_status(s, SessionStatus.RUNNING)
     await db.commit()
     await publisher(feat_event)
+    await publisher(transition_event)
