@@ -38,7 +38,7 @@ describe("FeaturesTab", () => {
   it("renders feature names and importance values", () => {
     render(<FeaturesTab features={features} featureArtifact={null} />);
     expect(screen.getByText("rsi_14")).toBeTruthy();
-    expect(screen.getByText("0.420")).toBeTruthy();
+    expect(screen.getByText("42%")).toBeTruthy();
     expect(screen.getByText("macd_signal")).toBeTruthy();
     expect(screen.getByText("eia_storage")).toBeTruthy();
   });
@@ -68,8 +68,10 @@ describe("FeaturesTab", () => {
 
   it("renders the feature generation card when featureArtifact is present", () => {
     render(<FeaturesTab features={features} featureArtifact={featureArtifact} />);
-    expect(screen.getByText(/108 features/)).toBeTruthy();
-    expect(screen.getByText(/22 rows/)).toBeTruthy();
+    expect(screen.getByText("108")).toBeTruthy();
+    expect(screen.getByText("features")).toBeTruthy();
+    expect(screen.getByText("22")).toBeTruthy();
+    expect(screen.getByText("rows")).toBeTruthy();
     expect(screen.getByText("rolling_stats")).toBeTruthy();
   });
 
