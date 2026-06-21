@@ -278,6 +278,11 @@ async def _run(
                 "confidence": top_dir_conf,
                 "distribution": dir_pred.value_counts().to_dict(),
             }
+            feature_importance_result["direction_model_info"] = {
+                "name": "TabPFN",
+                "task": "direction_classification",
+                "n_estimators": dir_clf.n_estimators,
+            }
 
             log.info(
                 "tabpfn.complete",

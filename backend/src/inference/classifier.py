@@ -103,6 +103,7 @@ class DirectionClassifier:
     def __init__(self, n_estimators: int = 8) -> None:
         if settings.tabpfn_token:
             tabpfn_client.set_access_token(settings.tabpfn_token)
+        self.n_estimators = n_estimators
         self._clf = TabPFNClassifier(n_estimators=n_estimators)
         self._fitted = False
 

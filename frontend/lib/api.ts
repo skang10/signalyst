@@ -183,6 +183,7 @@ export type FeatureImportanceResult = {
   n_features_evaluated: number;
   n_samples_explained: number;
   model_info?: { name: string; task: string; n_estimators: number };
+  direction_model_info?: { name: string; task: string; n_estimators: number };
 };
 
 export type BacktestResult = {

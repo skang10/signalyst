@@ -12,6 +12,7 @@ type FeatureImportanceResult = {
   n_features_evaluated: number;
   n_samples_explained: number;
   model_info?: ModelInfo;
+  direction_model_info?: ModelInfo;
 };
 type FeatureArtifactDetail = {
   n_features: number;
@@ -47,6 +48,24 @@ function formatTaskLabel(task: string): string {
     .join(" ");
 }
 
+function ModelRow({ model }: { model: ModelInfo }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <div className="text-lg font-mono font-bold text-gray-900">{model.name}</div>
+        <div className="text-xs font-mono text-gray-500">{formatTaskLabel(model.task)}</div>
+      </div>
+      <InfoTooltip
+        content={`Each "member" is one independent ${model.name} inference run over this data. Here, ${model.name} ran ${model.n_estimators} of them and averaged the resulting probabilities — more runs mean smoother, more stable estimates.`}
+      >
+        <span className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap">
+          {model.n_estimators} ensemble members
+        </span>
+      </InfoTooltip>
+    </div>
+  );
+}
+
 export function FeaturesTab({ features, featureArtifact }: Props) {
   if (!features) {
     return (
@@ -62,27 +81,23 @@ export function FeaturesTab({ features, featureArtifact }: Props) {
   const familyEntries = featureArtifact ? Object.entries(featureArtifact.family_counts) : [];
   const maxFamilyCount =
     familyEntries.length > 0 ? Math.max(...familyEntries.map(([, c]) => c)) : 0;
+  const modelInfos = [features.model_info, features.direction_model_info].filter(
+    (m): m is ModelInfo => m != null
+  );
 
   return (
     <div className="p-4 flex flex-col gap-4 h-full overflow-y-auto">
-      {features.model_info && (
+      {modelInfos.length > 0 && (
         <DashboardCard icon={Cpu} title="Model">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <div className="text-lg font-mono font-bold text-gray-900">
-                {features.model_info.name}
+          <div className="flex flex-col gap-3">
+            {modelInfos.map((model, i) => (
+              <div
+                key={model.task}
+                className={i > 0 ? "pt-3 border-t border-gray-200" : undefined}
+              >
+                <ModelRow model={model} />
               </div>
-              <div className="text-xs font-mono text-gray-500">
-                {formatTaskLabel(features.model_info.task)}
-              </div>
-            </div>
-            <InfoTooltip
-              content={`Each "member" is one independent TabPFN inference run over this data. Here, TabPFN ran ${features.model_info.n_estimators} of them and averaged the resulting probabilities — more runs mean smoother, more stable estimates.`}
-            >
-              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap">
-                {features.model_info.n_estimators} ensemble members
-              </span>
-            </InfoTooltip>
+            ))}
           </div>
         </DashboardCard>
       )}
