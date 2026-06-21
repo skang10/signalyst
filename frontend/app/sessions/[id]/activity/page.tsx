@@ -199,6 +199,13 @@ function CompletionChip({ event }: { event: Record<string, unknown> }) {
         </div>
       );
     }
+    if (kind === "analysis_summary") {
+      return (
+        <div className="inline-flex self-start px-3 py-1 bg-green-50 border border-green-200 rounded-full text-xs text-green-700">
+          ✓ Summary ready
+        </div>
+      );
+    }
   }
   if (event.type === "cache_hit") {
     return (
@@ -281,18 +288,96 @@ function DataCompletionChip({
   );
 }
 
+// --- Stage comment (LLM-generated from backend; templates as fallback for old events) ---
+
+function stageComment(group: StageGroup): string | null {
+  const ev = group.completionEvent;
+
+  if (ev) {
+    // Use LLM-generated comment if available (new sessions)
+    if (ev.agent_comment) return ev.agent_comment as string;
+
+    // Fallback templates for cached/old events without agent_comment
+    const kind = ev.kind as string;
+    if (kind === "features") {
+      const n = ev.n_features as number;
+      const rows = ev.n_rows as number;
+      const families = (ev.feature_families as string[] | undefined) ?? [];
+      const familyLabels: Record<string, string> = {
+        rolling_stats: "rolling statistics",
+        lag: "lag features",
+        momentum: "momentum indicators",
+      };
+      const familyText =
+        families.length > 0
+          ? ` using ${families.map((f) => familyLabels[f] ?? f).join(", ")}`
+          : "";
+      return `I've engineered ${n} features from ${rows} rows${familyText}. Check the Features tab to explore the matrix.`;
+    }
+    if (kind === "analysis") {
+      const regime = (ev.regime as string | undefined)?.replace(/_/g, " ");
+      const regimeConf = ev.regime_confidence as number | undefined;
+      const direction = ev.direction as string | undefined;
+      const dirConf = ev.direction_confidence as number | undefined;
+      if (!regime) return "Analysis complete. Head to the Overview tab for results.";
+      const confPct = regimeConf ? ` (${Math.round(regimeConf * 100)}% confidence)` : "";
+      let msg = `TabPFN classified the market regime as ${regime}${confPct}.`;
+      if (direction) {
+        const dirPct = dirConf ? ` at ${Math.round(dirConf * 100)}% confidence` : "";
+        msg += ` The model also sees a ${direction}ward directional bias${dirPct}.`;
+      }
+      msg += " Head to the Overview tab for the full breakdown.";
+      return msg;
+    }
+    if (kind === "analysis_summary") {
+      return "I've written up a market analysis and strategy summary based on the results. Head to the Overview tab to read it.";
+    }
+  }
+
+  // Cache-hit stages (featurizing / analyzing) — no LLM comment, keep these simple
+  if (group.cacheHitEvent && !ev) {
+    const stage = group.cacheHitEvent.stage as string | undefined;
+    if (stage === "featurizing")
+      return "Using the cached feature matrix from this session — no need to recompute.";
+    if (stage === "analyzing")
+      return "Using cached analysis results from this session.";
+  }
+
+  return null;
+}
+
+// --- Stage initiative (shown while a stage is active, before any content arrives) ---
+
+const STAGE_INITIATIVES: Record<string, string> = {
+  configuring: "Discovering available data sources…",
+  data_gathering: "Fetching data from configured sources…",
+  featurizing: "Generating features from the collected data…",
+  analyzing: "Running TabPFN to classify the market regime…",
+  explaining: "Writing market analysis and strategy summary…",
+};
+
 // --- Agent turn (tools + thinking + completion only, no chat messages) ---
 
 function AgentTurn({ group }: { group: StageGroup }) {
+  const isActive = group.status === "active";
   const hasContent =
+    isActive ||
     group.thoughts.length > 0 ||
     group.fetchRows.length > 0 ||
     group.completionEvent !== null ||
+    group.cacheHitEvent !== null ||
     group.errorEvent !== null;
 
   if (!hasContent) return null;
 
-  const isActive = group.status === "active";
+  const comment = stageComment(group);
+  const showInitiative =
+    isActive &&
+    group.thoughts.length === 0 &&
+    group.fetchRows.length === 0 &&
+    !group.completionEvent &&
+    !group.cacheHitEvent &&
+    !group.errorEvent;
 
   return (
     <div className="flex gap-3">
@@ -306,6 +391,13 @@ function AgentTurn({ group }: { group: StageGroup }) {
       {/* Content */}
       <div className="flex flex-col gap-2 flex-1 min-w-0">
         <span className="text-xs text-gray-500 font-medium">Signalyst Agent</span>
+
+        {showInitiative && (
+          <div className="flex items-center gap-2 text-sm text-gray-500">
+            <span className="text-brand animate-spin leading-none">⟳</span>
+            <span>{STAGE_INITIATIVES[group.stage] ?? "Working…"}</span>
+          </div>
+        )}
 
         {group.thoughts.length > 0 && (
           <ThinkingBlock thoughts={group.thoughts} active={isActive} />
@@ -323,6 +415,22 @@ function AgentTurn({ group }: { group: StageGroup }) {
           group.completionEvent.kind === "data"
             ? <DataCompletionChip event={group.completionEvent} cacheHitEvent={group.cacheHitEvent} />
             : <CompletionChip event={group.completionEvent} />
+        )}
+
+        {/* Cache chip for stages that have no artifact_ready (featurizing / analyzing cache hits) */}
+        {group.cacheHitEvent && !group.completionEvent && (
+          <div className="inline-flex self-start px-3 py-1 bg-brand-soft border border-brand-soft-border rounded-full text-xs text-brand">
+            ⚡ cached
+          </div>
+        )}
+
+        {comment && (
+          <div
+            className="bg-gray-50 border border-gray-200 px-3 py-2 text-sm text-gray-900 leading-relaxed shadow-sm"
+            style={{ borderRadius: "2px 12px 12px 12px" }}
+          >
+            {comment}
+          </div>
         )}
 
         {group.errorEvent && (
@@ -376,6 +484,7 @@ function UserBubble({ msg }: { msg: ChatMessage }) {
 export default function ActivityPage() {
   const {
     activityEvents,
+    stageHistory,
     wsMessages,
     conversation,
     stage,
@@ -399,7 +508,7 @@ export default function ActivityPage() {
     ? [...conversation, optimisticMsg]
     : conversation;
 
-  const groups = buildGroups(activityEvents, wsMessages, effectiveConversation, stage, status);
+  const groups = buildGroups(activityEvents, wsMessages, effectiveConversation, stage, status, stageHistory);
   const hasAny =
     activityEvents.length > 0 ||
     effectiveConversation.length > 0 ||

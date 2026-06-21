@@ -26,6 +26,7 @@ from src.db.models import Session as SessionModel
 from src.services.explanation import run_explanation_service
 from src.services.hashing import canonical_json, stable_hash
 from src.services.stage import append_activity_event, set_status, transition_stage
+from src.services.stage_comment import generate_stage_comment
 
 log = structlog.get_logger()
 
@@ -184,6 +185,9 @@ async def _run(
     if existing is not None:
         log.info("tabpfn.cache_hit", session_id=str(session_id))
         append_activity_event(s, {"type": "cache_hit", "stage": "analyzing"})
+        append_activity_event(
+            s, {"type": "stage_transition", "from": "analyzing", "to": "explaining"}
+        )
         transition_stage(s, SessionStage.EXPLAINING)
         set_status(s, SessionStatus.RUNNING)
         await db.commit()
@@ -285,10 +289,33 @@ async def _run(
         "kind": "analysis",
         "artifact_id": str(artifact_id),
         "regime": regime_result.get("regime") if regime_result else None,
+        "regime_confidence": regime_result.get("confidence") if regime_result else None,
+        "direction": direction_result.get("direction") if direction_result else None,
+        "direction_confidence": direction_result.get("confidence") if direction_result else None,
+    }
+    comment = await generate_stage_comment(
+        {
+            "stage": "analyzing",
+            "regime": regime_result.get("regime") if regime_result else None,
+            "regime_confidence": regime_result.get("confidence") if regime_result else None,
+            "direction": direction_result.get("direction") if direction_result else None,
+            "direction_confidence": direction_result.get("confidence")
+            if direction_result
+            else None,
+        }
+    )
+    if comment:
+        analysis_event["agent_comment"] = comment
+    transition_event: dict[str, Any] = {
+        "type": "stage_transition",
+        "from": "analyzing",
+        "to": "explaining",
     }
     append_activity_event(s, analysis_event)
+    append_activity_event(s, transition_event)
     transition_stage(s, SessionStage.EXPLAINING)
     set_status(s, SessionStatus.RUNNING)
     await db.commit()
     await publisher(analysis_event)
+    await publisher(transition_event)
     await run_explanation_service(session_id, engine)

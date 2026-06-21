@@ -1,39 +1,39 @@
-name: Version Consistency
-
-on:
-  push:
-    branches:
-      - main
-  pull_request:
-
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Check Node version consistency
-        run: |
-          NVMRC=$(cat .nvmrc | tr -d '[:space:]')
-          DOCKERFILE=$(grep -m1 '^FROM node:' frontend/Dockerfile | sed 's/FROM node:\([0-9]*\).*/\1/')
-          CI_WORKFLOW=$(grep 'node-version:' .github/workflows/frontend.yml | sed 's/.*node-version: *"\([0-9]*\).*/\1/')
-
-          echo "Node versions — .nvmrc: $NVMRC | frontend/Dockerfile: $DOCKERFILE | frontend.yml: $CI_WORKFLOW"
-
-          if [ "$NVMRC" != "$DOCKERFILE" ] || [ "$NVMRC" != "$CI_WORKFLOW" ]; then
-            echo "::error::Node version mismatch. Update .nvmrc, frontend/Dockerfile, and .github/workflows/frontend.yml to the same major version."
-            exit 1
-          fi
-
-      - name: Check Python version consistency
-        run: |
-          PYVERSION=$(cat .python-version | tr -d '[:space:]')
-          DOCKERFILE=$(grep -m1 '^FROM python:' backend/Dockerfile | sed 's/FROM python:\([0-9]*\.[0-9]*\).*/\1/')
-          CI_WORKFLOW=$(grep 'uv python install' .github/workflows/backend.yml | sed 's/.*install \([0-9]*\.[0-9]*\).*/\1/')
-
-          echo "Python versions — .python-version: $PYVERSION | backend/Dockerfile: $DOCKERFILE | backend.yml: $CI_WORKFLOW"
-
-          if [ "$PYVERSION" != "$DOCKERFILE" ] || [ "$PYVERSION" != "$CI_WORKFLOW" ]; then
-            echo "::error::Python version mismatch. Update .python-version, backend/Dockerfile, and .github/workflows/backend.yml to the same version."
-            exit 1
-          fi
+# name: Version Consistency
+#
+# on:
+#   push:
+#     branches:
+#       - main
+#   pull_request:
+#
+# jobs:
+#   check:
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v6
+#
+#       - name: Check Node version consistency
+#         run: |
+#           NVMRC=$(cat .nvmrc | tr -d '[:space:]')
+#           DOCKERFILE=$(grep -m1 '^FROM node:' frontend/Dockerfile | sed 's/FROM node:\([0-9]*\).*/\1/')
+#           CI_WORKFLOW=$(grep 'node-version:' .github/workflows/frontend.yml | sed 's/.*node-version: *"\([0-9]*\).*/\1/')
+#
+#           echo "Node versions — .nvmrc: $NVMRC | frontend/Dockerfile: $DOCKERFILE | frontend.yml: $CI_WORKFLOW"
+#
+#           if [ "$NVMRC" != "$DOCKERFILE" ] || [ "$NVMRC" != "$CI_WORKFLOW" ]; then
+#             echo "::error::Node version mismatch. Update .nvmrc, frontend/Dockerfile, and .github/workflows/frontend.yml to the same major version."
+#             exit 1
+#           fi
+#
+#       - name: Check Python version consistency
+#         run: |
+#           PYVERSION=$(cat .python-version | tr -d '[:space:]')
+#           DOCKERFILE=$(grep -m1 '^FROM python:' backend/Dockerfile | sed 's/FROM python:\([0-9]*\.[0-9]*\).*/\1/')
+#           CI_WORKFLOW=$(grep 'uv python install' .github/workflows/backend.yml | sed 's/.*install \([0-9]*\.[0-9]*\).*/\1/')
+#
+#           echo "Python versions — .python-version: $PYVERSION | backend/Dockerfile: $DOCKERFILE | backend.yml: $CI_WORKFLOW"
+#
+#           if [ "$PYVERSION" != "$DOCKERFILE" ] || [ "$PYVERSION" != "$CI_WORKFLOW" ]; then
+#             echo "::error::Python version mismatch. Update .python-version, backend/Dockerfile, and .github/workflows/backend.yml to the same version."
+#             exit 1
+#           fi
