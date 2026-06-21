@@ -36,6 +36,14 @@ def test_make_explanation_agent_has_no_tools() -> None:
     assert agent._tools == {}
 
 
+def test_explanation_agent_prompt_specifies_sections_and_disclaimer() -> None:
+    agent = make_explanation_agent()
+    prompt = agent.system_prompt
+    assert "## Suggestion" in prompt
+    assert "## Analysis & Evidence" in prompt
+    assert "Not financial advice" in prompt
+
+
 @pytest.mark.asyncio
 async def test_explanation_agent_returns_text_and_streams_thought() -> None:
     agent = make_explanation_agent()

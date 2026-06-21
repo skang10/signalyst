@@ -1,4 +1,4 @@
-import type { ActivityEvent, ChatMessage } from "./api";
+import type { ActivityEvent, ChatMessage, StageHistoryEntry } from "./api";
 
 export type FetchRow = {
   id: string;
@@ -58,11 +58,34 @@ export function buildGroups(
   conversation: ChatMessage[],
   currentStage: string | null,
   currentStatus: string | null,
+  stageHistory: StageHistoryEntry[] = [],
 ): StageGroup[] {
   const ts = (iso: string | undefined) => (iso ? new Date(iso).getTime() || Date.now() : Date.now());
 
+  // Synthesize stage_transition events for transitions missing from activityEvents.
+  // stage_history is always populated by transition_stage(), so it's the authoritative record.
+  const existingTransitions = new Set(
+    activityEvents
+      .filter((e) => e.type === "stage_transition")
+      .map((e) => `${e.from as string}→${e.to as string}`),
+  );
+  const syntheticTransitions: Record<string, unknown>[] = [];
+  for (let i = 0; i < stageHistory.length - 1; i++) {
+    const from = stageHistory[i].stage as string;
+    const to = stageHistory[i + 1].stage as string;
+    if (!existingTransitions.has(`${from}→${to}`)) {
+      syntheticTransitions.push({
+        type: "stage_transition",
+        from,
+        to,
+        created_at: stageHistory[i + 1].entered_at,
+      });
+    }
+  }
+
   const merged = [
     ...activityEvents.map((e) => ({ t: ts(e.created_at), ev: e as Record<string, unknown> })),
+    ...syntheticTransitions.map((e) => ({ t: ts(e.created_at as string | undefined), ev: e })),
     ...wsMessages
       .filter((m) => ["thought", "tool_call", "tool_result"].includes(m.type as string))
       .map((m) => ({ t: ts(m.created_at as string | undefined), ev: m })),
