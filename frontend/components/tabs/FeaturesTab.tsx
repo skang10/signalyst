@@ -75,7 +75,10 @@ export function FeaturesTab({ features, featureArtifact }: Props) {
                 {formatTaskLabel(features.model_info.task)}
               </div>
             </div>
-            <div className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap">
+            <div
+              className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap cursor-help"
+              title="TabPFN runs this many independent passes over the data and averages their predictions — more passes mean smoother, more stable probability estimates."
+            >
               {features.model_info.n_estimators} ensemble members
             </div>
           </div>

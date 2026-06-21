@@ -61,6 +61,13 @@ describe("FeaturesTab", () => {
     expect(screen.getByText(/4 ensemble members/)).toBeTruthy();
   });
 
+  it("shows an explanatory tooltip on the ensemble members badge", () => {
+    render(<FeaturesTab features={featuresWithModelInfo} featureArtifact={null} />);
+    expect(screen.getByText(/4 ensemble members/).getAttribute("title")).toMatch(
+      /independent passes/
+    );
+  });
+
   it("omits the model card when model_info is absent", () => {
     render(<FeaturesTab features={features} featureArtifact={null} />);
     expect(screen.queryByText(/ensemble members/)).toBeNull();
