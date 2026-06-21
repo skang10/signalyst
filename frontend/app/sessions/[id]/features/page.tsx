@@ -7,13 +7,21 @@ import { StaleResultsBanner } from "@/components/StaleResultsBanner";
 import { api } from "@/lib/api";
 import { useSessionStore } from "@/lib/store";
 import { isSessionStale } from "@/lib/stale";
-import type { AnalysisResultDetail, DataArtifactDetail, PendingSource } from "@/lib/api";
+import type {
+  AnalysisResultDetail,
+  DataArtifactDetail,
+  FeatureArtifactDetail,
+  PendingSource,
+} from "@/lib/api";
 
 export default function FeaturesPage() {
   const { id } = useParams<{ id: string }>();
   const { artifacts, timeframeStart, timeframeEnd, pendingSources } = useSessionStore();
   const [latestArtifact, setLatestArtifact] = useState<DataArtifactDetail | null>(null);
   const [latestAnalysis, setLatestAnalysis] = useState<AnalysisResultDetail | null>(null);
+  const [latestFeatureArtifact, setLatestFeatureArtifact] = useState<FeatureArtifactDetail | null>(
+    null,
+  );
 
   useEffect(() => {
     const last = artifacts.data.at(-1);
@@ -26,6 +34,12 @@ export default function FeaturesPage() {
     if (!id || !last) return;
     api.getAnalysisArtifact(id, last.artifact_id).then(setLatestAnalysis).catch(() => {});
   }, [id, artifacts.analysis]);
+
+  useEffect(() => {
+    const last = artifacts.features.at(-1);
+    if (!id || !last) return;
+    api.getFeatureArtifact(id, last.artifact_id).then(setLatestFeatureArtifact).catch(() => {});
+  }, [id, artifacts.features]);
 
   const stale = isSessionStale(
     { timeframeStart, timeframeEnd, pendingSources },
@@ -41,7 +55,10 @@ export default function FeaturesPage() {
     <div className="flex flex-col h-full min-h-0">
       {id && <StaleResultsBanner sessionId={id} isStale={stale} />}
       <div className="flex-1 min-h-0">
-        <FeaturesTab features={latestAnalysis?.feature_importance ?? null} />
+        <FeaturesTab
+          features={latestAnalysis?.feature_importance ?? null}
+          featureArtifact={latestFeatureArtifact}
+        />
       </div>
     </div>
   );

@@ -260,6 +260,11 @@ async def _run(
             feature_importance_result = _feature_importance(
                 regime_clf, X_test, regime_labels_series.iloc[split:]
             )
+            feature_importance_result["model_info"] = {
+                "name": "TabPFN",
+                "task": "regime_classification",
+                "n_estimators": regime_clf.n_estimators,
+            }
 
             dir_clf = DirectionClassifier(n_estimators=4)
             dir_clf.fit(X_train_dir, y_dir_train)

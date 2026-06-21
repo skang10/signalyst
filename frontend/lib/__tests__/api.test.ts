@@ -175,6 +175,32 @@ describe("api.getAnalysisArtifact", () => {
   });
 });
 
+describe("api.getFeatureArtifact", () => {
+  it("fetches feature artifact detail", async () => {
+    const { api } = await import("../api");
+    mockOk({
+      kind: "features",
+      artifact_id: "fa-1",
+      n_features: 108,
+      n_rows: 22,
+      family_counts: { rolling_stats: 48, lag: 30, momentum: 30 },
+      columns: ["CL=F_mean_5d"],
+      featurizer_config: {
+        windows: [5, 20, 60],
+        lags: [1, 5, 20],
+        feature_families: ["rolling_stats", "lag", "momentum"],
+        energy_specific: true,
+      },
+      cache_hit: false,
+      created_at: "2026-06-22T00:00:00",
+    });
+    const result = await api.getFeatureArtifact("ses-1", "fa-1");
+    expect(result.kind).toBe("features");
+    expect(result.n_features).toBe(108);
+    expect(result.family_counts.rolling_stats).toBe(48);
+  });
+});
+
 describe("api.getMarketSnapshot", () => {
   it("fetches /api/market/snapshot", async () => {
     const { api } = await import("../api");

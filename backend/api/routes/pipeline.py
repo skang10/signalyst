@@ -28,6 +28,7 @@ from api.models import (
     ConfigPatchRequest,
     ConfigPatchResponse,
     DataArtifactDetail,
+    FeatureArtifactDetail,
     ProceedRequest,
     ProceedResponse,
     RerunRequest,
@@ -35,7 +36,14 @@ from api.models import (
     SeriesPoint,
     UploadResponse,
 )
-from src.db.models import AnalysisResult, DataArtifact, SessionStage, SessionStatus, UploadedSource
+from src.db.models import (
+    AnalysisResult,
+    DataArtifact,
+    FeatureArtifact,
+    SessionStage,
+    SessionStatus,
+    UploadedSource,
+)
 from src.db.models import Session as SessionModel
 from src.db.session import engine, get_session
 from src.services.featurizer_config import apply_config_patch
@@ -590,4 +598,31 @@ async def get_analysis_artifact(
         cached_from_session_id=(
             str(artifact.cached_from_session_id) if artifact.cached_from_session_id else None
         ),
+    )
+
+
+@router.get("/sessions/{session_id}/features/{artifact_id}", response_model=FeatureArtifactDetail)
+async def get_feature_artifact(
+    session_id: str, artifact_id: str, db: SessionDep
+) -> FeatureArtifactDetail:
+    try:
+        s_uid = uuid.UUID(session_id)
+        a_uid = uuid.UUID(artifact_id)
+    except ValueError:
+        raise HTTPException(status_code=422, detail="Invalid UUID")
+
+    artifact = await db.get(FeatureArtifact, a_uid)
+    if artifact is None or artifact.session_id != s_uid:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+
+    manifest = artifact.feature_manifest
+    return FeatureArtifactDetail(
+        artifact_id=str(artifact.id),
+        n_features=manifest.get("n_features", 0),
+        n_rows=manifest.get("n_rows", 0),
+        family_counts=manifest.get("feature_families", {}),
+        columns=manifest.get("columns", []),
+        featurizer_config=artifact.featurizer_config_snapshot,
+        cache_hit=artifact.cache_hit,
+        created_at=artifact.created_at.isoformat(),
     )
