@@ -1011,13 +1011,6 @@ Validation:
 
 In `merge` mode, the uploaded columns are outer-joined onto the most recent `DataArtifact`'s raw data (uploaded columns win on overlap); in `replace` mode the upload stands alone. `data_manifest` and warnings are rebuilt from the resulting frame.
 
-**Spec gap (PR 3):** The current implementation only validates file size and presence of numeric columns. The following constraints are missing and should be added before the USER_REVIEW gate is fully built:
-
-1. **Parseable date index** — currently attempted but fails silently; should return 422 with a clear message if no valid date column is found.
-2. **Minimum row count** — must have at least `max(windows) + max(lags) + 10` rows (≈ 70 for default oil config); otherwise FeaturizerService produces an empty matrix and crashes mid-pipeline.
-3. **Date range overlap** — warn (not reject) in `data_manifest` if the uploaded date range does not overlap with `session.timeframe_start / timeframe_end`.
-4. **Profile-aware column hint (oil)** — if no column matching `CL=F` or `wti` is found, surface a warning in `data_manifest` so the user knows TabPFNService will use the first column as its WTI proxy for regime labelling.
-
 ### `GET /api/sessions/{id}/artifacts/{artifact_id}`
 ```json
 // Response — 200 OK — full artifact data for dashboard rendering
@@ -1128,6 +1121,7 @@ Sessions
   POST   /api/sessions/{id}/cancel                   cancel current running agent/service
   POST   /api/sessions/{id}/chat                     natural language at USER_REVIEW or FOLLOW_UP
   POST   /api/sessions/{id}/upload                   upload data file → DataArtifact directly
+  PATCH  /api/sessions/{id}/config                   patch timeframe / sources / featurizer_config
 
 Artifacts
   GET    /api/sessions/{id}/artifacts/{artifact_id}  fetch artifact data for dashboard rendering

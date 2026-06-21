@@ -105,7 +105,7 @@ Unlocked at `stage = follow_up`. Each is a thin page wrapping the corresponding 
 - `features` → `components/tabs/FeaturesTab.tsx` — SHAP feature importance bar chart
 - `backtest` → `components/tabs/BacktestTab.tsx` — walk-forward cumulative returns chart vs SPY
 
-`components/tabs/DriftTab.tsx` and `components/tabs/SummaryTab.tsx` exist as additional tab shells (drift table, agent narrative summary); `TabPlaceholder.tsx` is the fallback for locked/empty states.
+`components/tabs/DriftTab.tsx` and `components/tabs/SummaryTab.tsx` are fully built (drift table, agent narrative summary) but unused — no route or nav entry imports them. `TabPlaceholder.tsx` is the fallback for locked/empty states.
 
 ---
 
