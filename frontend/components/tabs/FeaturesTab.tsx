@@ -1,6 +1,7 @@
 import { BarChart3, Cpu, Layers } from "lucide-react";
 import { TabPlaceholder } from "./TabPlaceholder";
 import { DashboardCard } from "./shared/DashboardCard";
+import { InfoTooltip } from "./shared/InfoTooltip";
 import { MetricBar } from "./shared/MetricBar";
 import { StatBlock } from "./shared/StatBlock";
 
@@ -75,12 +76,11 @@ export function FeaturesTab({ features, featureArtifact }: Props) {
                 {formatTaskLabel(features.model_info.task)}
               </div>
             </div>
-            <div
-              className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap cursor-help"
-              title="TabPFN runs this many independent passes over the data and averages their predictions — more passes mean smoother, more stable probability estimates."
-            >
-              {features.model_info.n_estimators} ensemble members
-            </div>
+            <InfoTooltip content="TabPFN runs this many independent passes over the data and averages their predictions — more passes mean smoother, more stable probability estimates.">
+              <span className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap">
+                {features.model_info.n_estimators} ensemble members
+              </span>
+            </InfoTooltip>
           </div>
         </DashboardCard>
       )}
