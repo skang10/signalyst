@@ -5,6 +5,7 @@ import uuid
 from datetime import date
 from unittest.mock import AsyncMock, patch
 
+import numpy as np
 import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -134,6 +135,29 @@ async def test_tabpfn_cache_hit_transitions_to_explaining_and_chains_explanation
     assert any(
         m["type"] == "stage_transition" and m["to"] == "explaining" for m in fake_redis.published
     )
+
+
+def test_feature_importance_ranks_by_correlation_and_caps_samples() -> None:
+    from src.services.tabpfn import _feature_importance
+
+    n = 20
+    dates = pd.date_range("2024-01-01", periods=n, freq="B")
+    y = pd.Series(["a", "b"] * (n // 2), index=dates, name="regime")
+    X = pd.DataFrame(
+        {
+            "f_corr": [0, 1] * (n // 2),  # perfectly tracks y
+            "f_other": np.sin(np.linspace(0, 10, n)),  # unrelated pattern
+        },
+        index=dates,
+    )
+
+    result = _feature_importance(clf=None, X_test=X, y_test=y, max_samples=10, top_n=2)
+
+    assert result["top_features"][0]["name"] == "f_corr"
+    assert result["top_features"][0]["importance"] == 1.0
+    assert len(result["top_features"]) == 2
+    assert result["n_features_evaluated"] == 2
+    assert result["n_samples_explained"] == 10
 
 
 def test_make_regime_labels_generic_thresholds_and_symmetric_spike() -> None:
