@@ -217,6 +217,7 @@ async def test_tabpfn_run_persists_feature_importance(tmp_path) -> None:
         # index/length of these mocks doesn't need to match the real train/test split —
         # downstream code only does value_counts().idxmax() and column .mean() on them.
         regime_inst = MockRegimeCls.return_value
+        regime_inst.n_estimators = 4
         regime_inst.predict.return_value = pd.Series(["range_bound"] * 5, name="regime")
         regime_inst.predict_proba.return_value = pd.DataFrame({"range_bound": [0.8] * 5})
 
@@ -243,9 +244,15 @@ async def test_tabpfn_run_persists_feature_importance(tmp_path) -> None:
         "top_features",
         "n_features_evaluated",
         "n_samples_explained",
+        "model_info",
     }
     assert ar.feature_importance["n_features_evaluated"] == 3
     assert len(ar.feature_importance["top_features"]) <= 10
+    assert ar.feature_importance["model_info"] == {
+        "name": "TabPFN",
+        "task": "regime_classification",
+        "n_estimators": 4,
+    }
 
 
 def test_feature_importance_ranks_by_correlation_and_caps_samples() -> None:

@@ -123,6 +123,15 @@ to:
 Run: `cd backend && uv run pytest tests/test_tabpfn_service.py::test_tabpfn_run_persists_feature_importance -v`
 Expected: PASS
 
+Note: `regime_clf` in this test is `MockRegimeCls.return_value` (a bare `MagicMock`), so `regime_clf.n_estimators` won't be `4` unless the mock setup sets it explicitly. In the same test, find:
+
+```python
+        regime_inst = MockRegimeCls.return_value
+        regime_inst.predict.return_value = pd.Series(["range_bound"] * 5, name="regime")
+```
+
+and add `regime_inst.n_estimators = 4` between those two lines.
+
 Also update that test's existing shape assertion so it doesn't break — find this line in the same test:
 
 ```python

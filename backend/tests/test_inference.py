@@ -54,6 +54,14 @@ def test_regime_predict_returns_series_with_correct_index():
     assert list(result.index) == list(X.index)
 
 
+def test_regime_classifier_exposes_n_estimators():
+    with patch("src.inference.classifier.TabPFNClassifier") as MockCLF:
+        MockCLF.return_value = _mock_clf(REGIME_CLASSES, REGIME_PROBA)
+        clf = OilRegimeClassifier(n_estimators=4)
+
+    assert clf.n_estimators == 4
+
+
 def test_regime_predict_returns_correct_labels():
     X = _feature_df(3)
     with patch("src.inference.classifier.TabPFNClassifier") as MockCLF:
