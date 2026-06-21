@@ -105,6 +105,23 @@ def _detect_drift(features: pd.DataFrame, split: int) -> dict[str, Any]:
     }
 
 
+def _feature_importance(
+    clf: Any, X_test: pd.DataFrame, y_test: pd.Series, max_samples: int = 50, top_n: int = 10
+) -> dict[str, Any]:
+    from src.agent.tools import _compute_feature_importance
+
+    X = X_test.tail(max_samples) if max_samples > 0 else X_test
+    y = y_test.loc[X.index]
+    importance = _compute_feature_importance(clf, X, y, n_repeats=0)
+    ranked = sorted(zip(X.columns, importance.tolist()), key=lambda x: x[1], reverse=True)
+    top = [{"name": name, "importance": round(float(imp), 4)} for name, imp in ranked[:top_n]]
+    return {
+        "top_features": top,
+        "n_features_evaluated": len(X.columns),
+        "n_samples_explained": len(X),
+    }
+
+
 async def run_tabpfn_service(session_id: uuid.UUID, engine: AsyncEngine) -> None:
     session_id_str = str(session_id)
     r = aioredis.Redis.from_url(settings.redis_url, decode_responses=True)
@@ -201,6 +218,7 @@ async def _run(
 
     regime_result: dict[str, Any] | None = None
     direction_result: dict[str, Any] | None = None
+    feature_importance_result: dict[str, Any] | None = None
 
     if settings.tabpfn_token:
         try:
@@ -239,6 +257,9 @@ async def _run(
                 "confidence": top_conf,
                 "distribution": regime_pred.value_counts().to_dict(),
             }
+            feature_importance_result = _feature_importance(
+                regime_clf, X_test, regime_labels_series.iloc[split:]
+            )
 
             dir_clf = DirectionClassifier(n_estimators=4)
             dir_clf.fit(X_train_dir, y_dir_train)
@@ -272,6 +293,7 @@ async def _run(
         feature_artifact_id=fa.id,
         regime=regime_result,
         direction=direction_result,
+        feature_importance=feature_importance_result,
         drift=drift,
         feature_hash=feature_hash,
     )
