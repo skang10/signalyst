@@ -218,6 +218,7 @@ async def _run(
 
     regime_result: dict[str, Any] | None = None
     direction_result: dict[str, Any] | None = None
+    feature_importance_result: dict[str, Any] | None = None
 
     if settings.tabpfn_token:
         try:
@@ -256,6 +257,9 @@ async def _run(
                 "confidence": top_conf,
                 "distribution": regime_pred.value_counts().to_dict(),
             }
+            feature_importance_result = _feature_importance(
+                regime_clf, X_test, regime_labels_series.iloc[split:]
+            )
 
             dir_clf = DirectionClassifier(n_estimators=4)
             dir_clf.fit(X_train_dir, y_dir_train)
@@ -289,6 +293,7 @@ async def _run(
         feature_artifact_id=fa.id,
         regime=regime_result,
         direction=direction_result,
+        feature_importance=feature_importance_result,
         drift=drift,
         feature_hash=feature_hash,
     )

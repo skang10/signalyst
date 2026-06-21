@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
-from sqlmodel import SQLModel
+from sqlmodel import SQLModel, select
 
 import src.db.models  # noqa: F401 — registers all tables
 from src.db.models import (
@@ -135,6 +135,117 @@ async def test_tabpfn_cache_hit_transitions_to_explaining_and_chains_explanation
     assert any(
         m["type"] == "stage_transition" and m["to"] == "explaining" for m in fake_redis.published
     )
+
+
+@pytest.mark.asyncio
+async def test_tabpfn_run_persists_feature_importance(tmp_path) -> None:
+    engine = await _make_engine()
+    session_id = uuid.uuid4()
+    da_id = uuid.uuid4()
+    fa_id = uuid.uuid4()
+
+    n = 100
+    dates = pd.date_range("2024-01-01", periods=n, freq="B")
+    features = pd.DataFrame(
+        {
+            "CL=F_close": np.linspace(70.0, 90.0, n),
+            "f1": np.linspace(1.0, 2.0, n),
+            "f2": np.sin(np.linspace(0, 10, n)),
+        },
+        index=dates,
+    )
+    matrix_path = tmp_path / "features.parquet"
+    features.to_parquet(matrix_path)
+
+    fixed_labels = pd.Series(["range_bound", "trend_up"] * (n // 2), index=dates, name="regime")
+
+    async with AsyncSession(engine) as db:
+        db.add(
+            SessionModel(
+                id=session_id,
+                market_profile="oil",
+                timeframe_start=date(2024, 1, 1),
+                timeframe_end=date(2024, 6, 1),
+                stage=SessionStage.ANALYZING.value,
+                status=SessionStatus.RUNNING.value,
+            )
+        )
+        db.add(
+            DataArtifact(
+                id=da_id,
+                session_id=session_id,
+                data_manifest={"tickers": ["CL=F"]},
+                source_hash="src-hash",
+            )
+        )
+        db.add(
+            FeatureArtifact(
+                id=fa_id,
+                session_id=session_id,
+                data_artifact_id=da_id,
+                matrix_hash="matrix-hash-2",
+                feature_matrix_ref=str(matrix_path),
+            )
+        )
+        db.add(
+            MarketProfile(
+                id="oil",
+                name="Oil Markets",
+                default_connectors=["yfinance", "fred", "eia", "gpr"],
+                default_connector_params={
+                    "yfinance": {"tickers": ["CL=F", "BZ=F", "DX-Y.NYB"]},
+                    "fred": {"series_ids": ["INDPRO"]},
+                },
+                default_featurizer_config={},
+                regime_labels=["bull_supercycle", "range_bound", "bust", "geopolitical_spike"],
+                regime_thresholds={"trend_up": 0.15, "trend_down": -0.15, "spike": 0.08},
+                primary_ticker="CL=F",
+            )
+        )
+        await db.commit()
+
+    fake_redis = _FakeRedis()
+    with (
+        patch("src.services.tabpfn.aioredis.Redis.from_url", return_value=fake_redis),
+        patch("src.services.tabpfn.settings.tabpfn_token", "fake-token"),
+        patch("src.services.tabpfn._make_regime_labels", return_value=fixed_labels),
+        patch("src.inference.OilRegimeClassifier") as MockRegimeCls,
+        patch("src.inference.DirectionClassifier") as MockDirCls,
+        patch("src.services.tabpfn.run_explanation_service", new_callable=AsyncMock),
+    ):
+        # predict()/predict_proba() return fixed values regardless of call args, so the
+        # index/length of these mocks doesn't need to match the real train/test split —
+        # downstream code only does value_counts().idxmax() and column .mean() on them.
+        regime_inst = MockRegimeCls.return_value
+        regime_inst.predict.return_value = pd.Series(["range_bound"] * 5, name="regime")
+        regime_inst.predict_proba.return_value = pd.DataFrame({"range_bound": [0.8] * 5})
+
+        dir_inst = MockDirCls.return_value
+        dir_inst.predict.return_value = pd.Series(["up"] * 5, name="direction")
+        dir_inst.predict_proba.return_value = pd.DataFrame({"up": [0.6] * 5})
+
+        await run_tabpfn_service(session_id, engine)
+
+    async with AsyncSession(engine) as db:
+        ar = (
+            (
+                await db.execute(
+                    select(AnalysisResult).where(AnalysisResult.session_id == session_id)
+                )
+            )
+            .scalars()
+            .first()
+        )
+
+    assert ar is not None
+    assert ar.feature_importance is not None
+    assert set(ar.feature_importance.keys()) == {
+        "top_features",
+        "n_features_evaluated",
+        "n_samples_explained",
+    }
+    assert ar.feature_importance["n_features_evaluated"] == 3
+    assert len(ar.feature_importance["top_features"]) <= 10
 
 
 def test_feature_importance_ranks_by_correlation_and_caps_samples() -> None:
