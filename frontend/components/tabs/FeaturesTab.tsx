@@ -56,10 +56,10 @@ function ModelRow({ model }: { model: ModelInfo }) {
         <div className="text-xs font-mono text-gray-500">{formatTaskLabel(model.task)}</div>
       </div>
       <InfoTooltip
-        content={`Each "member" is one independent ${model.name} inference run over this data. Here, ${model.name} ran ${model.n_estimators} of them and averaged the resulting probabilities — more runs mean smoother, more stable estimates.`}
+        content={`${model.name} ran ${model.n_estimators} independent inference passes over this data and averaged the resulting probabilities — more runs mean smoother, more stable estimates.`}
       >
         <span className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap">
-          {model.n_estimators} ensemble members
+          {model.n_estimators} independent inference runs
         </span>
       </InfoTooltip>
     </div>
