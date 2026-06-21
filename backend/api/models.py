@@ -165,6 +165,18 @@ class AnalysisResultDetail(BaseModel):
     cached_from_session_id: str | None
 
 
+class FeatureArtifactDetail(BaseModel):
+    kind: str = "features"
+    artifact_id: str
+    n_features: int
+    n_rows: int
+    family_counts: dict[str, int]
+    columns: list[str]
+    featurizer_config: dict[str, object]
+    cache_hit: bool
+    created_at: str
+
+
 class ConnectorOut(BaseModel):
     id: str
     name: str

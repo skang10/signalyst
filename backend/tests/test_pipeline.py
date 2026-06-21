@@ -305,6 +305,67 @@ def test_get_analysis_artifact_not_found_returns_404(client):
     assert res.status_code == 404
 
 
+def test_get_feature_artifact_returns_feature_artifact_detail(client):
+    import asyncio
+    import uuid
+
+    from src.db.models import FeatureArtifact
+
+    session_id = _create_session(client)
+    artifact_id = uuid.uuid4()
+
+    async def _seed() -> None:
+        from api.main import app
+        from src.db.session import get_session
+
+        override = app.dependency_overrides[get_session]
+        agen = override()
+        db = await agen.__anext__()
+        try:
+            db.add(
+                FeatureArtifact(
+                    id=artifact_id,
+                    session_id=uuid.UUID(session_id),
+                    data_artifact_id=uuid.uuid4(),
+                    featurizer_config_snapshot={
+                        "windows": [5, 20, 60],
+                        "lags": [1, 5, 20],
+                        "feature_families": ["rolling_stats", "lag", "momentum"],
+                        "energy_specific": True,
+                    },
+                    feature_manifest={
+                        "n_features": 108,
+                        "n_rows": 22,
+                        "feature_families": {"rolling_stats": 48, "lag": 30, "momentum": 30},
+                        "columns": ["CL=F_mean_5d", "CL=F_lag_1d"],
+                    },
+                )
+            )
+            await db.commit()
+        finally:
+            await agen.aclose()
+
+    asyncio.run(_seed())
+
+    res = client.get(f"/api/sessions/{session_id}/features/{artifact_id}")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["kind"] == "features"
+    assert body["artifact_id"] == str(artifact_id)
+    assert body["n_features"] == 108
+    assert body["n_rows"] == 22
+    assert body["family_counts"] == {"rolling_stats": 48, "lag": 30, "momentum": 30}
+    assert body["columns"] == ["CL=F_mean_5d", "CL=F_lag_1d"]
+    assert body["featurizer_config"]["windows"] == [5, 20, 60]
+    assert body["cache_hit"] is False
+
+
+def test_get_feature_artifact_not_found_returns_404(client):
+    session_id = _create_session(client)
+    res = client.get(f"/api/sessions/{session_id}/features/00000000-0000-0000-0000-000000000000")
+    assert res.status_code == 404
+
+
 def test_get_analysis_artifact_wrong_session_returns_404(client):
     import asyncio
     import uuid
