@@ -76,7 +76,9 @@ export function FeaturesTab({ features, featureArtifact }: Props) {
                 {formatTaskLabel(features.model_info.task)}
               </div>
             </div>
-            <InfoTooltip content="TabPFN runs this many independent passes over the data and averages their predictions — more passes mean smoother, more stable probability estimates.">
+            <InfoTooltip
+              content={`Each "member" is one independent TabPFN pass over this data. Here, TabPFN fit ${features.model_info.n_estimators} of them and averaged the resulting probabilities — more members mean smoother, more stable estimates.`}
+            >
               <span className="text-xs px-2 py-0.5 rounded-full bg-brand-soft text-brand border border-brand-soft-border whitespace-nowrap">
                 {features.model_info.n_estimators} ensemble members
               </span>
