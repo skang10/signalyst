@@ -182,6 +182,7 @@ export type FeatureImportanceResult = {
   top_features: { name: string; importance: number }[];
   n_features_evaluated: number;
   n_samples_explained: number;
+  model_info?: { name: string; task: string; n_estimators: number };
 };
 
 export type BacktestResult = {
@@ -202,6 +203,18 @@ export type AnalysisResultDetail = {
   summary: string | null;
   cache_hit: boolean;
   cached_from_session_id: string | null;
+};
+
+export type FeatureArtifactDetail = {
+  kind: "features";
+  artifact_id: string;
+  n_features: number;
+  n_rows: number;
+  family_counts: Record<string, number>;
+  columns: string[];
+  featurizer_config: FeaturizerConfig;
+  cache_hit: boolean;
+  created_at: string;
 };
 
 export const api = {
@@ -320,4 +333,7 @@ export const api = {
 
   getAnalysisArtifact: (sessionId: string, artifactId: string) =>
     request<AnalysisResultDetail>(`/api/sessions/${sessionId}/analysis/${artifactId}`),
+
+  getFeatureArtifact: (sessionId: string, artifactId: string) =>
+    request<FeatureArtifactDetail>(`/api/sessions/${sessionId}/features/${artifactId}`),
 };
