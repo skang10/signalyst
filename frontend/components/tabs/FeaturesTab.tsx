@@ -128,7 +128,7 @@ export function FeaturesTab({ features, featureArtifact }: Props) {
         </DashboardCard>
       )}
 
-      <DashboardCard icon={BarChart3} title="SHAP Feature Importance" className="flex-1 min-h-0">
+      <DashboardCard icon={BarChart3} title="Feature Correlation" className="flex-1 min-h-0">
         <div className="flex flex-col gap-2.5 flex-1 overflow-y-auto">
           {features.top_features.map((f, i) => (
             <MetricBar
@@ -141,7 +141,8 @@ export function FeaturesTab({ features, featureArtifact }: Props) {
           ))}
         </div>
         <div className="text-[10px] text-gray-400 font-mono pt-2 border-t border-gray-200">
-          {features.n_features_evaluated} features · {features.n_samples_explained} samples · SHAP
+          {features.n_features_evaluated} features · {features.n_samples_explained} samples · Spearman
+          correlation
         </div>
       </DashboardCard>
     </div>

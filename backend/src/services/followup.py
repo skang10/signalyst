@@ -88,7 +88,7 @@ def _build_context_block(
         f"Regime result: {json.dumps(regime)}\n"
         f"Direction result: {json.dumps(direction)}\n"
         f"Drift result: {json.dumps(drift)}\n"
-        f"Feature importance (SHAP): {json.dumps(feature_importance)}\n"
+        f"Feature importance (Spearman correlation): {json.dumps(feature_importance)}\n"
         f"Backtest result: {json.dumps(backtest)}\n"
         f"Data manifest: {json.dumps(data_manifest)}\n"
         f"Featurizer config: {json.dumps(featurizer_config)}\n"

@@ -166,7 +166,7 @@ export function OverviewTab({ result, profile }: Props) {
         <StatTile
           label="Top Signal"
           value={topSignalName}
-          sub={topSignalScore != null ? `SHAP ${topSignalScore.toFixed(2)}` : undefined}
+          sub={topSignalScore != null ? `corr ${topSignalScore.toFixed(2)}` : undefined}
           accent="text-brand"
         />
       </div>
