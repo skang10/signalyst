@@ -256,6 +256,8 @@ async def _run(
                 "regime": top_regime,
                 "confidence": top_conf,
                 "distribution": regime_pred.value_counts().to_dict(),
+                "window_start": X_test.index.min().date().isoformat(),
+                "window_end": X_test.index.max().date().isoformat(),
             }
             feature_importance_result = _feature_importance(
                 regime_clf, X_test, regime_labels_series.iloc[split:]
@@ -277,6 +279,8 @@ async def _run(
                 "direction": top_dir,
                 "confidence": top_dir_conf,
                 "distribution": dir_pred.value_counts().to_dict(),
+                "window_start": X_test_dir.index.min().date().isoformat(),
+                "window_end": X_test_dir.index.max().date().isoformat(),
             }
             feature_importance_result["direction_model_info"] = {
                 "name": "TabPFN",

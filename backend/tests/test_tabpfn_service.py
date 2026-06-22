@@ -261,6 +261,13 @@ async def test_tabpfn_run_persists_feature_importance(tmp_path) -> None:
         "n_estimators": 4,
     }
 
+    # Direction's test window ends earlier than regime's — it needs trailing room for the
+    # forward-looking (horizon=20) label, so the most recent rows have no label and get dropped.
+    assert ar.regime["window_start"] == dates[80].date().isoformat()
+    assert ar.regime["window_end"] == dates[99].date().isoformat()
+    assert ar.direction["window_start"] == dates[64].date().isoformat()
+    assert ar.direction["window_end"] == dates[79].date().isoformat()
+
 
 def test_feature_importance_ranks_by_correlation_and_caps_samples() -> None:
     from src.services.tabpfn import _feature_importance

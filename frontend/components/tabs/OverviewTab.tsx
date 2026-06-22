@@ -1,16 +1,21 @@
 import ReactMarkdown from "react-markdown";
 import { TabPlaceholder } from "./TabPlaceholder";
+import { InfoTooltip } from "./shared/InfoTooltip";
 import type { MarketProfile } from "@/lib/api";
 
 type RegimeResult = {
   regime: string;
   confidence: number;
   distribution: Record<string, number>;
+  window_start?: string;
+  window_end?: string;
 };
 type DirectionResult = {
   direction: string;
   confidence: number;
   distribution: Record<string, number>;
+  window_start?: string;
+  window_end?: string;
 };
 type DriftSummary = {
   psi_score: number;
@@ -51,20 +56,21 @@ function StatTile({
   value,
   sub,
   accent,
+  tooltip,
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: string;
+  tooltip?: string;
 }) {
+  const labelEl = (
+    <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">{label}</div>
+  );
   return (
     <div className="bg-white border border-gray-200 rounded p-3 flex flex-col gap-1">
-      <div className="text-[10px] text-gray-500 font-mono uppercase tracking-widest">
-        {label}
-      </div>
-      <div className={`text-lg font-mono font-bold ${accent ?? "text-gray-700"}`}>
-        {value}
-      </div>
+      {tooltip ? <InfoTooltip content={tooltip}>{labelEl}</InfoTooltip> : labelEl}
+      <div className={`text-lg font-mono font-bold ${accent ?? "text-gray-700"}`}>{value}</div>
       {sub && <div className="text-[10px] text-gray-400 font-mono">{sub}</div>}
     </div>
   );
@@ -134,12 +140,22 @@ export function OverviewTab({ result, profile }: Props) {
           value={formatRegimeLabel(regime.regime)}
           sub={`${(regime.confidence * 100).toFixed(1)}% confidence`}
           accent="text-brand"
+          tooltip={
+            regime.window_start && regime.window_end
+              ? `Based on predictions across ${regime.window_start} to ${regime.window_end}.`
+              : undefined
+          }
         />
         <StatTile
           label="WTI Direction"
           value={direction.direction === "up" ? "▲ Up" : "▼ Down"}
           sub={`${(direction.confidence * 100).toFixed(1)}% confidence`}
           accent={direction.direction === "up" ? "text-emerald-400" : "text-red-400"}
+          tooltip={
+            direction.window_start && direction.window_end
+              ? `Based on predictions across ${direction.window_start} to ${direction.window_end} — this window ends earlier than the regime window because direction needs ~4 weeks of future price data to know the realized outcome.`
+              : undefined
+          }
         />
         <StatTile
           label="Drift"

@@ -165,12 +165,16 @@ export type RegimeResult = {
   regime: string;
   confidence: number;
   distribution: Record<string, number>;
+  window_start?: string;
+  window_end?: string;
 };
 
 export type DirectionResult = {
   direction: string;
   confidence: number;
   distribution: Record<string, number>;
+  window_start?: string;
+  window_end?: string;
 };
 
 export type DriftSummary = {
