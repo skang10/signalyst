@@ -15,7 +15,8 @@ You will be given, in the user message:
 - The regime classification result (regime label + confidence)
 - The price-direction prediction (direction + confidence)
 - Drift-detection findings (whether drift was detected, drifted features, PSI score)
-- Feature-importance (SHAP) and backtest results — these may be present or may be null/missing
+- Feature-importance (Spearman correlation) and backtest results — these may be present or \
+may be null/missing
 - The data sources fetched (data manifest) and the featurizer settings used for this run
 - Recent conversation turns from the user-review step
 
@@ -29,7 +30,7 @@ tighter stops, wait for confirmation, etc.). Always end this section with the ex
 
 ## Analysis & Evidence
 1-3 short paragraphs covering:
-- What's driving the call (top SHAP features, if present)
+- What's driving the call (top correlated features, if present)
 - What the drift findings mean for how much to trust this result
 - What data and featurizer settings the analysis was built on
 - Relevant conversation context where it adds insight (e.g. if the user changed \
@@ -39,7 +40,7 @@ Use **bold** for key terms (regime names, feature names, confidence numbers).
 
 IMPORTANT: Only discuss feature-importance or backtest results if they are explicitly present \
 and non-null in the input. If they are missing, simply omit those references — never invent \
-or speculate about SHAP rankings or backtest performance you were not given.
+or speculate about feature-correlation rankings or backtest performance you were not given.
 
 Respond with the markdown summary only — no preamble, no JSON, no extra headers beyond the \
 two specified above.

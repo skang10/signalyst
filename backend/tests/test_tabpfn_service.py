@@ -222,6 +222,7 @@ async def test_tabpfn_run_persists_feature_importance(tmp_path) -> None:
         regime_inst.predict_proba.return_value = pd.DataFrame({"range_bound": [0.8] * 5})
 
         dir_inst = MockDirCls.return_value
+        dir_inst.n_estimators = 4
         dir_inst.predict.return_value = pd.Series(["up"] * 5, name="direction")
         dir_inst.predict_proba.return_value = pd.DataFrame({"up": [0.6] * 5})
 
@@ -245,6 +246,7 @@ async def test_tabpfn_run_persists_feature_importance(tmp_path) -> None:
         "n_features_evaluated",
         "n_samples_explained",
         "model_info",
+        "direction_model_info",
     }
     assert ar.feature_importance["n_features_evaluated"] == 3
     assert len(ar.feature_importance["top_features"]) <= 10
@@ -253,6 +255,18 @@ async def test_tabpfn_run_persists_feature_importance(tmp_path) -> None:
         "task": "regime_classification",
         "n_estimators": 4,
     }
+    assert ar.feature_importance["direction_model_info"] == {
+        "name": "TabPFN",
+        "task": "direction_classification",
+        "n_estimators": 4,
+    }
+
+    # Direction's test window ends earlier than regime's — it needs trailing room for the
+    # forward-looking (horizon=20) label, so the most recent rows have no label and get dropped.
+    assert ar.regime["window_start"] == dates[80].date().isoformat()
+    assert ar.regime["window_end"] == dates[99].date().isoformat()
+    assert ar.direction["window_start"] == dates[64].date().isoformat()
+    assert ar.direction["window_end"] == dates[79].date().isoformat()
 
 
 def test_feature_importance_ranks_by_correlation_and_caps_samples() -> None:

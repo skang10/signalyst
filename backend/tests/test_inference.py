@@ -62,6 +62,14 @@ def test_regime_classifier_exposes_n_estimators():
     assert clf.n_estimators == 4
 
 
+def test_direction_classifier_exposes_n_estimators():
+    with patch("src.inference.classifier.TabPFNClassifier") as MockCLF:
+        MockCLF.return_value = _mock_clf(["up", "down"], [[0.6, 0.4]])
+        clf = DirectionClassifier(n_estimators=4)
+
+    assert clf.n_estimators == 4
+
+
 def test_regime_predict_returns_correct_labels():
     X = _feature_df(3)
     with patch("src.inference.classifier.TabPFNClassifier") as MockCLF:

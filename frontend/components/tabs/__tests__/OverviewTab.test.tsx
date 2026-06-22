@@ -111,6 +111,22 @@ describe("OverviewTab", () => {
     expect(screen.queryByText("S&P 500")).toBeNull();
   });
 
+  it("renders the regime/direction stat tiles when window_start/window_end are present", () => {
+    const resultWithWindows = {
+      ...result,
+      regime: { ...result.regime, window_start: "2023-06-01", window_end: "2023-06-29" },
+      direction: { ...result.direction, window_start: "2023-05-04", window_end: "2023-06-01" },
+    };
+    render(<OverviewTab result={resultWithWindows} />);
+    expect(screen.getByText("Regime")).toBeTruthy();
+    expect(screen.getByText("WTI Direction")).toBeTruthy();
+  });
+
+  it("renders the stat tiles without a tooltip when window_start/window_end are absent", () => {
+    render(<OverviewTab result={result} />);
+    expect(screen.getByText("Regime")).toBeTruthy();
+  });
+
   it("renders the summary panel with markdown sections when summary is present", () => {
     render(
       <OverviewTab

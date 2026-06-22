@@ -165,12 +165,16 @@ export type RegimeResult = {
   regime: string;
   confidence: number;
   distribution: Record<string, number>;
+  window_start?: string;
+  window_end?: string;
 };
 
 export type DirectionResult = {
   direction: string;
   confidence: number;
   distribution: Record<string, number>;
+  window_start?: string;
+  window_end?: string;
 };
 
 export type DriftSummary = {
@@ -183,6 +187,7 @@ export type FeatureImportanceResult = {
   n_features_evaluated: number;
   n_samples_explained: number;
   model_info?: { name: string; task: string; n_estimators: number };
+  direction_model_info?: { name: string; task: string; n_estimators: number };
 };
 
 export type BacktestResult = {

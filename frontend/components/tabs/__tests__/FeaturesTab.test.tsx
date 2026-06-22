@@ -17,6 +17,12 @@ const featuresWithModelInfo = {
   model_info: { name: "TabPFN", task: "regime_classification", n_estimators: 4 },
 };
 
+const featuresWithBothModels = {
+  ...features,
+  model_info: { name: "TabPFN", task: "regime_classification", n_estimators: 4 },
+  direction_model_info: { name: "TabPFN", task: "direction_classification", n_estimators: 4 },
+};
+
 const featureArtifact = {
   kind: "features" as const,
   artifact_id: "fa-1",
@@ -58,12 +64,19 @@ describe("FeaturesTab", () => {
     render(<FeaturesTab features={featuresWithModelInfo} featureArtifact={null} />);
     expect(screen.getByText(/TabPFN/)).toBeTruthy();
     expect(screen.getByText(/Regime Classification/)).toBeTruthy();
-    expect(screen.getByText(/4 ensemble members/)).toBeTruthy();
+    expect(screen.getByText(/4 independent inference runs/)).toBeTruthy();
+  });
+
+  it("renders both model rows when direction_model_info is also present", () => {
+    render(<FeaturesTab features={featuresWithBothModels} featureArtifact={null} />);
+    expect(screen.getByText("Regime Classification")).toBeTruthy();
+    expect(screen.getByText("Direction Classification")).toBeTruthy();
+    expect(screen.getAllByText(/4 independent inference runs/)).toHaveLength(2);
   });
 
   it("omits the model card when model_info is absent", () => {
     render(<FeaturesTab features={features} featureArtifact={null} />);
-    expect(screen.queryByText(/ensemble members/)).toBeNull();
+    expect(screen.queryByText(/independent inference runs/)).toBeNull();
   });
 
   it("renders the feature generation card when featureArtifact is present", () => {
